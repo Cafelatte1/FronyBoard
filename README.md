@@ -59,6 +59,33 @@ anywhere.
 claude mcp add aira -- uv run --directory <path-to-project-aira> aira
 ```
 
+## Deploy — Windows home server
+
+The server machine only deploys; development happens on client PCs and flows
+through git (`push` on a dev PC → `pull` + restart here).
+
+1. Install [Tailscale](https://tailscale.com/download), log in with the same
+   account as your client PCs, and enable **Settings → Run unattended** so the
+   tailnet stays up with nobody logged in. In the
+   [admin console](https://login.tailscale.com/admin/machines), disable key
+   expiry for this machine.
+2. Install the server:
+
+   ```powershell
+   git clone https://github.com/Cafelatte1/project-aira
+   cd project-aira
+   uv sync
+   uv run aira keygen <client-pc-name>   # once per client PC, save each key
+   ```
+
+3. Keep it running across reboots with Task Scheduler (`taskschd.msc` → Create
+   Task): trigger **At startup**, action = path from `(Get-Command uv).Source`
+   with arguments `run --directory <path-to-project-aira> aira serve`, and check
+   **Run whether user is logged on or not**.
+4. To update: `git pull`, `uv sync`, then restart the task (or reboot).
+
+Clients then connect with the server's Tailscale name (see "Remote" above).
+
 ## Model
 
 ```
