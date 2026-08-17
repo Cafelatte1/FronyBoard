@@ -1,15 +1,23 @@
 """AIRA MCP server — the tool surface.
 
-Run with `aira` (stdio transport). Register in Claude Code:
+Commands:
+    aira                                 stdio transport (local development)
+    aira serve [--host H] [--port P]     streamable HTTP transport (home server)
+    aira keygen <name>                   issue an API key for a client machine
 
-    claude mcp add aira -- uv run --directory <path-to-project-aira> aira
+Register a remote server in Claude Code:
+
+    claude mcp add --transport http aira http://<server>:8642/mcp \
+        --header "Authorization: Bearer <api key>"
 """
 
 from __future__ import annotations
 
+import argparse
+
 from mcp.server.mcpserver import MCPServer
 
-from . import service
+from . import auth, service
 
 mcp = MCPServer(
     "aira",
@@ -134,8 +142,44 @@ def validate(key: str) -> dict:
     return service.validate(key)
 
 
+def serve(host: str, port: int) -> None:
+    """Run the streamable HTTP server behind bearer-key auth."""
+    import uvicorn
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    if not auth.has_keys():
+        raise SystemExit("no API keys yet — run `aira keygen <name>` first")
+    # Host-header (DNS rebinding) checks are disabled: clients reach the server
+    # under varying names (Tailscale name, LAN IP), and every request already
+    # requires a bearer key that a rebound browser page cannot attach.
+    app = auth.BearerAuthMiddleware(mcp.streamable_http_app(
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)))
+    uvicorn.run(app, host=host, port=port)
+
+
 def main() -> None:
-    mcp.run()
+    parser = argparse.ArgumentParser(prog="aira", description="AIRA MCP server")
+    sub = parser.add_subparsers(dest="command")
+    serve_p = sub.add_parser("serve", help="run the HTTP server (home server mode)")
+    serve_p.add_argument("--host", default="0.0.0.0")
+    serve_p.add_argument("--port", type=int, default=8642)
+    keygen_p = sub.add_parser("keygen", help="issue an API key for a client machine")
+    keygen_p.add_argument("name", help="key label, e.g. the machine name")
+    args = parser.parse_args()
+
+    if args.command == "serve":
+        serve(args.host, args.port)
+    elif args.command == "keygen":
+        try:
+            token = auth.generate_key(args.name)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        print(f"API key for '{args.name}' (shown once — store it now):\n\n  {token}\n")
+        print("Register in Claude Code:\n"
+              f'  claude mcp add --transport http aira http://<server>:8642/mcp '
+              f'--header "Authorization: Bearer {token}"')
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":
