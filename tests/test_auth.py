@@ -1,0 +1,62 @@
+"""API key management and bearer-auth middleware tests."""
+
+import anyio
+import pytest
+
+from aira import auth
+
+
+@pytest.fixture(autouse=True)
+def data_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_keygen_and_verify_roundtrip():
+    assert not auth.has_keys()
+    token = auth.generate_key("pc1")
+    assert token.startswith("aira_")
+    assert auth.has_keys()
+    assert auth.verify_key(token) == "pc1"
+    assert auth.verify_key("aira_wrong") is None
+    assert auth.verify_key(None) is None
+    assert auth.verify_key("") is None
+
+
+def test_keygen_rejects_duplicates_and_stores_only_hash(data_root):
+    token = auth.generate_key("pc1")
+    with pytest.raises(ValueError, match="already exists"):
+        auth.generate_key("pc1")
+    assert token not in (data_root / "auth.yaml").read_text(encoding="utf-8")
+
+
+def _run_middleware(headers: list) -> int:
+    """Drive the ASGI middleware with a minimal http scope; return the response status."""
+
+    async def inner_app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    events = []
+
+    async def send(event):
+        events.append(event)
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    scope = {"type": "http", "method": "POST", "path": "/mcp", "headers": headers}
+    anyio.run(lambda: auth.BearerAuthMiddleware(inner_app)(scope, receive, send))
+    return next(e["status"] for e in events if e["type"] == "http.response.start")
+
+
+def test_middleware_rejects_missing_or_bad_key():
+    auth.generate_key("pc1")
+    assert _run_middleware([]) == 401
+    assert _run_middleware([(b"authorization", b"Bearer aira_bogus")]) == 401
+    assert _run_middleware([(b"authorization", b"Basic abc")]) == 401
+
+
+def test_middleware_passes_valid_key():
+    token = auth.generate_key("pc1")
+    assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 200

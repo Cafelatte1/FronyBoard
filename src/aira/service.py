@@ -1,4 +1,4 @@
-"""AIRA operations — the layer between the MCP tool surface and the store.
+﻿"""AIRA operations — the layer between the MCP tool surface and the store.
 
 Every mutation follows the same contract: load project state, apply the change
 in memory, validate the whole project, and only persist when there are no
@@ -9,8 +9,9 @@ provide them.
 from __future__ import annotations
 
 import datetime
+import functools
 import re
-from pathlib import Path
+import threading
 
 from . import store, validation
 from .store import PeriodState, ProjectState
@@ -18,6 +19,23 @@ from .store import PeriodState, ProjectState
 
 class AiraError(ValueError):
     pass
+
+
+_locks_guard = threading.Lock()
+_project_locks: dict[str, threading.Lock] = {}
+
+
+def _locked(fn):
+    """Serialize mutations per project — tools may run concurrently for multiple clients."""
+
+    @functools.wraps(fn)
+    def wrapper(key: str, *args, **kwargs):
+        with _locks_guard:
+            lock = _project_locks.setdefault(key, threading.Lock())
+        with lock:
+            return fn(key, *args, **kwargs)
+
+    return wrapper
 
 
 def _jsonable(value):
@@ -48,6 +66,7 @@ def _ok(payload: dict, warnings: list[str]) -> dict:
 # ---------------------------------------------------------------- projects
 
 
+@_locked
 def create_project(key: str, name: str | None = None) -> dict:
     if not validation.PROJECT_KEY.fullmatch(key or ""):
         raise AiraError(f"project key must be 2-5 uppercase letters, got {key!r}")
@@ -83,6 +102,7 @@ def get_roadmap(key: str) -> dict:
 # ----------------------------------------------------------------- roadmap
 
 
+@_locked
 def set_overview(key: str, year: str, goal: str, now: str, next_: str, later: str) -> dict:
     state = store.load_state(key)
     years = state.roadmap.setdefault("years", {})
@@ -97,6 +117,7 @@ def set_overview(key: str, year: str, goal: str, now: str, next_: str, later: st
     return _ok({"year": str(year), "overview": overview}, warnings)
 
 
+@_locked
 def upsert_milestone(key: str, year: str, quarter: str,
                      goal: str | None = None, status: str | None = None) -> dict:
     state = store.load_state(key)
@@ -130,6 +151,7 @@ def _milestone_for(state: ProjectState, period: str) -> dict:
     return m
 
 
+@_locked
 def open_period(key: str, period: str) -> dict:
     state = store.load_state(key)
     milestone = _milestone_for(state, period)
@@ -145,6 +167,7 @@ def open_period(key: str, period: str) -> dict:
     return _ok({"opened": period, "milestone_status": milestone["status"]}, warnings)
 
 
+@_locked
 def close_period(key: str, period: str, result_markdown: str) -> dict:
     state = store.load_state(key)
     milestone = _milestone_for(state, period)
@@ -166,6 +189,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
     return _ok({"closed": period, "result": str(result_path)}, warnings)
 
 
+@_locked
 def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
                  goal: str | None = None, status: str | None = None) -> dict:
     state = store.load_state(key)
@@ -193,6 +217,7 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
 # ------------------------------------------------------------ epics/tasks
 
 
+@_locked
 def create_epic(key: str, period: str, goal: str) -> dict:
     state = store.load_state(key)
     if period not in state.periods:
@@ -225,6 +250,7 @@ def _find_task(state: ProjectState, task_id: str) -> tuple[str, dict]:
     raise AiraError(f"task {task_id} not found in project {state.key}")
 
 
+@_locked
 def create_task(key: str, period: str, title: str, epic: str, month: str,
                 week: int | None = None, content: str | None = None,
                 prd: str | None = None) -> dict:
@@ -246,6 +272,7 @@ def create_task(key: str, period: str, title: str, epic: str, month: str,
     return _ok({"period": period, "task": task}, warnings)
 
 
+@_locked
 def update_task(key: str, task_id: str, title: str | None = None, epic: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None) -> dict:
@@ -263,6 +290,7 @@ def update_task(key: str, task_id: str, title: str | None = None, epic: str | No
     return _ok({"period": period, "task": task}, warnings)
 
 
+@_locked
 def transition_task(key: str, task_id: str, status: str, branch: str | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)

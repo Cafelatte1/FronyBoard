@@ -56,7 +56,10 @@ def load_yaml(path: Path):
 def save_yaml(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=100)
-    path.write_text(text, encoding="utf-8")
+    # Atomic replace so concurrent readers never see a half-written file.
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def now() -> datetime.datetime:

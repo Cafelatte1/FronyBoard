@@ -26,13 +26,38 @@ cd project-aira
 uv sync
 ```
 
-Register with Claude Code (any project, or `--scope user` for everywhere):
+Data lives under `~/.aira/` by default; set `AIRA_DATA_DIR` to relocate it.
+
+## Run
+
+### Remote (home server)
+
+AIRA is designed to run on one always-on machine, with every client PC talking
+to it over MCP streamable HTTP. Issue one API key per client machine, then start
+the server:
+
+```powershell
+uv run aira keygen pc1        # prints the key once — store it on that PC
+uv run aira serve             # binds 0.0.0.0:8642, requires a valid key on every request
+```
+
+Register on each client (any project, or `--scope user` for everywhere):
+
+```powershell
+claude mcp add --transport http aira http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
+```
+
+Keys are stored hash-only in `<data root>/auth.yaml`; revoke one by deleting its
+entry. For access across networks (e.g. a laptop at a cafe), put the server and
+clients on a [Tailscale](https://tailscale.com/) tailnet and use the server's
+Tailscale name as `<server>` — only your enrolled devices can reach it, from
+anywhere.
+
+### Local (stdio)
 
 ```powershell
 claude mcp add aira -- uv run --directory <path-to-project-aira> aira
 ```
-
-Data lives under `~/.aira/` by default; set `AIRA_DATA_DIR` to relocate it.
 
 ## Model
 
@@ -81,7 +106,8 @@ create_project → set_overview → upsert_milestone → open_period
 
 Every mutation is validated before anything is written; invalid changes are rejected
 with the full error list. `close_period` refuses while tasks are still `todo` or
-`in_progress`.
+`in_progress`. Writes are serialized per project, so concurrent clients cannot
+collide on ids or lose updates.
 
 ## Development
 
