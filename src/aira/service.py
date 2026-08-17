@@ -1,0 +1,328 @@
+"""AIRA operations — the layer between the MCP tool surface and the store.
+
+Every mutation follows the same contract: load project state, apply the change
+in memory, validate the whole project, and only persist when there are no
+errors. Timestamps are stamped by this layer (naive UTC) — callers never
+provide them.
+"""
+
+from __future__ import annotations
+
+import datetime
+import re
+from pathlib import Path
+
+from . import store, validation
+from .store import PeriodState, ProjectState
+
+
+class AiraError(ValueError):
+    pass
+
+
+def _jsonable(value):
+    if isinstance(value, datetime.datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_jsonable(v) for v in value]
+    return value
+
+
+def _gate(state: ProjectState) -> list[str]:
+    """Validate state; raise on errors, return warnings."""
+    report = validation.validate_state(state)
+    if report.errors:
+        raise AiraError("validation failed — nothing was written:\n" + "\n".join(report.errors))
+    return report.warnings
+
+
+def _ok(payload: dict, warnings: list[str]) -> dict:
+    result = _jsonable(payload)
+    if warnings:
+        result["warnings"] = warnings
+    return result
+
+
+# ---------------------------------------------------------------- projects
+
+
+def create_project(key: str, name: str | None = None) -> dict:
+    if not validation.PROJECT_KEY.fullmatch(key or ""):
+        raise AiraError(f"project key must be 2-5 uppercase letters, got {key!r}")
+    pdir = store.project_dir(key)
+    if pdir.exists():
+        raise AiraError(f"project '{key}' already exists at {pdir}")
+    roadmap: dict = {"key": key}
+    if name:
+        roadmap["name"] = name
+    roadmap["years"] = {}
+    state = ProjectState(key=key, roadmap=roadmap)
+    warnings = _gate(state)
+    store.save_roadmap(state)
+    return _ok({"created": key, "path": str(pdir)}, warnings)
+
+
+def list_projects() -> dict:
+    root = store.projects_dir()
+    projects = []
+    if root.is_dir():
+        for entry in sorted(root.iterdir()):
+            if entry.is_dir() and (entry / "roadmap.yaml").exists():
+                roadmap = store.load_yaml(entry / "roadmap.yaml") or {}
+                projects.append({"key": entry.name, "name": roadmap.get("name")})
+    return {"projects": projects, "data_root": str(store.data_root())}
+
+
+def get_roadmap(key: str) -> dict:
+    state = store.load_state(key)
+    return _jsonable({"roadmap": state.roadmap, "periods": sorted(state.periods)})
+
+
+# ----------------------------------------------------------------- roadmap
+
+
+def set_overview(key: str, year: str, goal: str, now: str, next_: str, later: str) -> dict:
+    state = store.load_state(key)
+    years = state.roadmap.setdefault("years", {})
+    ydata = years.setdefault(str(year), {})
+    overview = ydata.get("overview")
+    if overview is None:
+        overview = ydata["overview"] = {"meta": store.new_meta()}
+    overview.update({"goal": goal, "now": now, "next": next_, "later": later})
+    store.touch_meta(overview)
+    warnings = _gate(state)
+    store.save_roadmap(state)
+    return _ok({"year": str(year), "overview": overview}, warnings)
+
+
+def upsert_milestone(key: str, year: str, quarter: str,
+                     goal: str | None = None, status: str | None = None) -> dict:
+    state = store.load_state(key)
+    ydata = state.roadmap.get("years", {}).get(str(year))
+    if ydata is None:
+        raise AiraError(f"year {year} has no overview yet — call set_overview first")
+    milestones = ydata.setdefault("milestones", {})
+    m = milestones.get(quarter)
+    if m is None:
+        m = milestones[quarter] = {"goal": None, "status": "planned", "meta": store.new_meta()}
+    if goal is not None:
+        m["goal"] = goal
+    if status is not None:
+        m["status"] = status
+    store.touch_meta(m)
+    warnings = _gate(state)
+    store.save_roadmap(state)
+    return _ok({"milestone": f"{year}{quarter}", "goal": m["goal"], "status": m["status"]}, warnings)
+
+
+# ----------------------------------------------------------------- periods
+
+
+def _milestone_for(state: ProjectState, period: str) -> dict:
+    if not validation.PERIOD_NAME.fullmatch(period):
+        raise AiraError(f"period must look like 2026Q3, got {period!r}")
+    year, quarter = period[:4], period[4:]
+    m = state.roadmap.get("years", {}).get(year, {}).get("milestones", {}).get(quarter)
+    if m is None:
+        raise AiraError(f"no milestone {year}.{quarter} in the roadmap — call upsert_milestone first")
+    return m
+
+
+def open_period(key: str, period: str) -> dict:
+    state = store.load_state(key)
+    milestone = _milestone_for(state, period)
+    if period in state.periods:
+        raise AiraError(f"period {period} is already open")
+    state.periods[period] = PeriodState(objective={"months": []}, tasks={"epics": [], "tasks": []})
+    if milestone["status"] == "planned":
+        milestone["status"] = "active"
+        store.touch_meta(milestone)
+    warnings = _gate(state)
+    store.save_roadmap(state)
+    store.save_period(state, period)
+    return _ok({"opened": period, "milestone_status": milestone["status"]}, warnings)
+
+
+def close_period(key: str, period: str, result_markdown: str) -> dict:
+    state = store.load_state(key)
+    milestone = _milestone_for(state, period)
+    if period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    open_tasks = [t["id"] for t in state.periods[period].tasks.get("tasks") or []
+                  if t.get("status") not in ("done", "blocked")]
+    if open_tasks:
+        raise AiraError(
+            f"period {period} still has open tasks: {', '.join(open_tasks)} — "
+            "finish them or recreate them in the next period (new id), then close")
+    milestone["status"] = "done"
+    store.touch_meta(milestone)
+    state.periods[period].has_result = True
+    warnings = _gate(state)
+    result_path = store.project_dir(key) / period / "result.md"
+    result_path.write_text(result_markdown, encoding="utf-8")
+    store.save_roadmap(state)
+    return _ok({"closed": period, "result": str(result_path)}, warnings)
+
+
+def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
+                 goal: str | None = None, status: str | None = None) -> dict:
+    state = store.load_state(key)
+    if period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    months = state.periods[period].objective.setdefault("months", [])
+    m = next((m for m in months if m.get("id") == month_id), None)
+    if m is None:
+        m = {"id": month_id, "month": month, "goal": goal,
+             "status": status or "planned", "meta": store.new_meta()}
+        months.append(m)
+    else:
+        if month is not None:
+            m["month"] = month
+        if goal is not None:
+            m["goal"] = goal
+        if status is not None:
+            m["status"] = status
+    store.touch_meta(m)
+    warnings = _gate(state)
+    store.save_period(state, period)
+    return _ok({"period": period, "month": m}, warnings)
+
+
+# ------------------------------------------------------------ epics/tasks
+
+
+def create_epic(key: str, period: str, goal: str) -> dict:
+    state = store.load_state(key)
+    if period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    epics = state.periods[period].tasks.setdefault("epics", [])
+    numbers = [int(m.group(1)) for e in epics
+               if (m := re.fullmatch(r"E(\d+)", str(e.get("id", ""))))]
+    epic = {"id": f"E{max(numbers, default=0) + 1}", "goal": goal, "meta": store.new_meta()}
+    epics.append(epic)
+    warnings = _gate(state)
+    store.save_period(state, period)
+    return _ok({"period": period, "epic": epic}, warnings)
+
+
+def _next_task_id(state: ProjectState) -> str:
+    numbers = [0]
+    for p in state.periods.values():
+        for t in p.tasks.get("tasks") or []:
+            m = re.fullmatch(rf"{re.escape(state.key)}-(\d+)", str(t.get("id", "")))
+            if m:
+                numbers.append(int(m.group(1)))
+    return f"{state.key}-{max(numbers) + 1:03d}"
+
+
+def _find_task(state: ProjectState, task_id: str) -> tuple[str, dict]:
+    for period, p in state.periods.items():
+        for t in p.tasks.get("tasks") or []:
+            if t.get("id") == task_id:
+                return period, t
+    raise AiraError(f"task {task_id} not found in project {state.key}")
+
+
+def create_task(key: str, period: str, title: str, epic: str, month: str,
+                week: int | None = None, content: str | None = None,
+                prd: str | None = None) -> dict:
+    state = store.load_state(key)
+    if period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    task: dict = {"id": _next_task_id(state), "title": title, "epic": epic,
+                  "month": month, "status": "todo"}
+    if week is not None:
+        task["week"] = week
+    if content is not None:
+        task["content"] = content
+    if prd is not None:
+        task["prd"] = prd
+    task["meta"] = store.new_meta()
+    state.periods[period].tasks.setdefault("tasks", []).append(task)
+    warnings = _gate(state)
+    store.save_period(state, period)
+    return _ok({"period": period, "task": task}, warnings)
+
+
+def update_task(key: str, task_id: str, title: str | None = None, epic: str | None = None,
+                month: str | None = None, week: int | None = None, content: str | None = None,
+                prd: str | None = None, branch: str | None = None) -> dict:
+    state = store.load_state(key)
+    period, task = _find_task(state, task_id)
+    fields = {"title": title, "epic": epic, "month": month, "week": week,
+              "content": content, "prd": prd, "branch": branch}
+    changed = {k: v for k, v in fields.items() if v is not None}
+    if not changed:
+        raise AiraError("nothing to update — pass at least one field (status changes go through transition_task)")
+    task.update(changed)
+    store.touch_meta(task)
+    warnings = _gate(state)
+    store.save_period(state, period)
+    return _ok({"period": period, "task": task}, warnings)
+
+
+def transition_task(key: str, task_id: str, status: str, branch: str | None = None) -> dict:
+    state = store.load_state(key)
+    period, task = _find_task(state, task_id)
+    previous = task.get("status")
+    task["status"] = status
+    if branch is not None:
+        task["branch"] = branch
+    store.touch_meta(task)
+    if status == "done":
+        task["meta"]["completed_at"] = store.now()
+    warnings = _gate(state)
+    store.save_period(state, period)
+    return _ok({"task_id": task_id, "from": previous, "to": status, "period": period}, warnings)
+
+
+# ----------------------------------------------------------------- queries
+
+
+def list_tasks(key: str, period: str | None = None, status: str | None = None,
+               epic: str | None = None, month: str | None = None) -> dict:
+    state = store.load_state(key)
+    if period is not None and period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    results = []
+    for pname, p in sorted(state.periods.items()):
+        if period is not None and pname != period:
+            continue
+        for t in p.tasks.get("tasks") or []:
+            if status is not None and t.get("status") != status:
+                continue
+            if epic is not None and t.get("epic") != epic:
+                continue
+            if month is not None and t.get("month") != month:
+                continue
+            results.append({"period": pname, **t})
+    return _jsonable({"tasks": results, "count": len(results)})
+
+
+def get_status(key: str) -> dict:
+    state = store.load_state(key)
+    periods = {}
+    for pname in sorted(state.periods):
+        p = state.periods[pname]
+        milestone = state.roadmap.get("years", {}).get(pname[:4], {}) \
+            .get("milestones", {}).get(pname[4:], {})
+        counts: dict[str, int] = {}
+        for t in p.tasks.get("tasks") or []:
+            counts[t.get("status", "?")] = counts.get(t.get("status", "?"), 0) + 1
+        periods[pname] = {
+            "goal": milestone.get("goal"),
+            "milestone_status": milestone.get("status"),
+            "months": [{"id": m.get("id"), "month": m.get("month"), "status": m.get("status")}
+                       for m in p.objective.get("months") or []],
+            "task_counts": counts,
+            "in_progress": [t["id"] for t in p.tasks.get("tasks") or []
+                            if t.get("status") == "in_progress"],
+        }
+    return _jsonable({"project": state.key, "name": state.roadmap.get("name"), "periods": periods})
+
+
+def validate(key: str) -> dict:
+    report = validation.validate_state(store.load_state(key))
+    return {"ok": not report.errors, "errors": report.errors, "warnings": report.warnings}
