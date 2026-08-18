@@ -2,7 +2,6 @@
 name = "aira"
 version = "0.1.0"
 description = "AIRA (AI + JIRA) — an MCP server that gives AI agents a first-class project tracker"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.2.0",
