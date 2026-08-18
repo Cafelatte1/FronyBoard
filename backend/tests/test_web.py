@@ -26,23 +26,29 @@ def bootstrap(key="DLY"):
     return key
 
 
-def _get(path, query=""):
+def _request(method, path, query="", body=None):
     app = Starlette(routes=web.api_routes())
     events = []
+    payload = json.dumps(body).encode() if body is not None else b""
 
     async def send(event):
         events.append(event)
 
     async def receive():
-        return {"type": "http.request", "body": b"", "more_body": False}
+        return {"type": "http.request", "body": payload, "more_body": False}
 
-    scope = {"type": "http", "method": "GET", "path": path, "raw_path": path.encode(),
-             "query_string": query.encode(), "headers": [], "scheme": "http",
+    scope = {"type": "http", "method": method, "path": path, "raw_path": path.encode(),
+             "query_string": query.encode(), "scheme": "http",
+             "headers": [(b"content-type", b"application/json")] if body is not None else [],
              "server": ("test", 80), "client": ("test", 1), "root_path": ""}
     anyio.run(lambda: app(scope, receive, send))
     status = next(e["status"] for e in events if e["type"] == "http.response.start")
-    body = b"".join(e.get("body", b"") for e in events if e["type"] == "http.response.body")
-    return status, json.loads(body) if body else None
+    raw = b"".join(e.get("body", b"") for e in events if e["type"] == "http.response.body")
+    return status, json.loads(raw) if raw else None
+
+
+def _get(path, query=""):
+    return _request("GET", path, query)
 
 
 def test_projects_and_status():
@@ -72,6 +78,18 @@ def test_tasks_filters_and_cancelled_toggle():
 
     status, body = _get("/api/projects/DLY/tasks", query="include_cancelled=true")
     assert body["count"] == 2
+
+
+def test_login_issues_session_token():
+    from aira import auth
+
+    auth.set_admin("admin", "1234")
+    status, _ = _request("POST", "/api/login", body={"username": "admin", "password": "no"})
+    assert status == 401
+    status, body = _request("POST", "/api/login", body={"username": "admin", "password": "1234"})
+    assert status == 200
+    assert auth.verify_session(body["token"])
+    assert body["username"] == "admin"
 
 
 def test_unknown_project_is_404():

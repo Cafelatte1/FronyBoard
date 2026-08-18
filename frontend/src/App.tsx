@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { clearKey, getKey, setKey } from "./api";
+import { clearSession, getToken, login } from "./api";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
@@ -13,16 +13,16 @@ const TABS: [Page, string][] = [
 ];
 
 export default function App() {
-  const [authed, setAuthed] = useState(getKey() !== null);
+  const [authed, setAuthed] = useState(getToken() !== null);
   const [page, setPage] = useState<Page>("dashboard");
   const [openProject, setOpenProject] = useState<string | null>(null);
 
   const onAuthFail = () => {
-    clearKey();
+    clearSession();
     setAuthed(false);
   };
 
-  if (!authed) return <KeyGate onDone={() => setAuthed(true)} />;
+  if (!authed) return <LoginGate onDone={() => setAuthed(true)} />;
   return (
     <div className="shell">
       <header className="topbar">
@@ -61,31 +61,47 @@ export default function App() {
   );
 }
 
-function KeyGate({ onDone }: { onDone: () => void }) {
-  const [value, setValue] = useState("");
+function LoginGate({ onDone }: { onDone: () => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   return (
     <div className="keygate">
       <h1 className="brand">
         Frony<span>Board</span>
       </h1>
-      <p>Paste an AIRA API key to view your boards.</p>
+      <p>Sign in to view your boards.</p>
       <form
+        className="login-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!value.trim()) return;
-          setKey(value.trim());
-          onDone();
+          if (!username.trim() || busy) return;
+          setBusy(true);
+          setError(null);
+          login(username.trim(), password)
+            .then(onDone)
+            .catch((err) => setError(String(err.message ?? err)))
+            .finally(() => setBusy(false));
         }}
       >
         <input
-          type="password"
-          placeholder="aira_…"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          placeholder="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           autoFocus
         />
-        <button type="submit">Open</button>
+        <input
+          type="password"
+          placeholder="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button type="submit" disabled={busy}>
+          {busy ? "…" : "Sign in"}
+        </button>
       </form>
+      {error && <p className="error">{error}</p>}
     </div>
   );
 }

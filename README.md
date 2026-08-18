@@ -66,8 +66,10 @@ claude mcp add aira -- uv run --directory <path-to-project-aira>\backend aira
 
 FronyBoard is the human-facing, read-only view of the same data: yearly overview,
 quarterly/monthly milestones, per-epic progress, and the task table. The server
-serves it at `http://<server>:8642/` — open it in a browser and paste an API key
-once (stored locally; all writes still go through the MCP tools).
+serves it at `http://<server>:8642/` — sign in with the dashboard login, set once
+on the server with `aira admin <username>` (all writes still go through the MCP
+tools; API keys stay agent-only). Sessions live in server memory, so a server
+restart signs viewers out.
 
 The dashboard source lives in `frontend/` (React + Vite). Its build output
 (`frontend/dist`) is committed to the repo on purpose, so the home server needs
@@ -117,6 +119,7 @@ through git (`push` on a dev PC → `pull` + restart here).
    cd project-aira/backend
    uv sync
    uv run aira keygen <client-pc-name>   # once per client PC, save each key
+   uv run aira admin <username>          # dashboard login (prompts for a password)
    ```
 
 3. Keep it running across reboots with Task Scheduler (`taskschd.msc` → Create

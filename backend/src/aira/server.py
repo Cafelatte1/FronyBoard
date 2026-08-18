@@ -195,7 +195,8 @@ def serve(host: str, port: int) -> None:
     app = mcp.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
     web.attach(app)
-    uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api")),
+    uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
+                                          open_paths=("/api/login",)),
                 host=host, port=port)
 
 
@@ -207,6 +208,10 @@ def main() -> None:
     serve_p.add_argument("--port", type=int, default=8642)
     keygen_p = sub.add_parser("keygen", help="issue an API key for a client machine")
     keygen_p.add_argument("name", help="key label, e.g. the machine name")
+    admin_p = sub.add_parser("admin", help="set the FronyBoard dashboard login (id/password)")
+    admin_p.add_argument("username")
+    admin_p.add_argument("password", nargs="?", default=None,
+                         help="omit to be prompted without echo")
     args = parser.parse_args()
 
     if args.command == "serve":
@@ -220,6 +225,16 @@ def main() -> None:
         print("Register in Claude Code:\n"
               f'  claude mcp add --transport http aira http://<server>:8642/mcp '
               f'--header "Authorization: Bearer {token}"')
+    elif args.command == "admin":
+        password = args.password
+        if password is None:
+            import getpass
+            password = getpass.getpass("password: ")
+        try:
+            auth.set_admin(args.username, password)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        print(f"dashboard login set for '{args.username.strip()}'")
     else:
         mcp.run()
 
