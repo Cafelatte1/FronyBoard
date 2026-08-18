@@ -30,7 +30,8 @@ def test_keygen_rejects_duplicates_and_stores_only_hash(data_root):
     assert token not in (data_root / "auth.yaml").read_text(encoding="utf-8")
 
 
-def _run_middleware(headers: list) -> int:
+def _run_middleware(headers: list, path: str = "/mcp",
+                    protected: tuple = ("/",)) -> int:
     """Drive the ASGI middleware with a minimal http scope; return the response status."""
 
     async def inner_app(scope, receive, send):
@@ -45,8 +46,8 @@ def _run_middleware(headers: list) -> int:
     async def receive():
         return {"type": "http.request", "body": b"", "more_body": False}
 
-    scope = {"type": "http", "method": "POST", "path": "/mcp", "headers": headers}
-    anyio.run(lambda: auth.BearerAuthMiddleware(inner_app)(scope, receive, send))
+    scope = {"type": "http", "method": "POST", "path": path, "headers": headers}
+    anyio.run(lambda: auth.BearerAuthMiddleware(inner_app, protected=protected)(scope, receive, send))
     return next(e["status"] for e in events if e["type"] == "http.response.start")
 
 
@@ -60,3 +61,12 @@ def test_middleware_rejects_missing_or_bad_key():
 def test_middleware_passes_valid_key():
     token = auth.generate_key("pc1")
     assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 200
+
+
+def test_middleware_protects_only_listed_prefixes():
+    auth.generate_key("pc1")
+    protected = ("/mcp", "/api")
+    assert _run_middleware([], path="/", protected=protected) == 200
+    assert _run_middleware([], path="/assets/app.js", protected=protected) == 200
+    assert _run_middleware([], path="/api/projects", protected=protected) == 401
+    assert _run_middleware([], path="/mcp", protected=protected) == 401

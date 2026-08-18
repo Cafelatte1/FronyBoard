@@ -66,13 +66,19 @@ def verify_key(token: str | None) -> str | None:
 
 
 class BearerAuthMiddleware:
-    """Pure ASGI middleware: reject HTTP requests without a valid API key."""
+    """Pure ASGI middleware: reject HTTP requests without a valid API key.
 
-    def __init__(self, app):
+    Only paths starting with one of `protected` require a key (default: all) —
+    the FronyBoard static files stay open while /mcp and /api stay keyed.
+    """
+
+    def __init__(self, app, protected: tuple[str, ...] = ("/",)):
         self.app = app
+        self.protected = protected
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
+        if scope["type"] != "http" or \
+                not any(scope.get("path", "").startswith(p) for p in self.protected):
             await self.app(scope, receive, send)
             return
         auth_header = ""

@@ -62,6 +62,26 @@ anywhere.
 claude mcp add aira -- uv run --directory <path-to-project-aira>\backend aira
 ```
 
+## FronyBoard — the dashboard
+
+FronyBoard is the human-facing, read-only view of the same data: yearly overview,
+quarterly/monthly milestones, per-epic progress, and the task table. The server
+serves it at `http://<server>:8642/` — open it in a browser and paste an API key
+once (stored locally; all writes still go through the MCP tools).
+
+The dashboard source lives in `frontend/` (React + Vite). Its build output
+(`frontend/dist`) is committed to the repo on purpose, so the home server needs
+no Node toolchain — `git pull` is enough. After changing the frontend:
+
+```powershell
+cd frontend
+npm install
+npm run build     # refresh frontend/dist, then commit it
+```
+
+`npm run dev` starts a dev server that proxies `/api` to a locally running
+`aira serve` (override with `AIRA_API=http://<server>:8642`).
+
 ## Project setup
 
 Connecting the MCP server gives every session the tools and the general workflow

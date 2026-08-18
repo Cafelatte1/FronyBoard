@@ -377,7 +377,8 @@ def get_status(key: str) -> dict:
         periods[pname] = {
             "goal": milestone.get("goal"),
             "milestone_status": milestone.get("status"),
-            "months": [{"id": m.get("id"), "month": m.get("month"), "status": m.get("status")}
+            "months": [{"id": m.get("id"), "month": m.get("month"), "goal": m.get("goal"),
+                        "status": m.get("status")}
                        for m in p.objective.get("months") or []],
             "epics": [{"id": e.get("id"), "goal": e.get("goal"),
                        "task_counts": epic_counts.get(e.get("id"), {})}
