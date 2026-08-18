@@ -23,12 +23,23 @@ mcp = MCPServer(
     "aira",
     instructions=(
         "AIRA is a project tracker for AI agents (AI + JIRA). Data lives in AIRA's own "
-        "store, not in the codebase you are working on. Typical flow: create_project -> "
-        "set_overview (year) -> upsert_milestone (quarter) -> open_period -> upsert_month, "
-        "create_epic, create_task -> transition_task as work starts/finishes -> close_period "
-        "with a retrospective. Task ids (e.g. DLY-042) are the only link to the codebase: use "
-        "them in branch names like feat/DLY-042/short-desc and record that branch on the task. "
-        "Every mutation is validated before it is written; timestamps are stamped automatically."
+        "store, not in the codebase you are working on.\n\n"
+        "Which project: the codebase declares its AIRA project key in a `## AIRA` section "
+        "of its CLAUDE.md (e.g. 'This project is tracked by AIRA, key: DLY'). No such "
+        "declaration means the project is not AIRA-managed — do not ask for a key; at most, "
+        "suggest registering it once.\n\n"
+        "Task workflow: when starting branch-sized work, transition its task to in_progress "
+        "and record the branch name (branch names look like feat/DLY-042/short-desc — the "
+        "task id is the only link between AIRA and the codebase). When the work is merged, "
+        "transition it to done; if you cannot observe the merge, ask the user before marking "
+        "done. If branch-sized work has no task yet, offer create_task first; trivial fixes "
+        "need no task.\n\n"
+        "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
+        "-> open_period -> upsert_month, create_epic, create_task -> transition_task as work "
+        "progresses -> close_period with a retrospective. Record agreed plans and "
+        "retrospectives through these tools — planning data never lives in the codebase. "
+        "Every mutation is validated before it is written; ids and timestamps are issued by "
+        "the server — never invent them."
     ),
 )
 

@@ -59,6 +59,24 @@ anywhere.
 claude mcp add aira -- uv run --directory <path-to-project-aira> aira
 ```
 
+## Project setup
+
+Connecting the MCP server gives every session the tools and the general workflow
+(delivered as server instructions). What it cannot know is **which AIRA project a
+codebase belongs to** — declare that in the codebase itself by adding this section
+to its `CLAUDE.md` (create the file if the project has none):
+
+```markdown
+## AIRA
+
+This project is tracked by AIRA (project key: DLY).
+Manage tasks through the aira MCP tools, following the aira server instructions.
+```
+
+Replace `DLY` with the project's key (register one first with `create_project`).
+The section is also the opt-in signal: a codebase without it is treated as not
+AIRA-managed.
+
 ## Deploy — Windows home server
 
 The server machine only deploys; development happens on client PCs and flows
