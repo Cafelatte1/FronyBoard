@@ -24,7 +24,8 @@ AIRA (AI + JIRA): AI 에이전트가 1급 사용자인 프로젝트 트래커 MC
 ## 배포
 
 홈서버(`laptop`, Tailscale `100.108.65.117:8642`)에서 작업 스케줄러 "AIRA Server"로 상시 실행 중.
-main에 push해도 홈서버는 자동 갱신되지 않는다 — 서버에서 `git pull` + `uv sync` + 태스크 재시작 필요 (README의 Deploy 섹션 참조).
+홈서버는 **release 태그(vX.Y.Z) 기준으로만 배포**한다 — main에 push해도 영향 없음.
+배포 절차: 태그 push 후 서버에서 `git fetch --tags` + `git checkout vX.Y.Z` + `uv sync` + 태스크 재시작 (README의 Deploy 섹션 참조).
 
 ## AIRA
 

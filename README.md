@@ -112,11 +112,14 @@ through git (`push` on a dev PC → `pull` + restart here).
    tailnet stays up with nobody logged in. In the
    [admin console](https://login.tailscale.com/admin/machines), disable key
    expiry for this machine.
-2. Install the server:
+2. Install the server — the home server runs **release tags only**, never the tip
+   of main:
 
    ```powershell
    git clone https://github.com/Cafelatte1/project-aira
-   cd project-aira/backend
+   cd project-aira
+   git checkout v0.1.0                   # latest release tag
+   cd backend
    uv sync
    uv run aira keygen <client-pc-name>   # once per client PC, save each key
    uv run aira admin <username>          # dashboard login (prompts for a password)
@@ -126,7 +129,9 @@ through git (`push` on a dev PC → `pull` + restart here).
    Task): trigger **At startup**, action = path from `(Get-Command uv).Source`
    with arguments `run --directory <path-to-project-aira>\backend aira serve`, and check
    **Run whether user is logged on or not**.
-4. To update: `git pull`, `uv sync` (in `backend/`), then restart the task (or reboot).
+4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
+   then on the server `git fetch --tags`, `git checkout vX.Y.Z`, `uv sync`
+   (in `backend/`), and restart the task (or reboot).
 
 Clients then connect with the server's Tailscale name (see "Remote" above).
 
