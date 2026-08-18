@@ -17,7 +17,7 @@ import argparse
 
 from mcp.server.mcpserver import MCPServer
 
-from . import auth, service
+from . import auth, service, web
 
 mcp = MCPServer(
     "aira",
@@ -192,9 +192,11 @@ def serve(host: str, port: int) -> None:
     # Host-header (DNS rebinding) checks are disabled: clients reach the server
     # under varying names (Tailscale name, LAN IP), and every request already
     # requires a bearer key that a rebound browser page cannot attach.
-    app = auth.BearerAuthMiddleware(mcp.streamable_http_app(
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)))
-    uvicorn.run(app, host=host, port=port)
+    app = mcp.streamable_http_app(
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+    web.attach(app)
+    uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api")),
+                host=host, port=port)
 
 
 def main() -> None:

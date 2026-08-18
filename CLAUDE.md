@@ -19,6 +19,7 @@ AIRA (AI + JIRA): AI 에이전트가 1급 사용자인 프로젝트 트래커 MC
 - 테스트: `uv run --directory backend pytest`
 - 로컬 서버(stdio): `uv run --directory backend aira`
 - HTTP 서버: `uv run --directory backend aira serve` (API key 필수 — `aira keygen`)
+- 프론트 빌드: `cd frontend; npm run build` — **frontend/dist는 커밋 대상** (홈서버는 pull만 함)
 
 ## 배포
 
