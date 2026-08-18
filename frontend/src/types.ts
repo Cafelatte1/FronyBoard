@@ -70,3 +70,27 @@ export interface Task {
   cancel_reason?: string;
   meta: TaskMeta;
 }
+
+export interface ServerInfo {
+  version: string;
+  started_at: string;
+  data_root: string;
+  projects: number;
+  open_periods: { project: string; period: string }[];
+  api_keys: number;
+}
+
+export interface KeyInfo {
+  name: string;
+  fingerprint: string | null;
+  created_at: string;
+}
+
+/** Everything the shell loads up front and hands to the pages. */
+export interface BoardData {
+  projects: ProjectRef[];
+  statuses: Record<string, StatusResp>;
+  tasks: Record<string, Task[]>;
+  roadmaps: Record<string, Roadmap>;
+  server: ServerInfo;
+}

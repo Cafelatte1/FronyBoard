@@ -69,7 +69,9 @@ quarterly/monthly milestones, per-epic progress, and the task table. The server
 serves it at `http://<server>:8642/` — sign in with the dashboard login, set once
 on the server with `aira admin <username>` (all writes still go through the MCP
 tools; API keys stay agent-only). Sessions live in server memory, so a server
-restart signs viewers out.
+restart signs viewers out. The Settings screen can issue and revoke API keys —
+those endpoints require the dashboard login, never an API key; the first key
+still comes from `aira keygen`, since `serve` refuses to start without one.
 
 The dashboard source lives in `frontend/` (React + Vite). Its build output
 (`frontend/dist`) is committed to the repo on purpose, so the home server needs

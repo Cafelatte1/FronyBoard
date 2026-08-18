@@ -41,8 +41,23 @@ export async function logout(): Promise<void> {
 }
 
 export async function api<T>(path: string): Promise<T> {
+  return request(path, {});
+}
+
+export async function apiSend<T>(path: string, method: "POST" | "DELETE", body?: unknown): Promise<T> {
+  return request(path, {
+    method,
+    ...(body !== undefined && {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  });
+}
+
+async function request<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(path, {
-    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    ...init,
+    headers: { ...init.headers, Authorization: `Bearer ${getToken() ?? ""}` },
   });
   if (res.status === 401) throw new Unauthorized("unauthorized");
   if (!res.ok) {
