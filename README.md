@@ -22,9 +22,12 @@ Requires [uv](https://docs.astral.sh/uv/).
 
 ```powershell
 git clone https://github.com/Cafelatte1/project-aira
-cd project-aira
+cd project-aira/backend
 uv sync
 ```
+
+The repo is a monorepo: `backend/` holds the MCP server (a uv project), `frontend/`
+the FronyBoard web dashboard. Commands below run from `backend/`.
 
 Data lives under `~/.aira/` by default; set `AIRA_DATA_DIR` to relocate it.
 
@@ -56,7 +59,7 @@ anywhere.
 ### Local (stdio)
 
 ```powershell
-claude mcp add aira -- uv run --directory <path-to-project-aira> aira
+claude mcp add aira -- uv run --directory <path-to-project-aira>\backend aira
 ```
 
 ## Project setup
@@ -91,16 +94,16 @@ through git (`push` on a dev PC → `pull` + restart here).
 
    ```powershell
    git clone https://github.com/Cafelatte1/project-aira
-   cd project-aira
+   cd project-aira/backend
    uv sync
    uv run aira keygen <client-pc-name>   # once per client PC, save each key
    ```
 
 3. Keep it running across reboots with Task Scheduler (`taskschd.msc` → Create
    Task): trigger **At startup**, action = path from `(Get-Command uv).Source`
-   with arguments `run --directory <path-to-project-aira> aira serve`, and check
+   with arguments `run --directory <path-to-project-aira>\backend aira serve`, and check
    **Run whether user is logged on or not**.
-4. To update: `git pull`, `uv sync`, then restart the task (or reboot).
+4. To update: `git pull`, `uv sync` (in `backend/`), then restart the task (or reboot).
 
 Clients then connect with the server's Tailscale name (see "Remote" above).
 
@@ -163,8 +166,9 @@ collide on ids or lose updates.
 ## Development
 
 ```powershell
-uv run pytest
+uv run --directory backend pytest
 ```
 
-Layout: `src/aira/store.py` (file IO, data root), `validation.py` (schema gate),
-`service.py` (operations), `server.py` (MCP tool surface).
+Layout: `backend/src/aira/` — `store.py` (file IO, data root), `validation.py`
+(schema gate), `service.py` (operations), `server.py` (MCP tool surface);
+`frontend/` — the FronyBoard dashboard, built to static files served by the backend.
