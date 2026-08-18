@@ -1,10 +1,5 @@
 # CLAUDE.md
 
-## AIRA
-
-This project is tracked by AIRA (project key: AIR).
-Manage tasks through the aira MCP tools, following the aira server instructions.
-
 ## 프로젝트
 
 AIRA (AI + JIRA): AI 에이전트가 1급 사용자인 프로젝트 트래커 MCP 서버.
@@ -27,3 +22,8 @@ AIRA (AI + JIRA): AI 에이전트가 1급 사용자인 프로젝트 트래커 MC
 
 홈서버(`laptop`, Tailscale `100.108.65.117:8642`)에서 작업 스케줄러 "AIRA Server"로 상시 실행 중.
 main에 push해도 홈서버는 자동 갱신되지 않는다 — 서버에서 `git pull` + `uv sync` + 태스크 재시작 필요 (README의 Deploy 섹션 참조).
+
+## AIRA
+
+This project is tracked by AIRA (project key: AIR).
+Manage tasks through the aira MCP tools, following the aira server instructions.
