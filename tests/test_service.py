@@ -143,6 +143,40 @@ def test_restoring_cancelled_task_clears_reason():
     assert service.validate(key)["ok"]
 
 
+def test_lifecycle_timestamps():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="x", epic="E1", month="M1")
+    service.transition_task(key, "DLY-001", "in_progress")
+    first_started = service.list_tasks(key)["tasks"][0]["meta"]["started_at"]
+    service.transition_task(key, "DLY-001", "blocked")
+    service.transition_task(key, "DLY-001", "in_progress")
+    assert service.list_tasks(key)["tasks"][0]["meta"]["started_at"] == first_started
+    service.transition_task(key, "DLY-001", "done")
+    assert "completed_at" in service.list_tasks(key)["tasks"][0]["meta"]
+    service.transition_task(key, "DLY-001", "todo")
+    assert "completed_at" not in service.list_tasks(key)["tasks"][0]["meta"]
+    assert service.validate(key)["ok"]
+
+
+def test_update_epic():
+    key = bootstrap()
+    with pytest.raises(service.AiraError, match="not found"):
+        service.update_epic(key, "2026Q3", "E9", goal="x")
+    service.update_epic(key, "2026Q3", "E1", goal="MVP core, sharpened")
+    epics = service.get_status(key)["periods"]["2026Q3"]["epics"]
+    assert epics[0]["goal"] == "MVP core, sharpened"
+
+
+def test_get_status_includes_epics_with_counts():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="a", epic="E1", month="M1")
+    service.create_task(key, "2026Q3", title="b", epic="E1", month="M1")
+    service.transition_task(key, "DLY-001", "in_progress")
+    epics = service.get_status(key)["periods"]["2026Q3"]["epics"]
+    assert epics == [{"id": "E1", "goal": "MVP core",
+                      "task_counts": {"in_progress": 1, "todo": 1}}]
+
+
 def test_content_round_trips_as_multiline_markdown():
     key = bootstrap()
     content = "- step one\n- step two\n- step three"
