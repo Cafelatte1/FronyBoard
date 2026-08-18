@@ -132,6 +132,10 @@ button.ghost:hover {
   margin-top: 1rem;
 }
 
+.login-form {
+  flex-direction: column;
+}
+
 .keygate input {
   flex: 1;
   font: inherit;

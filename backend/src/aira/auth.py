@@ -25,12 +25,15 @@ def _auth_path():
     return store.data_root() / "auth.yaml"
 
 
-def _load_keys() -> list[dict]:
+def _load_auth() -> dict:
     path = _auth_path()
     if not path.exists():
-        return []
-    data = store.load_yaml(path) or {}
-    return data.get("keys") or []
+        return {}
+    return store.load_yaml(path) or {}
+
+
+def _load_keys() -> list[dict]:
+    return _load_auth().get("keys") or []
 
 
 def has_keys() -> bool:
@@ -50,8 +53,51 @@ def generate_key(name: str) -> str:
         "sha256": hashlib.sha256(token.encode()).hexdigest(),
         "created_at": store.now(),
     })
-    store.save_yaml(_auth_path(), {"keys": keys})
+    data = _load_auth()
+    data["keys"] = keys
+    store.save_yaml(_auth_path(), data)
     return token
+
+
+def set_admin(username: str, password: str) -> None:
+    """Set (or replace) the dashboard admin credential — hash only, like API keys."""
+    if not username or not username.strip() or not password:
+        raise ValueError("admin username and password must not be empty")
+    salt = secrets.token_hex(8)
+    data = _load_auth()
+    data["admin"] = {
+        "username": username.strip(),
+        "salt": salt,
+        "sha256": hashlib.sha256((salt + password).encode()).hexdigest(),
+        "created_at": store.now(),
+    }
+    store.save_yaml(_auth_path(), data)
+
+
+def verify_admin(username: str, password: str) -> bool:
+    admin = _load_auth().get("admin") or {}
+    if not admin or username != admin.get("username"):
+        return False
+    digest = hashlib.sha256((str(admin.get("salt", "")) + password).encode()).hexdigest()
+    return secrets.compare_digest(digest, str(admin.get("sha256", "")))
+
+
+# Dashboard sessions are held in memory only — a server restart signs everyone out.
+_sessions: set[str] = set()
+
+
+def create_session() -> str:
+    token = "fbsession_" + secrets.token_hex(24)
+    _sessions.add(token)
+    return token
+
+
+def verify_session(token: str | None) -> bool:
+    return bool(token) and token in _sessions
+
+
+def drop_session(token: str | None) -> None:
+    _sessions.discard(token)
 
 
 def verify_key(token: str | None) -> str | None:
@@ -68,17 +114,22 @@ def verify_key(token: str | None) -> str | None:
 class BearerAuthMiddleware:
     """Pure ASGI middleware: reject HTTP requests without a valid API key.
 
-    Only paths starting with one of `protected` require a key (default: all) —
-    the FronyBoard static files stay open while /mcp and /api stay keyed.
+    Only paths starting with one of `protected` require a credential (default:
+    all) — the FronyBoard static files stay open while /mcp and /api stay keyed.
+    `open_paths` are exact-match exceptions inside protected space (the login
+    endpoint). A bearer token may be an API key or a dashboard session token.
     """
 
-    def __init__(self, app, protected: tuple[str, ...] = ("/",)):
+    def __init__(self, app, protected: tuple[str, ...] = ("/",),
+                 open_paths: tuple[str, ...] = ()):
         self.app = app
         self.protected = protected
+        self.open_paths = open_paths
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or \
-                not any(scope.get("path", "").startswith(p) for p in self.protected):
+        path = scope.get("path", "")
+        if scope["type"] != "http" or path in self.open_paths or \
+                not any(path.startswith(p) for p in self.protected):
             await self.app(scope, receive, send)
             return
         auth_header = ""
@@ -87,7 +138,7 @@ class BearerAuthMiddleware:
                 auth_header = value.decode("latin-1")
                 break
         token = auth_header[7:] if auth_header.lower().startswith("bearer ") else None
-        if verify_key(token) is None:
+        if verify_key(token) is None and not verify_session(token):
             body = json.dumps({"error": "unauthorized — send 'Authorization: Bearer <api key>'"}).encode()
             await send({
                 "type": "http.response.start",

@@ -1,21 +1,19 @@
-import { getKey } from "../api";
+import { getUsername, logout } from "../api";
 import { useApi } from "../shared";
 import type { ProjectRef } from "../types";
 
 export default function Settings({ onAuthFail }: { onAuthFail: () => void }) {
   const { data } = useApi<{ projects: ProjectRef[]; data_root: string }>("/api/projects", onAuthFail);
-  const key = getKey();
-  const masked = key ? `${key.slice(0, 10)}…${key.slice(-4)}` : "—";
 
   return (
     <div className="settings">
       <section className="card">
-        <h3>Access</h3>
+        <h3>Account</h3>
         <p>
-          API key <span className="mono">{masked}</span> is stored in this browser and sent with
-          every request. All keys see every project — a key is a device pass, not a project scope.
+          Signed in as <span className="mono">{getUsername() ?? "?"}</span>. Change the login on the
+          server with <span className="mono">aira admin &lt;username&gt;</span>.
         </p>
-        <button onClick={onAuthFail}>Replace key / sign out</button>
+        <button onClick={() => logout().then(onAuthFail)}>Sign out</button>
       </section>
 
       <section className="card">
@@ -27,9 +25,9 @@ export default function Settings({ onAuthFail }: { onAuthFail: () => void }) {
           Projects: <span className="mono">{data ? data.projects.length : "…"}</span>
         </p>
         <p className="muted">
-          Keys are issued on the server with <span className="mono">aira keygen</span>; revoke one by
-          removing its entry from <span className="mono">auth.yaml</span>. Key issuing and project
-          registration from this page arrive with the account system (Phase 4).
+          API keys (<span className="mono">aira keygen</span>) authenticate agents over MCP and are
+          separate from this login. Account signup and project registration from this page arrive
+          with Phase 4.
         </p>
       </section>
     </div>

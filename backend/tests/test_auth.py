@@ -31,7 +31,7 @@ def test_keygen_rejects_duplicates_and_stores_only_hash(data_root):
 
 
 def _run_middleware(headers: list, path: str = "/mcp",
-                    protected: tuple = ("/",)) -> int:
+                    protected: tuple = ("/",), open_paths: tuple = ()) -> int:
     """Drive the ASGI middleware with a minimal http scope; return the response status."""
 
     async def inner_app(scope, receive, send):
@@ -47,7 +47,8 @@ def _run_middleware(headers: list, path: str = "/mcp",
         return {"type": "http.request", "body": b"", "more_body": False}
 
     scope = {"type": "http", "method": "POST", "path": path, "headers": headers}
-    anyio.run(lambda: auth.BearerAuthMiddleware(inner_app, protected=protected)(scope, receive, send))
+    middleware = auth.BearerAuthMiddleware(inner_app, protected=protected, open_paths=open_paths)
+    anyio.run(lambda: middleware(scope, receive, send))
     return next(e["status"] for e in events if e["type"] == "http.response.start")
 
 
@@ -70,3 +71,24 @@ def test_middleware_protects_only_listed_prefixes():
     assert _run_middleware([], path="/assets/app.js", protected=protected) == 200
     assert _run_middleware([], path="/api/projects", protected=protected) == 401
     assert _run_middleware([], path="/mcp", protected=protected) == 401
+    assert _run_middleware([], path="/api/login", protected=protected,
+                           open_paths=("/api/login",)) == 200
+
+
+def test_admin_roundtrip_and_hash_only(data_root):
+    auth.set_admin("admin", "1234")
+    assert auth.verify_admin("admin", "1234")
+    assert not auth.verify_admin("admin", "wrong")
+    assert not auth.verify_admin("other", "1234")
+    assert "1234" not in (data_root / "auth.yaml").read_text(encoding="utf-8")
+    auth.generate_key("pc1")  # must not wipe the admin entry
+    assert auth.verify_admin("admin", "1234")
+
+
+def test_session_tokens_pass_middleware_until_dropped():
+    auth.generate_key("pc1")
+    token = auth.create_session()
+    assert auth.verify_session(token)
+    assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 200
+    auth.drop_session(token)
+    assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 401

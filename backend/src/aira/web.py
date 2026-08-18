@@ -15,7 +15,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import service
+from . import auth, service
 from .service import AiraError
 
 
@@ -56,8 +56,28 @@ def _tasks(request):
     )
 
 
+async def _login(request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+    username = str(body.get("username", ""))
+    if not auth.verify_admin(username, str(body.get("password", ""))):
+        return JSONResponse({"error": "invalid credentials"}, status_code=401)
+    return JSONResponse({"token": auth.create_session(), "username": username})
+
+
+async def _logout(request):
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        auth.drop_session(header[7:])
+    return JSONResponse({"ok": True})
+
+
 def api_routes() -> list[Route]:
     return [
+        Route("/api/login", _login, methods=["POST"]),
+        Route("/api/logout", _logout, methods=["POST"]),
         Route("/api/projects", _projects),
         Route("/api/projects/{key}/roadmap", _roadmap),
         Route("/api/projects/{key}/status", _status),
