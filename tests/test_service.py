@@ -102,6 +102,47 @@ def test_guardrails():
         service.update_task(key, "DLY-001")
 
 
+def test_cancel_requires_reason():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="mistake", epic="E1", month="M1")
+    with pytest.raises(service.AiraError, match="requires a reason"):
+        service.transition_task(key, "DLY-001", "cancelled")
+    service.transition_task(key, "DLY-001", "cancelled", reason="duplicate of DLY-002")
+    task = service.list_tasks(key, include_cancelled=True)["tasks"][0]
+    assert task["status"] == "cancelled"
+    assert task["cancel_reason"] == "duplicate of DLY-002"
+
+
+def test_cancelled_hidden_by_default_but_queryable():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="keep", epic="E1", month="M1")
+    service.create_task(key, "2026Q3", title="drop", epic="E1", month="M1")
+    service.transition_task(key, "DLY-002", "cancelled", reason="descoped")
+    assert [t["id"] for t in service.list_tasks(key)["tasks"]] == ["DLY-001"]
+    assert service.list_tasks(key, include_cancelled=True)["count"] == 2
+    assert [t["id"] for t in service.list_tasks(key, status="cancelled")["tasks"]] == ["DLY-002"]
+    assert service.get_status(key)["periods"]["2026Q3"]["task_counts"] == \
+        {"todo": 1, "cancelled": 1}
+
+
+def test_close_period_accepts_cancelled_tasks():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="abandoned", epic="E1", month="M1")
+    service.transition_task(key, "DLY-001", "cancelled", reason="descoped")
+    service.close_period(key, "2026Q3", "# result")
+
+
+def test_restoring_cancelled_task_clears_reason():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="back again", epic="E1", month="M1")
+    service.transition_task(key, "DLY-001", "cancelled", reason="on hold")
+    service.transition_task(key, "DLY-001", "todo")
+    task = service.list_tasks(key)["tasks"][0]
+    assert task["status"] == "todo"
+    assert "cancel_reason" not in task
+    assert service.validate(key)["ok"]
+
+
 def test_content_round_trips_as_multiline_markdown():
     key = bootstrap()
     content = "- step one\n- step two\n- step three"

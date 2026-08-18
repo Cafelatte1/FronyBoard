@@ -174,7 +174,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
     if period not in state.periods:
         raise AiraError(f"period {period} is not open")
     open_tasks = [t["id"] for t in state.periods[period].tasks.get("tasks") or []
-                  if t.get("status") not in ("done", "blocked")]
+                  if t.get("status") not in ("done", "blocked", "cancelled")]
     if open_tasks:
         raise AiraError(
             f"period {period} still has open tasks: {', '.join(open_tasks)} — "
@@ -291,13 +291,20 @@ def update_task(key: str, task_id: str, title: str | None = None, epic: str | No
 
 
 @_locked
-def transition_task(key: str, task_id: str, status: str, branch: str | None = None) -> dict:
+def transition_task(key: str, task_id: str, status: str, branch: str | None = None,
+                    reason: str | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
     previous = task.get("status")
+    if status == "cancelled" and not reason:
+        raise AiraError("cancelling a task requires a reason — pass reason=...")
     task["status"] = status
     if branch is not None:
         task["branch"] = branch
+    if status == "cancelled":
+        task["cancel_reason"] = reason
+    elif previous == "cancelled":
+        task.pop("cancel_reason", None)
     store.touch_meta(task)
     if status == "done":
         task["meta"]["completed_at"] = store.now()
@@ -310,7 +317,8 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 
 
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               epic: str | None = None, month: str | None = None) -> dict:
+               epic: str | None = None, month: str | None = None,
+               include_cancelled: bool = False) -> dict:
     state = store.load_state(key)
     if period is not None and period not in state.periods:
         raise AiraError(f"period {period} is not open")
@@ -319,6 +327,9 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
         if period is not None and pname != period:
             continue
         for t in p.tasks.get("tasks") or []:
+            if (t.get("status") == "cancelled" and not include_cancelled
+                    and status != "cancelled"):
+                continue
             if status is not None and t.get("status") != status:
                 continue
             if epic is not None and t.get("epic") != epic:

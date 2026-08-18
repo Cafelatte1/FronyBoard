@@ -122,7 +122,11 @@ projects/
 - **Reference chain**: `task.epic → epics[].id`, `task.month → months[].id`,
   `period folder → roadmap milestone`. Rollups follow this chain.
 - **Statuses** — milestones and months: `planned | active | done`;
-  tasks: `todo | in_progress | done | blocked`.
+  tasks: `todo | in_progress | done | blocked | cancelled`.
+- **`cancelled` is the soft delete** — there is no hard delete. Cancelling requires a
+  reason, keeps the record (and its id) forever, and hides the task from queries by
+  default (`list_tasks` takes `include_cancelled`). `blocked` = may resume,
+  `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
   period under a new id and note the mapping in `result.md`.
 - **Timestamps** (`meta.created_at` / `updated_at` / `completed_at`) are stamped by the

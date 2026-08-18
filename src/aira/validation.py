@@ -15,7 +15,7 @@ import re
 from .store import ProjectState
 
 MILESTONE_STATUS = {"planned", "active", "done"}
-TASK_STATUS = {"todo", "in_progress", "done", "blocked"}
+TASK_STATUS = {"todo", "in_progress", "done", "blocked", "cancelled"}
 QUARTER_KEY = re.compile(r"^Q[1-4]$")
 PERIOD_NAME = re.compile(r"^\d{4}Q[1-4]$")
 MONTH_ID = re.compile(r"^M\d+$")
@@ -165,6 +165,11 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
             r.err(f"{where}: month '{t.get('month')}' not found in objective months")
         if t.get("status") not in TASK_STATUS:
             r.err(f"{where}: status must be one of {sorted(TASK_STATUS)}")
+        if t.get("status") == "cancelled":
+            if not t.get("cancel_reason"):
+                r.err(f"{where}: a cancelled task must record a cancel_reason")
+        elif t.get("cancel_reason") is not None:
+            r.err(f"{where}: cancel_reason is only valid on a cancelled task")
         week = t.get("week")
         if week is not None and not (isinstance(week, int) and 1 <= week <= 5):
             r.err(f"{where}: week must be an integer 1-5 (week of month) ({week!r})")
