@@ -4,4 +4,5 @@ __pycache__/
 .pytest_cache/
 backend/dist/
 node_modules/
+*.tsbuildinfo
 # frontend/dist is committed on purpose: the home server deploys by git pull alone (no node).
