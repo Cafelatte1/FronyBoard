@@ -33,7 +33,8 @@ mcp = MCPServer(
         "task id is the only link between AIRA and the codebase). When the work is merged, "
         "transition it to done; if you cannot observe the merge, ask the user before marking "
         "done. If branch-sized work has no task yet, offer create_task first; trivial fixes "
-        "need no task.\n\n"
+        "need no task. There is no hard delete: to drop a task, transition it to cancelled "
+        "with a reason (blocked = may resume, cancelled = will not happen).\n\n"
         "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
         "-> open_period -> upsert_month, create_epic, create_task -> transition_task as work "
         "progresses -> close_period with a retrospective. Record agreed plans and "
@@ -126,19 +127,27 @@ def update_task(key: str, task_id: str, title: str | None = None, epic: str | No
 
 
 @mcp.tool()
-def transition_task(key: str, task_id: str, status: str, branch: str | None = None) -> dict:
-    """Transition a task's status (todo/in_progress/done/blocked). Stamps completed_at when done.
+def transition_task(key: str, task_id: str, status: str, branch: str | None = None,
+                    reason: str | None = None) -> dict:
+    """Transition a task's status (todo/in_progress/done/blocked/cancelled). Stamps completed_at when done.
 
     Call when work starts (in_progress, ideally with the branch name) and when it finishes (done).
+    `cancelled` is the soft delete: the record is kept but hidden from queries by default,
+    and `reason` is required. Use blocked for work that may resume, cancelled for work
+    that will not happen. Transitioning a cancelled task to any other status restores it.
     """
-    return service.transition_task(key, task_id, status, branch)
+    return service.transition_task(key, task_id, status, branch, reason)
 
 
 @mcp.tool()
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               epic: str | None = None, month: str | None = None) -> dict:
-    """List tasks, optionally filtered by period, status, epic, or month."""
-    return service.list_tasks(key, period, status, epic, month)
+               epic: str | None = None, month: str | None = None,
+               include_cancelled: bool = False) -> dict:
+    """List tasks, optionally filtered by period, status, epic, or month.
+
+    Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
+    """
+    return service.list_tasks(key, period, status, epic, month, include_cancelled)
 
 
 @mcp.tool()
