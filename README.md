@@ -120,7 +120,7 @@ through git (`push` on a dev PC → `pull` + restart here).
    ```powershell
    git clone https://github.com/Cafelatte1/project-aira
    cd project-aira
-   git checkout v0.1.0                   # latest release tag
+   git checkout vX.Y.Z                   # the latest release tag
    cd backend
    uv sync
    uv run aira keygen <client-pc-name>   # once per client PC, save each key
@@ -132,8 +132,10 @@ through git (`push` on a dev PC → `pull` + restart here).
    with arguments `run --directory <path-to-project-aira>\backend aira serve`, and check
    **Run whether user is logged on or not**.
 4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
-   then on the server `git fetch --tags`, `git checkout vX.Y.Z`, `uv sync`
-   (in `backend/`), and restart the task (or reboot).
+   then on the server **stop the task first** (`uv sync` cannot replace a
+   running `aira.exe`), `git fetch --tags`, `git checkout vX.Y.Z`, `uv sync`
+   (in `backend/`), and start the task again — see
+   [docs/operations.md](docs/operations.md) for the exact sequence.
 
 Clients then connect with the server's Tailscale name (see "Remote" above).
 
@@ -200,5 +202,13 @@ uv run --directory backend pytest
 ```
 
 Layout: `backend/src/aira/` — `store.py` (file IO, data root), `validation.py`
-(schema gate), `service.py` (operations), `server.py` (MCP tool surface);
-`frontend/` — the FronyBoard dashboard, built to static files served by the backend.
+(schema gate), `service.py` (operations), `auth.py` (API keys, sessions, bearer
+middleware), `web.py` (JSON API + static serving), `server.py` (MCP tool
+surface + CLI); `frontend/` — the FronyBoard dashboard, built to static files
+served by the backend.
+
+More docs under [docs/](docs/):
+
+- [docs/http-api.md](docs/http-api.md) — the FronyBoard JSON API
+- [docs/data-model.md](docs/data-model.md) — field-level schema and validation rules
+- [docs/operations.md](docs/operations.md) — home server runbook
