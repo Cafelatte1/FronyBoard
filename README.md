@@ -129,8 +129,10 @@ projects/
   `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
   period under a new id and note the mapping in `result.md`.
-- **Timestamps** (`meta.created_at` / `updated_at` / `completed_at`) are stamped by the
-  server in naive UTC. Agents never write them.
+- **Timestamps** (`meta.created_at` / `updated_at` / `started_at` / `completed_at`) are
+  stamped by the server in naive UTC — `started_at` on the first `in_progress` transition,
+  `completed_at` on `done` (and removed again if the task leaves `done`). Agents never
+  write them.
 - **`result.md` closes a period** — YAML holds only current state, so the "why it turned
   out this way" lives there: judgment and reasons, not counts.
 
@@ -141,7 +143,7 @@ projects/
 | Projects | `create_project`, `list_projects`, `get_roadmap`, `get_status`, `validate` |
 | Roadmap | `set_overview`, `upsert_milestone` |
 | Periods | `open_period`, `close_period` |
-| Planning | `upsert_month`, `create_epic`, `create_task`, `update_task`, `transition_task` |
+| Planning | `upsert_month`, `create_epic`, `update_epic`, `create_task`, `update_task`, `transition_task` |
 | Queries | `list_tasks` |
 
 Typical flow:

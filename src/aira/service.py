@@ -232,6 +232,22 @@ def create_epic(key: str, period: str, goal: str) -> dict:
     return _ok({"period": period, "epic": epic}, warnings)
 
 
+@_locked
+def update_epic(key: str, period: str, epic_id: str, goal: str) -> dict:
+    state = store.load_state(key)
+    if period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    epics = state.periods[period].tasks.get("epics") or []
+    epic = next((e for e in epics if e.get("id") == epic_id), None)
+    if epic is None:
+        raise AiraError(f"epic {epic_id} not found in period {period}")
+    epic["goal"] = goal
+    store.touch_meta(epic)
+    warnings = _gate(state)
+    store.save_period(state, period)
+    return _ok({"period": period, "epic": epic}, warnings)
+
+
 def _next_task_id(state: ProjectState) -> str:
     numbers = [0]
     for p in state.periods.values():
@@ -306,8 +322,12 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
     elif previous == "cancelled":
         task.pop("cancel_reason", None)
     store.touch_meta(task)
+    if status == "in_progress" and "started_at" not in task["meta"]:
+        task["meta"]["started_at"] = store.now()
     if status == "done":
         task["meta"]["completed_at"] = store.now()
+    elif previous == "done":
+        task["meta"].pop("completed_at", None)
     warnings = _gate(state)
     store.save_period(state, period)
     return _ok({"task_id": task_id, "from": previous, "to": status, "period": period}, warnings)
@@ -348,13 +368,20 @@ def get_status(key: str) -> dict:
         milestone = state.roadmap.get("years", {}).get(pname[:4], {}) \
             .get("milestones", {}).get(pname[4:], {})
         counts: dict[str, int] = {}
+        epic_counts: dict[str, dict[str, int]] = {}
         for t in p.tasks.get("tasks") or []:
-            counts[t.get("status", "?")] = counts.get(t.get("status", "?"), 0) + 1
+            status = t.get("status", "?")
+            counts[status] = counts.get(status, 0) + 1
+            per_epic = epic_counts.setdefault(t.get("epic"), {})
+            per_epic[status] = per_epic.get(status, 0) + 1
         periods[pname] = {
             "goal": milestone.get("goal"),
             "milestone_status": milestone.get("status"),
             "months": [{"id": m.get("id"), "month": m.get("month"), "status": m.get("status")}
                        for m in p.objective.get("months") or []],
+            "epics": [{"id": e.get("id"), "goal": e.get("goal"),
+                       "task_counts": epic_counts.get(e.get("id"), {})}
+                      for e in p.tasks.get("epics") or []],
             "task_counts": counts,
             "in_progress": [t["id"] for t in p.tasks.get("tasks") or []
                             if t.get("status") == "in_progress"],

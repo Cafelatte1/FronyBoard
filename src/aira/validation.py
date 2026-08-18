@@ -170,6 +170,17 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
                 r.err(f"{where}: a cancelled task must record a cancel_reason")
         elif t.get("cancel_reason") is not None:
             r.err(f"{where}: cancel_reason is only valid on a cancelled task")
+        meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
+        for field in ("started_at", "completed_at"):
+            value = meta.get(field)
+            if value is not None and (not isinstance(value, datetime.datetime)
+                                      or value.tzinfo is not None):
+                r.err(f"{where}: meta.{field} must be a naive UTC datetime")
+        if t.get("status") == "done":
+            if not isinstance(meta.get("completed_at"), datetime.datetime):
+                r.err(f"{where}: a done task must have meta.completed_at")
+        elif meta.get("completed_at") is not None:
+            r.err(f"{where}: meta.completed_at is only valid on a done task")
         week = t.get("week")
         if week is not None and not (isinstance(week, int) and 1 <= week <= 5):
             r.err(f"{where}: week must be an integer 1-5 (week of month) ({week!r})")
