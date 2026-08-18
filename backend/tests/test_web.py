@@ -26,7 +26,7 @@ def bootstrap(key="DLY"):
     return key
 
 
-def _request(method, path, query="", body=None):
+def _request(method, path, query="", body=None, token=None):
     app = Starlette(routes=web.api_routes())
     events = []
     payload = json.dumps(body).encode() if body is not None else b""
@@ -37,9 +37,11 @@ def _request(method, path, query="", body=None):
     async def receive():
         return {"type": "http.request", "body": payload, "more_body": False}
 
+    headers = [(b"content-type", b"application/json")] if body is not None else []
+    if token is not None:
+        headers.append((b"authorization", f"Bearer {token}".encode()))
     scope = {"type": "http", "method": method, "path": path, "raw_path": path.encode(),
-             "query_string": query.encode(), "scheme": "http",
-             "headers": [(b"content-type", b"application/json")] if body is not None else [],
+             "query_string": query.encode(), "scheme": "http", "headers": headers,
              "server": ("test", 80), "client": ("test", 1), "root_path": ""}
     anyio.run(lambda: app(scope, receive, send))
     status = next(e["status"] for e in events if e["type"] == "http.response.start")
@@ -90,6 +92,53 @@ def test_login_issues_session_token():
     assert status == 200
     assert auth.verify_session(body["token"])
     assert body["username"] == "admin"
+
+
+def test_server_info():
+    from aira import auth
+
+    bootstrap()
+    auth.generate_key("pc1")
+    status, body = _get("/api/server")
+    assert status == 200
+    assert body["version"]
+    assert body["started_at"]
+    assert body["projects"] == 1
+    assert body["open_periods"] == [{"project": "DLY", "period": "2026Q3"}]
+    assert body["api_keys"] == 1
+
+
+def test_key_management_requires_dashboard_session():
+    from aira import auth
+
+    api_key = auth.generate_key("pc1")
+    status, body = _request("GET", "/api/keys")
+    assert status == 403
+    status, body = _request("GET", "/api/keys", token=api_key)  # API key is not enough
+    assert status == 403
+
+    session = auth.create_session()
+    status, body = _request("GET", "/api/keys", token=session)
+    assert status == 200
+    assert [k["name"] for k in body["keys"]] == ["pc1"]
+    assert body["keys"][0]["fingerprint"] and "…" in body["keys"][0]["fingerprint"]
+    assert "sha256" not in body["keys"][0]
+
+    status, body = _request("POST", "/api/keys", body={"name": "pc2"}, token=session)
+    assert status == 200
+    assert body["key"].startswith("aira_")
+    assert auth.verify_key(body["key"]) == "pc2"
+
+    status, body = _request("POST", "/api/keys", body={"name": "pc2"}, token=session)
+    assert status == 400
+
+    status, body = _request("DELETE", "/api/keys/pc2", token=session)
+    assert status == 200
+    assert auth.verify_key(body.get("key")) is None
+    assert [k["name"] for k in auth.key_info()] == ["pc1"]
+
+    status, body = _request("DELETE", "/api/keys/pc2", token=session)
+    assert status == 404
 
 
 def test_unknown_project_is_404():

@@ -1,108 +1,160 @@
 import { useState } from "react";
-import { ProgressBar, useApi } from "../shared";
-import type { EpicInfo, PeriodStatus, ProjectRef, Roadmap, StatusResp, Task } from "../types";
+import {
+  GradientBar,
+  MilestoneChip,
+  StatusChip,
+  countBy,
+  currentPeriodName,
+  doneRatio,
+  donutGradient,
+} from "../shared";
+import type { BoardData, PeriodStatus, Task } from "../types";
 
 export default function Projects({
+  data,
   openKey,
   setOpenKey,
-  onAuthFail,
 }: {
+  data: BoardData;
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
-  onAuthFail: () => void;
 }) {
-  if (openKey === null) return <ProjectList onOpen={setOpenKey} onAuthFail={onAuthFail} />;
-  return <ProjectView projectKey={openKey} onBack={() => setOpenKey(null)} onAuthFail={onAuthFail} />;
+  if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
+  return <ProjectDetail data={data} projectKey={openKey} onBack={() => setOpenKey(null)} />;
 }
 
-function ProjectList({ onOpen, onAuthFail }: { onOpen: (k: string) => void; onAuthFail: () => void }) {
-  const { data, error } = useApi<{ projects: ProjectRef[] }>("/api/projects", onAuthFail);
-  if (error) return <p className="error">{error}</p>;
-  if (!data) return <p className="muted">Loading…</p>;
-  if (data.projects.length === 0) return <p className="muted">No projects yet — create one over MCP.</p>;
+function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) => void }) {
+  if (data.projects.length === 0)
+    return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
   return (
-    <div className="cards">
-      {data.projects.map((p) => (
-        <button key={p.key} className="card project-card" onClick={() => onOpen(p.key)}>
-          <span className="project-key">{p.key}</span>
-          <span className="project-name">{p.name ?? "—"}</span>
-        </button>
-      ))}
+    <div className="project-grid">
+      {data.projects.map((p) => {
+        const status = data.statuses[p.key];
+        const period = currentPeriodName(status);
+        const tasks = (data.tasks[p.key] ?? []).filter((t) => t.period === period);
+        const c = countBy(tasks);
+        return (
+          <button key={p.key} className="card project-card" onClick={() => onOpen(p.key)}>
+            <div className="project-card-head">
+              <span className="id-chip">{p.key}</span>
+              <span className="project-card-name" style={{ fontSize: 16 }}>
+                {status.name ?? p.key}
+              </span>
+              <span className="muted">→</span>
+            </div>
+            <div className="project-card-goal">
+              {(period && status.periods[period]?.goal) ?? "열린 기간 없음"}
+            </div>
+            <div className="mini-grid">
+              {(
+                [
+                  ["완료", c["done"] ?? 0, "var(--lav-light)"],
+                  ["진행중", c["in_progress"] ?? 0, "var(--ink)"],
+                  ["대기", c["todo"] ?? 0, "var(--muted)"],
+                  ["블록", c["blocked"] ?? 0, "var(--red-soft)"],
+                ] as const
+              ).map(([label, n, color]) => (
+                <div key={label}>
+                  <div className="mini-n" style={{ color }}>
+                    {n}
+                  </div>
+                  <div className="mini-label">{label}</div>
+                </div>
+              ))}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function ProjectView({
+function ProjectDetail({
+  data,
   projectKey,
   onBack,
-  onAuthFail,
 }: {
+  data: BoardData;
   projectKey: string;
   onBack: () => void;
-  onAuthFail: () => void;
 }) {
-  const roadmap = useApi<{ roadmap: Roadmap }>(`/api/projects/${projectKey}/roadmap`, onAuthFail);
-  const status = useApi<StatusResp>(`/api/projects/${projectKey}/status`, onAuthFail);
-  const tasks = useApi<{ tasks: Task[] }>(
-    `/api/projects/${projectKey}/tasks?include_cancelled=true`,
-    onAuthFail,
-  );
   const [showCancelled, setShowCancelled] = useState(false);
+  const status = data.statuses[projectKey];
+  const roadmap = data.roadmaps[projectKey];
+  const allTasks = data.tasks[projectKey] ?? [];
 
-  const error = roadmap.error ?? status.error ?? tasks.error;
-  if (error) return <p className="error">{error}</p>;
-  if (!roadmap.data || !status.data || !tasks.data) return <p className="muted">Loading…</p>;
+  const periodNames = Object.keys(status.periods).sort((a, b) => b.localeCompare(a));
+  const current = currentPeriodName(status);
+  const currentTasks = allTasks.filter((t) => t.period === current);
+  const currentRatio = doneRatio(countBy(currentTasks));
 
-  const years = Object.entries(roadmap.data.roadmap.years ?? {}).sort((a, b) => b[0].localeCompare(a[0]));
-  const periods = Object.entries(status.data.periods).sort((a, b) => b[0].localeCompare(a[0]));
+  const latestYear = Object.keys(roadmap.years ?? {}).sort((a, b) => b.localeCompare(a))[0];
+  const overview = latestYear ? roadmap.years[latestYear].overview : null;
 
   return (
-    <div className="project">
-      <nav>
-        <button className="ghost" onClick={onBack}>
-          ← projects
+    <div className="col" style={{ gap: 20 }}>
+      <div className="detail-bar">
+        <button className="back-btn" onClick={onBack}>
+          ← 프로젝트 목록
         </button>
-        <h2>
-          {status.data.name ?? projectKey} <span className="muted">({projectKey})</span>
-        </h2>
-      </nav>
+        <div style={{ flex: 1 }} />
+        {periodNames.map((n) => (
+          <span key={n} className={`period-chip ${n === current ? "on" : ""}`}>
+            {n}
+          </span>
+        ))}
+      </div>
 
-      {years.map(([year, y]) => (
-        <section key={year} className="card">
-          <h3>
-            {year} <span className="muted">— {y.overview.goal}</span>
-          </h3>
-          <div className="nnl">
-            <div>
-              <span className="nnl-label">Now</span> {y.overview.now}
+      <div className="card" style={{ padding: "22px 24px" }}>
+        <div className="detail-head">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="detail-name">
+              {status.name ?? projectKey}
+              <span className="id-chip">{projectKey}</span>
             </div>
-            <div>
-              <span className="nnl-label">Next</span> {y.overview.next}
-            </div>
-            <div>
-              <span className="nnl-label">Later</span> {y.overview.later}
-            </div>
+            {overview && <div className="detail-goal">{overview.goal}</div>}
+            {overview && (
+              <div className="detail-nnl">
+                {(
+                  [
+                    ["Now", overview.now],
+                    ["Next", overview.next],
+                    ["Later", overview.later],
+                  ] as const
+                ).map(([label, text]) => (
+                  <div key={label} className="nnl-item">
+                    <div className="nnl-label">{label}</div>
+                    <div className="nnl-text">{text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          {y.milestones && (
-            <div className="chips">
-              {Object.entries(y.milestones).map(([q, m]) => (
-                <span key={q} className={`chip status-${m.status}`}>
-                  {q} · {m.goal}
+          <div className="detail-donut">
+            <div
+              className="donut"
+              style={{ width: 118, height: 118, margin: "0 auto", background: donutGradient(countBy(currentTasks)) }}
+            >
+              <div className="donut-hole" style={{ inset: 13 }}>
+                <span className="donut-pct" style={{ fontSize: 22 }}>
+                  {currentRatio.pct}%
                 </span>
-              ))}
+                <span className="donut-cap mono">
+                  {currentRatio.done}/{currentRatio.total}
+                </span>
+              </div>
             </div>
-          )}
-        </section>
-      ))}
+            <div className="detail-donut-cap">{current ?? "—"} 진행률</div>
+          </div>
+        </div>
+      </div>
 
-      {periods.map(([name, p]) => (
+      {periodNames.map((name) => (
         <PeriodSection
           key={name}
           name={name}
-          period={p}
-          tasks={tasks.data!.tasks.filter(
-            (t) => t.period === name && (showCancelled || t.status !== "cancelled"),
-          )}
+          period={status.periods[name]}
+          tasks={allTasks.filter((t) => t.period === name)}
           showCancelled={showCancelled}
           setShowCancelled={setShowCancelled}
         />
@@ -124,83 +176,90 @@ function PeriodSection({
   showCancelled: boolean;
   setShowCancelled: (v: boolean) => void;
 }) {
+  const ratio = doneRatio(countBy(tasks));
+  const shown = tasks.filter((t) => showCancelled || t.status !== "cancelled");
   return (
-    <section className="card">
-      <div className="period-head">
-        <h3>
-          {name} <span className={`chip status-${period.milestone_status}`}>{period.milestone_status}</span>
-        </h3>
-        <ProgressBar counts={period.task_counts} />
-      </div>
-      {period.goal && <p className="muted">{period.goal}</p>}
-
-      <div className="chips">
-        {period.months.map((m) => (
-          <span key={m.id} className={`chip status-${m.status}`}>
-            {m.id} · {m.month} · {m.goal ?? ""}
-          </span>
-        ))}
+    <section className="card" style={{ padding: "22px 24px" }}>
+      <div className="period-title">
+        <span className="p-name">{name}</span>
+        <MilestoneChip status={period.milestone_status} />
+        <span className="p-goal">{period.goal ?? ""}</span>
+        <span className="p-ratio">
+          {ratio.done}/{ratio.total} · {ratio.pct}%
+        </span>
+        <GradientBar pct={ratio.pct} />
       </div>
 
-      {period.epics.length > 0 && (
-        <div className="epics">
-          {period.epics.map((e) => (
-            <EpicRow key={e.id} epic={e} />
+      {period.months.length > 0 && (
+        <div className="month-grid">
+          {period.months.map((m) => (
+            <div key={m.id} className={`month-card ${m.status === "active" ? "on" : ""}`}>
+              <div className="month-head">
+                <span className="m-id">{m.id}</span>
+                <span className="m-month">{m.month}</span>
+                <MilestoneChip status={m.status} />
+              </div>
+              <div className="month-goal">{m.goal ?? "—"}</div>
+            </div>
           ))}
         </div>
       )}
 
+      {period.epics.length > 0 && (
+        <>
+          <div className="block-label">에픽 진행률</div>
+          <div className="rows" style={{ marginTop: 9 }}>
+            {period.epics.map((e) => {
+              const r = doneRatio(e.task_counts);
+              return (
+                <div key={e.id} className="epic-row">
+                  <span className="e-id">{e.id}</span>
+                  <span className="e-goal">{e.goal}</span>
+                  <span className="e-ratio">
+                    {r.done}/{r.total}
+                  </span>
+                  <GradientBar pct={r.pct} />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <div className="table-head">
-        <h4>Tasks</h4>
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={showCancelled}
-            onChange={(e) => setShowCancelled(e.target.checked)}
-          />
-          show cancelled
-        </label>
+        <span className="count">
+          태스크 <b>{shown.length}/{tasks.length}</b>
+        </span>
+        <button className={`toggle-btn ${showCancelled ? "on" : ""}`} onClick={() => setShowCancelled(!showCancelled)}>
+          취소된 태스크 표시
+        </button>
       </div>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>id</th>
-              <th>title</th>
-              <th>epic</th>
-              <th>month</th>
-              <th>status</th>
-              <th>branch</th>
-              <th>done</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.map((t) => (
-              <tr key={t.id} className={t.status === "cancelled" ? "row-cancelled" : ""}>
-                <td className="mono">{t.id}</td>
-                <td title={t.cancel_reason ?? t.content ?? ""}>{t.title}</td>
-                <td className="mono">{t.epic}</td>
-                <td className="mono">{t.month}</td>
-                <td>
-                  <span className={`chip status-${t.status}`}>{t.status}</span>
-                </td>
-                <td className="mono branch">{t.branch ?? ""}</td>
-                <td className="mono">{t.meta.completed_at?.slice(0, 10) ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="task-table">
+        <div className="task-grid thead">
+          <span>ID</span>
+          <span>TITLE</span>
+          <span>EPIC</span>
+          <span>MONTH</span>
+          <span>STATUS</span>
+          <span>BRANCH</span>
+          <span>DONE</span>
+        </div>
+        {shown.map((t) => (
+          <div key={t.id} className={`task-grid ${t.status === "cancelled" ? "cancelled" : ""}`}>
+            <span className="c-id">{t.id}</span>
+            <span className="c-title" title={t.cancel_reason ?? t.content ?? ""}>
+              {t.title}
+            </span>
+            <span className="c-dim">{t.epic}</span>
+            <span className="c-dim">{t.month}</span>
+            <span>
+              <StatusChip status={t.status} />
+            </span>
+            <span className="c-branch">{t.branch ?? "—"}</span>
+            <span className="c-date">{t.meta.completed_at?.slice(0, 10) ?? "—"}</span>
+          </div>
+        ))}
       </div>
     </section>
-  );
-}
-
-function EpicRow({ epic }: { epic: EpicInfo }) {
-  return (
-    <div className="epic-row">
-      <span className="mono epic-id">{epic.id}</span>
-      <span className="epic-goal">{epic.goal}</span>
-      <ProgressBar counts={epic.task_counts} />
-    </div>
   );
 }

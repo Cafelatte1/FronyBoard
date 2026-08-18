@@ -59,6 +59,29 @@ def generate_key(name: str) -> str:
     return token
 
 
+def key_info() -> list[dict]:
+    """Public view of the issued keys — name, hash fingerprint, created_at. Never the key."""
+    out = []
+    for k in _load_keys():
+        digest = str(k.get("sha256", ""))
+        out.append({
+            "name": k.get("name"),
+            "fingerprint": f"{digest[:4]}…{digest[-4:]}" if digest else None,
+            "created_at": str(k.get("created_at", "")),
+        })
+    return out
+
+
+def revoke_key(name: str) -> None:
+    data = _load_auth()
+    keys = data.get("keys") or []
+    kept = [k for k in keys if k.get("name") != name]
+    if len(kept) == len(keys):
+        raise FileNotFoundError(f"no key named '{name}'")
+    data["keys"] = kept
+    store.save_yaml(_auth_path(), data)
+
+
 def set_admin(username: str, password: str) -> None:
     """Set (or replace) the dashboard admin credential — hash only, like API keys."""
     if not username or not username.strip() or not password:
