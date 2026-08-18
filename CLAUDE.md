@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-이 프로젝트의 AIRA key는 **AIR**다 — task 관리는 aira MCP 툴로 한다 (전역 CLAUDE.md §8 참조).
+## AIRA
+
+This project is tracked by AIRA (project key: AIR).
+Manage tasks through the aira MCP tools, following the aira server instructions.
 
 ## 프로젝트
 
