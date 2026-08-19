@@ -1,7 +1,8 @@
 # Data model
 
-Field-level reference for the files under the data root (`~/.aira`, override
-with `AIRA_DATA_DIR`). The conceptual overview lives in the README ("Model");
+Field-level reference for the files under the data root
+(`%LOCALAPPDATA%\Frony\FronyBoard\data`, or `~/.Frony/FronyBoard/data` where
+`LOCALAPPDATA` is unset; override with `AIRA_DATA_DIR`). The conceptual overview lives in the README ("Model");
 this page documents what the validation gate (`validation.py`) actually
 enforces. Validation runs before every mutation — errors block the write —
 and is also exposed as the `validate` MCP tool.

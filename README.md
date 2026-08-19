@@ -31,7 +31,9 @@ uv sync
 The repo is a monorepo: `backend/` holds the MCP server (a uv project), `frontend/`
 the FronyBoard web dashboard. Commands below run from `backend/`.
 
-Data lives under `~/.aira/` by default; set `AIRA_DATA_DIR` to relocate it.
+Data lives under `%LOCALAPPDATA%\Frony\FronyBoard\data` by default
+(`~/.Frony/FronyBoard/data` where `LOCALAPPDATA` is unset); set `AIRA_DATA_DIR`
+to relocate it.
 
 ## Run
 
@@ -132,7 +134,11 @@ through git (`push` on a dev PC → `pull` + restart here).
 3. Keep it running across reboots with Task Scheduler (`taskschd.msc` → Create
    Task): trigger **At startup**, action = path from `(Get-Command uv).Source`
    with arguments `run --directory <path-to-project-aira>\backend aira serve`, and check
-   **Run whether user is logged on or not**.
+   **Run whether user is logged on or not**. If the task runs as SYSTEM, its
+   `%LOCALAPPDATA%` points into the system profile — set `AIRA_DATA_DIR` to the
+   intended absolute path (e.g.
+   `C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`), for instance in a
+   small launcher `.cmd` the task runs instead.
 4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
    then on the server **stop the task first** (`uv sync` cannot replace a
    running `aira.exe`), `git fetch --tags`, `git checkout vX.Y.Z`, `uv sync`

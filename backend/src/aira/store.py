@@ -1,6 +1,7 @@
 """File-backed storage for AIRA project data.
 
-Layout (under the data root, default ~/.aira, override with AIRA_DATA_DIR):
+Layout (under the data root — default %LOCALAPPDATA%/Frony/FronyBoard/data, or
+~/.Frony/FronyBoard/data where LOCALAPPDATA is unset; override with AIRA_DATA_DIR):
 
     projects/
     └── {KEY}/                  one folder per project, named by its key (e.g. DLY)
@@ -22,7 +23,11 @@ import yaml
 
 def data_root() -> Path:
     root = os.environ.get("AIRA_DATA_DIR")
-    return Path(root) if root else Path.home() / ".aira"
+    if root:
+        return Path(root)
+    local = os.environ.get("LOCALAPPDATA")
+    base = Path(local) / "Frony" if local else Path.home() / ".Frony"
+    return base / "FronyBoard" / "data"
 
 
 def projects_dir() -> Path:
