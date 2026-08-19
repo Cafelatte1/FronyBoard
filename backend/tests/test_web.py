@@ -22,7 +22,6 @@ def bootstrap(key="DLY"):
     service.upsert_milestone(key, "2026", "Q3", goal="MVP", status="planned")
     service.open_period(key, "2026Q3")
     service.upsert_month(key, "2026Q3", "M1", month="2026-07", goal="core", status="active")
-    service.create_epic(key, "2026Q3", goal="MVP core")
     return key
 
 
@@ -61,7 +60,7 @@ def test_projects_and_status():
 
     status, body = _get("/api/projects/DLY/status")
     assert status == 200
-    assert body["periods"]["2026Q3"]["epics"][0]["id"] == "E1"
+    assert body["periods"]["2026Q3"]["months"][0]["id"] == "M1"
 
     status, body = _get("/api/projects/DLY/roadmap")
     assert status == 200
@@ -70,8 +69,8 @@ def test_projects_and_status():
 
 def test_tasks_filters_and_cancelled_toggle():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="keep", epic="E1", month="M1")
-    service.create_task(key, "2026Q3", title="drop", epic="E1", month="M1")
+    service.create_task(key, "2026Q3", title="keep", month="M1")
+    service.create_task(key, "2026Q3", title="drop", month="M1")
     service.transition_task(key, "DLY-002", "cancelled", reason="descoped")
 
     status, body = _get("/api/projects/DLY/tasks")

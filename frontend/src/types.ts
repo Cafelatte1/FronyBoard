@@ -26,11 +26,6 @@ export interface MonthInfo {
   month: string;
   goal?: string;
   status: "planned" | "active" | "done";
-}
-
-export interface EpicInfo {
-  id: string;
-  goal: string;
   task_counts: Record<string, number>;
 }
 
@@ -38,8 +33,8 @@ export interface PeriodStatus {
   goal: string | null;
   milestone_status: string | null;
   months: MonthInfo[];
-  epics: EpicInfo[];
   task_counts: Record<string, number>;
+  closed: boolean;
   in_progress: string[];
 }
 
@@ -60,7 +55,6 @@ export interface Task {
   period: string;
   id: string;
   title: string;
-  epic: string;
   month: string;
   status: string;
   week?: number;

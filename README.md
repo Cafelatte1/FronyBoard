@@ -145,17 +145,18 @@ Clients then connect with the server's Tailscale name (see "Remote" above).
 projects/
 └── {KEY}/                  one folder per project, named by its key (e.g. DLY)
     ├── roadmap.yaml        yearly overview (goal / now / next / later) + quarterly milestones
-    └── {YYYY}{Q#}/         one folder per opened period (e.g. 2026Q3)
-        ├── objective.yaml  monthly milestones (M1, M2, ...)
-        ├── tasks.yaml      epics (E1, E2, ...) + tasks ({KEY}-001, ...)
-        └── result.md       retrospective, written once when the period is closed
+    └── {YYYY}{Q#}.yaml     one file per opened period (e.g. 2026Q3.yaml):
+                            monthly milestones (M1, M2, ...) + tasks ({KEY}-001, ...)
+                            + `result` (retrospective, written when the period closes)
 ```
+
+A project is two kinds of files — the roadmap, and one file per period.
 
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
   periods and are never reused. They are the only link between AIRA and a codebase:
   use them in branch names (`feat/DLY-042/short-desc`) and record the branch on the task.
-- **Reference chain**: `task.epic → epics[].id`, `task.month → months[].id`,
-  `period folder → roadmap milestone`. Rollups follow this chain.
+- **Reference chain**: `task.month → months[].id`, `period file → roadmap milestone`.
+  Rollups follow this chain — months are the grouping unit.
 - **Statuses** — milestones and months: `planned | active | done`;
   tasks: `todo | in_progress | done | blocked | cancelled`.
 - **`cancelled` is the soft delete** — there is no hard delete. Cancelling requires a
@@ -163,13 +164,14 @@ projects/
   default (`list_tasks` takes `include_cancelled`). `blocked` = may resume,
   `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
-  period under a new id and note the mapping in `result.md`.
+  period under a new id and note the mapping in the closing retrospective.
 - **Timestamps** (`meta.created_at` / `updated_at` / `started_at` / `completed_at`) are
   stamped by the server in naive UTC — `started_at` on the first `in_progress` transition,
   `completed_at` on `done` (and removed again if the task leaves `done`). Agents never
   write them.
-- **`result.md` closes a period** — YAML holds only current state, so the "why it turned
-  out this way" lives there: judgment and reasons, not counts.
+- **The `result` field closes a period** — the rest of the file holds only current
+  state, so the "why it turned out this way" lives there: judgment and reasons,
+  not counts. Its presence is what marks a period closed.
 
 ## Tools
 
@@ -178,14 +180,14 @@ projects/
 | Projects | `create_project`, `list_projects`, `get_roadmap`, `get_status`, `validate` |
 | Roadmap | `set_overview`, `upsert_milestone` |
 | Periods | `open_period`, `close_period` |
-| Planning | `upsert_month`, `create_epic`, `update_epic`, `create_task`, `update_task`, `transition_task` |
+| Planning | `upsert_month`, `create_task`, `update_task`, `transition_task` |
 | Queries | `list_tasks` |
 
 Typical flow:
 
 ```
 create_project → set_overview → upsert_milestone → open_period
-→ upsert_month / create_epic / create_task
+→ upsert_month / create_task
 → transition_task in_progress (with branch) → ... → transition_task done
 → close_period (retrospective)
 ```

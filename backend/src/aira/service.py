@@ -157,7 +157,7 @@ def open_period(key: str, period: str) -> dict:
     milestone = _milestone_for(state, period)
     if period in state.periods:
         raise AiraError(f"period {period} is already open")
-    state.periods[period] = PeriodState(objective={"months": []}, tasks={"epics": [], "tasks": []})
+    state.periods[period] = PeriodState(data={"months": [], "tasks": []})
     if milestone["status"] == "planned":
         milestone["status"] = "active"
         store.touch_meta(milestone)
@@ -173,7 +173,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
     milestone = _milestone_for(state, period)
     if period not in state.periods:
         raise AiraError(f"period {period} is not open")
-    open_tasks = [t["id"] for t in state.periods[period].tasks.get("tasks") or []
+    open_tasks = [t["id"] for t in state.periods[period].data.get("tasks") or []
                   if t.get("status") not in ("done", "blocked", "cancelled")]
     if open_tasks:
         raise AiraError(
@@ -181,12 +181,11 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
             "finish them or recreate them in the next period (new id), then close")
     milestone["status"] = "done"
     store.touch_meta(milestone)
-    state.periods[period].has_result = True
+    state.periods[period].data["result"] = result_markdown
     warnings = _gate(state)
-    result_path = store.project_dir(key) / period / "result.md"
-    result_path.write_text(result_markdown, encoding="utf-8")
     store.save_roadmap(state)
-    return _ok({"closed": period, "result": str(result_path)}, warnings)
+    store.save_period(state, period)
+    return _ok({"closed": period}, warnings)
 
 
 @_locked
@@ -195,7 +194,7 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
     state = store.load_state(key)
     if period not in state.periods:
         raise AiraError(f"period {period} is not open")
-    months = state.periods[period].objective.setdefault("months", [])
+    months = state.periods[period].data.setdefault("months", [])
     m = next((m for m in months if m.get("id") == month_id), None)
     if m is None:
         m = {"id": month_id, "month": month, "goal": goal,
@@ -214,44 +213,13 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
     return _ok({"period": period, "month": m}, warnings)
 
 
-# ------------------------------------------------------------ epics/tasks
-
-
-@_locked
-def create_epic(key: str, period: str, goal: str) -> dict:
-    state = store.load_state(key)
-    if period not in state.periods:
-        raise AiraError(f"period {period} is not open")
-    epics = state.periods[period].tasks.setdefault("epics", [])
-    numbers = [int(m.group(1)) for e in epics
-               if (m := re.fullmatch(r"E(\d+)", str(e.get("id", ""))))]
-    epic = {"id": f"E{max(numbers, default=0) + 1}", "goal": goal, "meta": store.new_meta()}
-    epics.append(epic)
-    warnings = _gate(state)
-    store.save_period(state, period)
-    return _ok({"period": period, "epic": epic}, warnings)
-
-
-@_locked
-def update_epic(key: str, period: str, epic_id: str, goal: str) -> dict:
-    state = store.load_state(key)
-    if period not in state.periods:
-        raise AiraError(f"period {period} is not open")
-    epics = state.periods[period].tasks.get("epics") or []
-    epic = next((e for e in epics if e.get("id") == epic_id), None)
-    if epic is None:
-        raise AiraError(f"epic {epic_id} not found in period {period}")
-    epic["goal"] = goal
-    store.touch_meta(epic)
-    warnings = _gate(state)
-    store.save_period(state, period)
-    return _ok({"period": period, "epic": epic}, warnings)
+# ------------------------------------------------------------------- tasks
 
 
 def _next_task_id(state: ProjectState) -> str:
     numbers = [0]
     for p in state.periods.values():
-        for t in p.tasks.get("tasks") or []:
+        for t in p.data.get("tasks") or []:
             m = re.fullmatch(rf"{re.escape(state.key)}-(\d+)", str(t.get("id", "")))
             if m:
                 numbers.append(int(m.group(1)))
@@ -260,20 +228,20 @@ def _next_task_id(state: ProjectState) -> str:
 
 def _find_task(state: ProjectState, task_id: str) -> tuple[str, dict]:
     for period, p in state.periods.items():
-        for t in p.tasks.get("tasks") or []:
+        for t in p.data.get("tasks") or []:
             if t.get("id") == task_id:
                 return period, t
     raise AiraError(f"task {task_id} not found in project {state.key}")
 
 
 @_locked
-def create_task(key: str, period: str, title: str, epic: str, month: str,
+def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
                 prd: str | None = None) -> dict:
     state = store.load_state(key)
     if period not in state.periods:
         raise AiraError(f"period {period} is not open")
-    task: dict = {"id": _next_task_id(state), "title": title, "epic": epic,
+    task: dict = {"id": _next_task_id(state), "title": title,
                   "month": month, "status": "todo"}
     if week is not None:
         task["week"] = week
@@ -282,19 +250,19 @@ def create_task(key: str, period: str, title: str, epic: str, month: str,
     if prd is not None:
         task["prd"] = prd
     task["meta"] = store.new_meta()
-    state.periods[period].tasks.setdefault("tasks", []).append(task)
+    state.periods[period].data.setdefault("tasks", []).append(task)
     warnings = _gate(state)
     store.save_period(state, period)
     return _ok({"period": period, "task": task}, warnings)
 
 
 @_locked
-def update_task(key: str, task_id: str, title: str | None = None, epic: str | None = None,
+def update_task(key: str, task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
-    fields = {"title": title, "epic": epic, "month": month, "week": week,
+    fields = {"title": title, "month": month, "week": week,
               "content": content, "prd": prd, "branch": branch}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
@@ -337,8 +305,7 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 
 
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               epic: str | None = None, month: str | None = None,
-               include_cancelled: bool = False) -> dict:
+               month: str | None = None, include_cancelled: bool = False) -> dict:
     state = store.load_state(key)
     if period is not None and period not in state.periods:
         raise AiraError(f"period {period} is not open")
@@ -346,13 +313,11 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
     for pname, p in sorted(state.periods.items()):
         if period is not None and pname != period:
             continue
-        for t in p.tasks.get("tasks") or []:
+        for t in p.data.get("tasks") or []:
             if (t.get("status") == "cancelled" and not include_cancelled
                     and status != "cancelled"):
                 continue
             if status is not None and t.get("status") != status:
-                continue
-            if epic is not None and t.get("epic") != epic:
                 continue
             if month is not None and t.get("month") != month:
                 continue
@@ -368,23 +333,22 @@ def get_status(key: str) -> dict:
         milestone = state.roadmap.get("years", {}).get(pname[:4], {}) \
             .get("milestones", {}).get(pname[4:], {})
         counts: dict[str, int] = {}
-        epic_counts: dict[str, dict[str, int]] = {}
-        for t in p.tasks.get("tasks") or []:
+        month_counts: dict[str, dict[str, int]] = {}
+        for t in p.data.get("tasks") or []:
             status = t.get("status", "?")
             counts[status] = counts.get(status, 0) + 1
-            per_epic = epic_counts.setdefault(t.get("epic"), {})
-            per_epic[status] = per_epic.get(status, 0) + 1
+            per_month = month_counts.setdefault(t.get("month"), {})
+            per_month[status] = per_month.get(status, 0) + 1
         periods[pname] = {
             "goal": milestone.get("goal"),
             "milestone_status": milestone.get("status"),
             "months": [{"id": m.get("id"), "month": m.get("month"), "goal": m.get("goal"),
-                        "status": m.get("status")}
-                       for m in p.objective.get("months") or []],
-            "epics": [{"id": e.get("id"), "goal": e.get("goal"),
-                       "task_counts": epic_counts.get(e.get("id"), {})}
-                      for e in p.tasks.get("epics") or []],
+                        "status": m.get("status"),
+                        "task_counts": month_counts.get(m.get("id"), {})}
+                       for m in p.data.get("months") or []],
             "task_counts": counts,
-            "in_progress": [t["id"] for t in p.tasks.get("tasks") or []
+            "closed": p.has_result,
+            "in_progress": [t["id"] for t in p.data.get("tasks") or []
                             if t.get("status") == "in_progress"],
         }
     return _jsonable({"project": state.key, "name": state.roadmap.get("name"), "periods": periods})

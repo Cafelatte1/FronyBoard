@@ -2,9 +2,9 @@
 
 Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,
-status enums, reference chains (task.epic, task.month), period key <-> folder
-consistency, id formats, global task-id uniqueness, meta timestamp shape
-(naive UTC) and ordering (updated_at >= created_at).
+status enums, the task.month reference, period key <-> file consistency,
+id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
+ordering (updated_at >= created_at).
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ TASK_STATUS = {"todo", "in_progress", "done", "blocked", "cancelled"}
 QUARTER_KEY = re.compile(r"^Q[1-4]$")
 PERIOD_NAME = re.compile(r"^\d{4}Q[1-4]$")
 MONTH_ID = re.compile(r"^M\d+$")
-EPIC_ID = re.compile(r"^E\d+$")
 PROJECT_KEY = re.compile(r"^[A-Z]{2,5}$")
 
 
@@ -111,16 +110,19 @@ def _check_roadmap(state: ProjectState, r: Report) -> dict[str, str]:
 def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pattern,
                   all_task_ids: set, r: Report) -> None:
     period = state.periods[name]
+    data = period.data if isinstance(period.data, dict) else {}
     if status == "done" and not period.has_result:
-        r.err(f"{name}: milestone is done but result.md is missing — result.md closes a period")
+        r.err(f"{name}: milestone is done but `result` is missing — the retrospective closes a period")
+    if data.get("result") is not None and not isinstance(data["result"], str):
+        r.err(f"{name}.yaml: result must be a markdown string")
 
     month_ids = set()
-    months = period.objective.get("months") if isinstance(period.objective, dict) else None
+    months = data.get("months")
     if months is None:
-        r.err(f"{name}/objective.yaml: missing or empty")
+        r.err(f"{name}.yaml: missing months")
     else:
         for m in months:
-            where = f"{name}/objective.yaml months[{m.get('id')}]"
+            where = f"{name}.yaml months[{m.get('id')}]"
             if not MONTH_ID.fullmatch(str(m.get("id", ""))):
                 r.err(f"{where}: id must look like M1, M2, ...")
             if m.get("id") in month_ids:
@@ -134,24 +136,9 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
                 r.err(f"{where}: status must be one of {sorted(MILESTONE_STATUS)}")
             _check_meta(m, where, r)
 
-    tasks_data = period.tasks if isinstance(period.tasks, dict) else None
-    if tasks_data is None:
-        r.err(f"{name}/tasks.yaml: missing or not a map")
-        return
-    epic_ids = set()
-    for e in tasks_data.get("epics") or []:
-        where = f"{name}/tasks.yaml epics[{e.get('id')}]"
-        if not EPIC_ID.fullmatch(str(e.get("id", ""))):
-            r.err(f"{where}: id must look like E1, E2, ...")
-        if e.get("id") in epic_ids:
-            r.err(f"{where}: duplicate id")
-        epic_ids.add(e.get("id"))
-        if not e.get("goal"):
-            r.err(f"{where}: missing goal")
-        _check_meta(e, where, r)
-    for t in tasks_data.get("tasks") or []:
+    for t in data.get("tasks") or []:
         tid = t.get("id")
-        where = f"{name}/tasks.yaml tasks[{tid}]"
+        where = f"{name}.yaml tasks[{tid}]"
         if not task_id_re.fullmatch(str(tid or "")):
             r.err(f"{where}: id must match '{task_id_re.pattern}'")
         if tid in all_task_ids:
@@ -159,8 +146,6 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
         all_task_ids.add(tid)
         if not t.get("title"):
             r.err(f"{where}: missing title")
-        if t.get("epic") not in epic_ids:
-            r.err(f"{where}: epic '{t.get('epic')}' not found in epics")
         if t.get("month") not in month_ids:
             r.err(f"{where}: month '{t.get('month')}' not found in objective months")
         if t.get("status") not in TASK_STATUS:
@@ -199,15 +184,15 @@ def validate_state(state: ProjectState) -> Report:
 
     actual = {name for name in state.periods if PERIOD_NAME.fullmatch(name)}
     for stray in sorted(set(state.periods) - actual):
-        r.warn(f"folder '{stray}' does not look like a period folder (YYYYQ#) — ignored")
+        r.warn(f"file '{stray}.yaml' does not look like a period file (YYYYQ#.yaml) — ignored")
     for missing in sorted(set(expected) - actual):
-        # A planned period may not be opened yet — only active/done require a folder.
+        # A planned period may not be opened yet — only active/done require a file.
         if expected[missing] == "planned":
-            r.warn(f"planned period not opened yet: {missing}/")
+            r.warn(f"planned period not opened yet: {missing}.yaml")
         else:
-            r.err(f"milestone {missing} is {expected[missing]} but its period folder is missing")
+            r.err(f"milestone {missing} is {expected[missing]} but its period file is missing")
     for orphan in sorted(actual - set(expected)):
-        r.warn(f"period folder without a roadmap milestone (orphan): {orphan}/")
+        r.warn(f"period file without a roadmap milestone (orphan): {orphan}.yaml")
 
     all_task_ids: set = set()
     for name in sorted(actual & set(expected)):

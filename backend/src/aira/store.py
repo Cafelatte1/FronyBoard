@@ -5,10 +5,9 @@ Layout (under the data root, default ~/.aira, override with AIRA_DATA_DIR):
     projects/
     └── {KEY}/                  one folder per project, named by its key (e.g. DLY)
         ├── roadmap.yaml        yearly overview + quarterly milestones
-        └── {YYYY}{Q#}/         one folder per opened period (e.g. 2026Q3)
-            ├── objective.yaml  monthly milestones
-            ├── tasks.yaml      epics + tasks
-            └── result.md       retrospective, written when the period is closed
+        └── {YYYY}{Q#}.yaml     one file per opened period (e.g. 2026Q3.yaml):
+                                monthly milestones + tasks + `result`
+                                (retrospective, written when the period closes)
 """
 
 from __future__ import annotations
@@ -78,9 +77,11 @@ def touch_meta(record: dict) -> None:
 
 @dataclass
 class PeriodState:
-    objective: dict
-    tasks: dict
-    has_result: bool = False
+    data: dict  # {"months": [...], "tasks": [...], "result": str (once closed)}
+
+    @property
+    def has_result(self) -> bool:
+        return bool(self.data.get("result"))
 
 
 @dataclass
@@ -96,13 +97,10 @@ def load_state(key: str) -> ProjectState:
     if not roadmap_path.exists():
         raise FileNotFoundError(f"Unknown project '{key}' — no roadmap.yaml under {pdir}")
     state = ProjectState(key=key, roadmap=load_yaml(roadmap_path) or {})
-    for entry in sorted(pdir.iterdir()):
-        if entry.is_dir():
-            state.periods[entry.name] = PeriodState(
-                objective=load_yaml(entry / "objective.yaml") or {} if (entry / "objective.yaml").exists() else {},
-                tasks=load_yaml(entry / "tasks.yaml") or {} if (entry / "tasks.yaml").exists() else {},
-                has_result=(entry / "result.md").exists(),
-            )
+    for entry in sorted(pdir.glob("*.yaml")):
+        if entry.name == "roadmap.yaml":
+            continue
+        state.periods[entry.stem] = PeriodState(data=load_yaml(entry) or {})
     return state
 
 
@@ -111,6 +109,4 @@ def save_roadmap(state: ProjectState) -> None:
 
 
 def save_period(state: ProjectState, period: str) -> None:
-    pdir = project_dir(state.key) / period
-    save_yaml(pdir / "objective.yaml", state.periods[period].objective)
-    save_yaml(pdir / "tasks.yaml", state.periods[period].tasks)
+    save_yaml(project_dir(state.key) / f"{period}.yaml", state.periods[period].data)

@@ -192,38 +192,26 @@ function PeriodSection({
 
       {period.months.length > 0 && (
         <div className="month-grid">
-          {period.months.map((m) => (
-            <div key={m.id} className={`month-card ${m.status === "active" ? "on" : ""}`}>
-              <div className="month-head">
-                <span className="m-id">{m.id}</span>
-                <span className="m-month">{m.month}</span>
-                <MilestoneChip status={m.status} />
-              </div>
-              <div className="month-goal">{m.goal ?? "—"}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {period.epics.length > 0 && (
-        <>
-          <div className="block-label">에픽 진행률</div>
-          <div className="rows" style={{ marginTop: 9 }}>
-            {period.epics.map((e) => {
-              const r = doneRatio(e.task_counts);
-              return (
-                <div key={e.id} className="epic-row">
-                  <span className="e-id">{e.id}</span>
-                  <span className="e-goal">{e.goal}</span>
-                  <span className="e-ratio">
+          {period.months.map((m) => {
+            const r = doneRatio(m.task_counts);
+            return (
+              <div key={m.id} className={`month-card ${m.status === "active" ? "on" : ""}`}>
+                <div className="month-head">
+                  <span className="m-id">{m.id}</span>
+                  <span className="m-month">{m.month}</span>
+                  <MilestoneChip status={m.status} />
+                </div>
+                <div className="month-goal">{m.goal ?? "—"}</div>
+                <div className="month-progress">
+                  <GradientBar pct={r.pct} />
+                  <span className="m-ratio">
                     {r.done}/{r.total}
                   </span>
-                  <GradientBar pct={r.pct} />
                 </div>
-              );
-            })}
-          </div>
-        </>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <div className="table-head">
@@ -238,7 +226,6 @@ function PeriodSection({
         <div className="task-grid thead">
           <span>ID</span>
           <span>TITLE</span>
-          <span>EPIC</span>
           <span>MONTH</span>
           <span>STATUS</span>
           <span>BRANCH</span>
@@ -250,7 +237,6 @@ function PeriodSection({
             <span className="c-title" title={t.cancel_reason ?? t.content ?? ""}>
               {t.title}
             </span>
-            <span className="c-dim">{t.epic}</span>
             <span className="c-dim">{t.month}</span>
             <span>
               <StatusChip status={t.status} />
