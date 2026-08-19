@@ -53,7 +53,7 @@ Drops the bearer session token. Returns `{"ok": true}`.
 The project's `roadmap.yaml` as JSON plus the list of period folder names:
 
 ```json
-{"roadmap": {"key": "AIR", "name": "AIRA", "years": {"2026": {"overview": {...}, "milestones": {"Q3": {...}}}}},
+{"roadmap": {"key": "AIR", "name": "FronyBoard", "years": {"2026": {"overview": {...}, "milestones": {"Q3": {...}}}}},
  "periods": ["2026Q3"]}
 ```
 
@@ -64,7 +64,7 @@ milestone goal/status, months with their own task counts, total task counts,
 whether the period is closed, and in-progress task ids:
 
 ```json
-{"project": "AIR", "name": "AIRA", "periods": {
+{"project": "AIR", "name": "FronyBoard", "periods": {
   "2026Q3": {
     "goal": "...", "milestone_status": "active",
     "months": [{"id": "M1", "month": "2026-08", "goal": "...", "status": "active",
@@ -101,7 +101,7 @@ filtered. Query parameters, all optional:
 Runtime facts for the Settings screen:
 
 ```json
-{"version": "0.1.1", "started_at": "2026-08-18 12:59:46",
+{"version": "0.3.0", "started_at": "2026-08-18 12:59:46",
  "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data", "projects": 1,
  "open_periods": [{"project": "AIR", "period": "2026Q3"}], "api_keys": 1}
 ```
