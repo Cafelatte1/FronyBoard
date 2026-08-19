@@ -55,8 +55,7 @@ def _tasks(request):
     q = request.query_params
     return service.list_tasks(
         request.path_params["key"],
-        period=q.get("period"), status=q.get("status"),
-        epic=q.get("epic"), month=q.get("month"),
+        period=q.get("period"), status=q.get("status"), month=q.get("month"),
         include_cancelled=q.get("include_cancelled") in ("1", "true"),
     )
 

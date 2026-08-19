@@ -37,7 +37,7 @@ mcp = MCPServer(
         "need no task. There is no hard delete: to drop a task, transition it to cancelled "
         "with a reason (blocked = may resume, cancelled = will not happen).\n\n"
         "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
-        "-> open_period -> upsert_month, create_epic, create_task -> transition_task as work "
+        "-> open_period -> upsert_month, create_task -> transition_task as work "
         "progresses -> close_period with a retrospective. A task that outlives its period is "
         "not moved: recreate it in the next period under a new id, leave the old one blocked, "
         "and map old id -> new id in the closing retrospective. Record agreed plans and "
@@ -85,15 +85,15 @@ def upsert_milestone(key: str, year: str, quarter: str,
 
 @mcp.tool()
 def open_period(key: str, period: str) -> dict:
-    """Open a period folder (e.g. 2026Q3) derived from its roadmap milestone. Marks a planned milestone active."""
+    """Open a period (e.g. 2026Q3) derived from its roadmap milestone. Marks a planned milestone active."""
     return service.open_period(key, period)
 
 
 @mcp.tool()
 def close_period(key: str, period: str, result_markdown: str) -> dict:
-    """Close a period: requires all tasks done, blocked, or cancelled; writes result.md (retrospective), marks the milestone done.
+    """Close a period: requires all tasks done, blocked, or cancelled; stores the retrospective as the period's `result`, marks the milestone done.
 
-    result.md should stay under ~30 lines and hold judgment and reasons only —
+    The retrospective should stay under ~30 lines and hold judgment and reasons only —
     summary vs goal, per-month outcome, carried-over tasks (old id -> new id), lessons.
     """
     return service.close_period(key, period, result_markdown)
@@ -107,41 +107,29 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
 
 
 @mcp.tool()
-def create_epic(key: str, period: str, goal: str) -> dict:
-    """Create an epic (a bundle of related tasks) in a period. The id (E1, E2, ...) is assigned automatically."""
-    return service.create_epic(key, period, goal)
-
-
-@mcp.tool()
-def update_epic(key: str, period: str, epic_id: str, goal: str) -> dict:
-    """Replace an epic's goal (epic_id: E1, E2, ...). Epics are listed per period in get_status."""
-    return service.update_epic(key, period, epic_id, goal)
-
-
-@mcp.tool()
-def create_task(key: str, period: str, title: str, epic: str, month: str,
+def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
                 prd: str | None = None) -> dict:
     """Create a task (issue/branch-sized unit of work) with status todo.
 
     The id is assigned from the project-global sequence (never reused). Every task belongs
-    to an epic and a month: `epic` references an epic id (E#) and `month` a month id (M#) —
-    both must exist in the period first (get_status lists them). `week` is the week-of-month
-    (1-5), `content` is implementation detail in markdown — enough for a model to pick the
-    task up cold — and `prd` is an optional link to or excerpt of the requirement behind it.
+    to a month: `month` references a month id (M#) that must exist in the period first
+    (get_status lists them). `week` is the week-of-month (1-5), `content` is implementation
+    detail in markdown — enough for a model to pick the task up cold — and `prd` is an
+    optional link to or excerpt of the requirement behind it.
     """
-    return service.create_task(key, period, title, epic, month, week, content, prd)
+    return service.create_task(key, period, title, month, week, content, prd)
 
 
 @mcp.tool()
-def update_task(key: str, task_id: str, title: str | None = None, epic: str | None = None,
+def update_task(key: str, task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None) -> dict:
     """Update task fields (not status — use transition_task). `branch` records the working branch name.
 
     `task_id` is the full id including the project prefix, e.g. DLY-042.
     """
-    return service.update_task(key, task_id, title, epic, month, week, content, prd, branch)
+    return service.update_task(key, task_id, title, month, week, content, prd, branch)
 
 
 @mcp.tool()
@@ -160,19 +148,19 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 
 @mcp.tool()
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               epic: str | None = None, month: str | None = None,
-               include_cancelled: bool = False) -> dict:
-    """List tasks, optionally filtered by period, status, epic, or month.
+               month: str | None = None, include_cancelled: bool = False) -> dict:
+    """List tasks, optionally filtered by period, status, or month.
 
     Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
     """
-    return service.list_tasks(key, period, status, epic, month, include_cancelled)
+    return service.list_tasks(key, period, status, month, include_cancelled)
 
 
 @mcp.tool()
 def get_status(key: str) -> dict:
-    """Project status rollup, per open period: the milestone, months, epics (id + goal +
-    per-epic task counts), task counts by status, and the list of in-progress task ids."""
+    """Project status rollup, per period: the milestone, months (each with its own
+    task counts), overall task counts by status, whether the period is closed, and
+    the list of in-progress task ids."""
     return service.get_status(key)
 
 

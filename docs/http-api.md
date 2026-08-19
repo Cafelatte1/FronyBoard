@@ -60,16 +60,17 @@ The project's `roadmap.yaml` as JSON plus the list of period folder names:
 ### GET /api/projects/{key}/status
 
 Rollup per period (closed periods included). For each period: the quarterly
-milestone goal/status, months, epics with per-status task counts, total task
-counts, and in-progress task ids:
+milestone goal/status, months with their own task counts, total task counts,
+whether the period is closed, and in-progress task ids:
 
 ```json
 {"project": "AIR", "name": "AIRA", "periods": {
   "2026Q3": {
     "goal": "...", "milestone_status": "active",
-    "months": [{"id": "M1", "month": "2026-08", "goal": "...", "status": "active"}],
-    "epics": [{"id": "E1", "goal": "...", "task_counts": {"done": 5, "todo": 1}}],
+    "months": [{"id": "M1", "month": "2026-08", "goal": "...", "status": "active",
+                "task_counts": {"done": 5, "todo": 1}}],
     "task_counts": {"done": 9, "todo": 1, "cancelled": 1},
+    "closed": false,
     "in_progress": ["AIR-011"]}}}
 ```
 
@@ -82,12 +83,11 @@ filtered. Query parameters, all optional:
 |---|---|
 | `period` | only this period (e.g. `2026Q3`) |
 | `status` | only this status |
-| `epic` | only this epic id (e.g. `E1`) |
 | `month` | only this month id (e.g. `M1`) |
 | `include_cancelled` | `1` or `true` to include cancelled tasks (hidden by default unless `status=cancelled`) |
 
 ```json
-{"tasks": [{"period": "2026Q3", "id": "AIR-011", "title": "...", "epic": "E2",
+{"tasks": [{"period": "2026Q3", "id": "AIR-011", "title": "...",
             "month": "M1", "status": "done", "branch": "feat/AIR-011/...",
             "meta": {"created_at": "...", "updated_at": "...",
                      "started_at": "...", "completed_at": "..."}}],
@@ -106,8 +106,8 @@ Runtime facts for the Settings screen:
  "open_periods": [{"project": "AIR", "period": "2026Q3"}], "api_keys": 1}
 ```
 
-`open_periods` lists period folders that have no `result.md` yet. Uptime is
-`now - started_at` (the process start).
+`open_periods` lists periods whose file has no `result` (retrospective) yet.
+Uptime is `now - started_at` (the process start).
 
 ## API keys (dashboard session required)
 

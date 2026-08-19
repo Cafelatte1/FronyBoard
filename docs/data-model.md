@@ -6,7 +6,8 @@ this page documents what the validation gate (`validation.py`) actually
 enforces. Validation runs before every mutation — errors block the write —
 and is also exposed as the `validate` MCP tool.
 
-The schema is **frozen**: field additions wait for real-usage feedback.
+A project is **two kinds of files**: one `roadmap.yaml`, plus one YAML file
+per opened period.
 
 ## File layout
 
@@ -15,11 +16,8 @@ The schema is **frozen**: field additions wait for real-usage feedback.
 ├── auth.yaml               API keys + dashboard admin (hashes only — see below)
 └── projects/
     └── {KEY}/              project folder, named by its key
-        ├── roadmap.yaml
-        └── {YYYY}{Q#}/     one folder per opened period (e.g. 2026Q3)
-            ├── objective.yaml
-            ├── tasks.yaml
-            └── result.md   written once, when the period is closed
+        ├── roadmap.yaml    yearly overview + quarterly milestones
+        └── 2026Q3.yaml     one file per opened period: months + tasks + result
 ```
 
 ## Identifiers
@@ -27,16 +25,15 @@ The schema is **frozen**: field additions wait for real-usage feedback.
 | id | format | scope |
 |---|---|---|
 | project key | `[A-Z]{2,5}` (e.g. `AIR`) | global; folder name must match `roadmap.yaml key` |
-| period | `YYYYQ#` (e.g. `2026Q3`) | folder name; must match a roadmap milestone `{year}{quarter}` |
+| period | `YYYYQ#` (e.g. `2026Q3`) | file name; must match a roadmap milestone `{year}{quarter}` |
 | month | `M1`, `M2`, … | per period |
-| epic | `E1`, `E2`, … | per period |
 | task | `{KEY}-NNN`, 3+ digits (e.g. `AIR-012`) | **project-global sequence — unique across all periods, never reused** |
 
 ## meta timestamps
 
-Every record (overview, milestone, month, epic, task) carries a `meta` map.
-All values are **naive UTC datetimes** — a timezone offset is a validation
-error. The server stamps them; agents never write them.
+Every record (overview, milestone, month, task) carries a `meta` map. All
+values are **naive UTC datetimes** — a timezone offset is a validation error.
+The server stamps them; agents never write them.
 
 | field | on | rule |
 |---|---|---|
@@ -65,13 +62,13 @@ years:
         meta: {...}
 ```
 
-Milestone ↔ folder consistency: an `active` or `done` milestone must have its
-period folder (error); a `planned` one may not be opened yet (warning). A
-period folder without a matching milestone is an orphan (warning). A `done`
-milestone requires `result.md` in the folder — result.md is what closes a
+Milestone ↔ file consistency: an `active` or `done` milestone must have its
+period file (error); a `planned` one may not be opened yet (warning). A period
+file without a matching milestone is an orphan (warning). A `done` milestone
+requires the period's `result` field — the retrospective is what closes a
 period.
 
-## objective.yaml
+## Period file ({YYYYQ#}.yaml)
 
 ```yaml
 months:
@@ -80,19 +77,9 @@ months:
     goal: ...           # required
     status: planned | active | done
     meta: {...}
-```
-
-## tasks.yaml
-
-```yaml
-epics:
-  - id: E1              # E# — unique within the period
-    goal: ...           # required
-    meta: {...}
 tasks:
   - id: AIR-012         # project-global, never reused
     title: ...          # required
-    epic: E1            # must reference an epic in THIS period
     month: M1           # must reference a month in THIS period
     status: todo | in_progress | done | blocked | cancelled
     week: 3             # optional, integer 1-5 (week of month)
@@ -101,6 +88,9 @@ tasks:
     branch: feat/AIR-012/short-desc   # optional working branch
     cancel_reason: ...  # required iff status is cancelled
     meta: {...}
+result: |               # written once by close_period; its presence marks the
+  # 2026Q3 result       # period closed. Markdown: judgment and reasons only.
+  ...
 ```
 
 Status invariants:
@@ -113,7 +103,7 @@ Status invariants:
 - `blocked` means "may resume"; `cancelled` means "will not happen".
 
 Carry-over: a task that outlives its period is not moved — recreate it in the
-next period under a new id and note the mapping in `result.md`.
+next period under a new id and note the mapping in the closing `result`.
 
 ## auth.yaml
 
@@ -134,3 +124,11 @@ admin:
 
 A key or password is shown once at creation and cannot be recovered — reissue
 instead.
+
+## History
+
+Until v0.1.1 a period was a folder (`objective.yaml` + `tasks.yaml` +
+`result.md`) and tasks carried an `epic` reference grouping them under per-
+period epics. v0.2.0 merged the folder into the single period file and dropped
+epics — months are the only grouping. Old data migrates by concatenating the
+two YAMLs, dropping `epic` fields, and moving `result.md` into `result`.

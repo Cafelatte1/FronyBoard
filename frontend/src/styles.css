@@ -1020,46 +1020,22 @@ button {
   line-height: 1.5;
 }
 
-.block-label {
-  margin-top: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.epic-row {
+.month-progress {
+  margin-top: 10px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 11px 12px;
-  border-radius: 12px;
-  background: var(--row-bg);
+  gap: 9px;
 }
 
-.epic-row .e-id {
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--mono);
-  color: var(--lav-light);
-  width: 26px;
-  flex: none;
-}
-
-.epic-row .e-goal {
-  font-size: 14px;
+.month-progress .bar {
   flex: 1;
-  min-width: 0;
+  height: 7px;
 }
 
-.epic-row .e-ratio {
-  font-size: 12px;
+.month-progress .m-ratio {
+  font-size: 11px;
   color: var(--muted);
   font-family: var(--mono);
-}
-
-.epic-row .bar {
-  width: 150px;
-  height: 7px;
   flex: none;
 }
 
@@ -1107,7 +1083,7 @@ button {
 
 .task-grid {
   display: grid;
-  grid-template-columns: 88px minmax(220px, 1fr) 52px 62px 84px 200px 92px;
+  grid-template-columns: 88px minmax(220px, 1fr) 62px 84px 200px 92px;
   gap: 12px;
   padding: 11px 15px;
   align-items: center;
