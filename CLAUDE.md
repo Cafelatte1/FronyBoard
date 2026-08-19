@@ -2,7 +2,7 @@
 
 ## 프로젝트
 
-FronyBoard (코드명 aira, AI + JIRA): AI 에이전트가 1급 사용자인 프로젝트 트래커 MCP 서버.
+FronyBoard: AI 에이전트가 1급 사용자인 프로젝트 트래커 MCP 서버.
 계획 데이터는 이 저장소가 아니라 FronyBoard 서버의 데이터 루트(`%LOCALAPPDATA%\Frony\FronyBoard\data`, `AIRA_DATA_DIR`로 변경 가능)에 저장된다.
 
 ## 디렉토리 구조

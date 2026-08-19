@@ -83,6 +83,15 @@ def create_project(key: str, name: str | None = None) -> dict:
     return _ok({"created": key, "path": str(pdir)}, warnings)
 
 
+@_locked
+def update_project(key: str, name: str) -> dict:
+    state = store.load_state(key)
+    state.roadmap["name"] = name
+    warnings = _gate(state)
+    store.save_roadmap(state)
+    return _ok({"key": key, "name": name}, warnings)
+
+
 def list_projects() -> dict:
     root = store.projects_dir()
     projects = []
@@ -179,13 +188,24 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
         raise AiraError(
             f"period {period} still has open tasks: {', '.join(open_tasks)} — "
             "finish them or recreate them in the next period (new id), then close")
+    rewritten = state.periods[period].has_result
     milestone["status"] = "done"
     store.touch_meta(milestone)
     state.periods[period].data["result"] = result_markdown
     warnings = _gate(state)
     store.save_roadmap(state)
     store.save_period(state, period)
-    return _ok({"closed": period}, warnings)
+    return _ok({"closed": period, "rewritten": rewritten}, warnings)
+
+
+def get_retrospective(key: str, period: str) -> dict:
+    state = store.load_state(key)
+    if period not in state.periods:
+        raise AiraError(f"period {period} is not open")
+    p = state.periods[period]
+    if not p.has_result:
+        raise AiraError(f"period {period} is not closed yet — no retrospective")
+    return {"period": period, "result": p.data["result"]}
 
 
 @_locked
@@ -214,6 +234,17 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
 
 
 # ------------------------------------------------------------------- tasks
+
+
+def resolve_key(key: str | None, task_id: str) -> str:
+    """Derive the project key from a task id (DLY-042 -> DLY); an explicit key must match."""
+    m = re.fullmatch(r"([A-Z]{2,5})-\d+", str(task_id or ""))
+    if not m:
+        raise AiraError(f"task_id must be a full id like DLY-042, got {task_id!r}")
+    derived = m.group(1)
+    if key and key != derived:
+        raise AiraError(f"key {key!r} does not match the task id prefix {derived!r}")
+    return derived
 
 
 def _next_task_id(state: ProjectState) -> str:
