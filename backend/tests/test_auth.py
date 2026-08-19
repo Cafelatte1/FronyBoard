@@ -6,12 +6,6 @@ import pytest
 from aira import auth
 
 
-@pytest.fixture(autouse=True)
-def data_root(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
-    return tmp_path
-
-
 def test_keygen_and_verify_roundtrip():
     assert not auth.has_keys()
     token = auth.generate_key("pc1")

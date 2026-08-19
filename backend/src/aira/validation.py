@@ -49,6 +49,7 @@ def _check_meta(record: dict, where: str, r: Report) -> None:
             return
         if value.tzinfo is not None:
             r.err(f"{where}: meta.{field} carries a timezone — must be naive UTC")
+            return  # aware vs naive datetimes cannot be compared below
     c, u = meta.get("created_at"), meta.get("updated_at")
     if isinstance(c, datetime.datetime) and isinstance(u, datetime.datetime) and u < c:
         r.err(f"{where}: meta.updated_at < meta.created_at")
