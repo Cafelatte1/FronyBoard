@@ -78,8 +78,8 @@ There is one credential; setting it replaces the previous one.
 
 ## Backup
 
-Everything lives in the data root (`C:\Users\<user>\.aira`, or `AIRA_DATA_DIR`
-as set in the launcher script): `projects/` (all plan data) and `auth.yaml`
+Everything lives in the data root (`C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`,
+as set via `AIRA_DATA_DIR` in the launcher script): `projects/` (all plan data) and `auth.yaml`
 (key/admin hashes). Copy that directory and the backup is complete — the repo
 checkout is reproducible from git and holds no state.
 
@@ -91,4 +91,5 @@ checkout is reproducible from git and holds no state.
 | `git checkout vX.Y.Z` refuses ("local changes") | `uv sync` dirtied `backend/uv.lock` | `git checkout -- backend/uv.lock`, then check out the tag |
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
 | `aira serve` exits with "no API keys yet" | fresh data root | `uv run aira keygen <name>` once, then start |
+| server starts with empty data (all projects gone) | task runs as SYSTEM, whose `%LOCALAPPDATA%` is the system profile — the default root resolved elsewhere | set `AIRA_DATA_DIR` to the absolute data path in the launcher script |
 | dashboard loads but data errors | version mismatch: old backend serving a newer dist (or vice versa) after a partial deploy | redo the deploy sequence — checkout and sync must both complete |

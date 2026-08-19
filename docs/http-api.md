@@ -45,7 +45,7 @@ Drops the bearer session token. Returns `{"ok": true}`.
 ### GET /api/projects
 
 ```json
-{"projects": [{"key": "AIR", "name": "AIRA"}], "data_root": "C:\\Users\\me\\.aira"}
+{"projects": [{"key": "AIR", "name": "FronyBoard"}], "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data"}
 ```
 
 ### GET /api/projects/{key}/roadmap
@@ -102,7 +102,7 @@ Runtime facts for the Settings screen:
 
 ```json
 {"version": "0.1.1", "started_at": "2026-08-18 12:59:46",
- "data_root": "C:\\Users\\me\\.aira", "projects": 1,
+ "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data", "projects": 1,
  "open_periods": [{"project": "AIR", "period": "2026Q3"}], "api_keys": 1}
 ```
 
