@@ -1,7 +1,7 @@
 [project]
 name = "aira"
-version = "0.2.0"
-description = "AIRA (AI + JIRA) — an MCP server that gives AI agents a first-class project tracker"
+version = "0.2.1"
+description = "FronyBoard (codename aira, AI + JIRA) — an MCP server that gives AI agents a first-class project tracker"
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.2.0",
