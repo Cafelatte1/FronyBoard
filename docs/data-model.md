@@ -47,7 +47,7 @@ The server stamps them; agents never write them.
 
 ```yaml
 key: AIR            # must match the folder name
-name: AIRA          # optional display name
+name: FronyBoard    # optional display name (update_project changes it later)
 years:
   "2026":           # 'YYYY' string keys
     overview:       # required per year
@@ -89,9 +89,9 @@ tasks:
     branch: feat/AIR-012/short-desc   # optional working branch
     cancel_reason: ...  # required iff status is cancelled
     meta: {...}
-result: |               # written once by close_period; its presence marks the
-  # 2026Q3 result       # period closed. Markdown: judgment and reasons only.
-  ...
+result: |               # written by close_period; its presence marks the period
+  # 2026Q3 result       # closed (re-closing rewrites it). Markdown: judgment
+  ...                   # and reasons only.
 ```
 
 Status invariants:
