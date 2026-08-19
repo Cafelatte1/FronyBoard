@@ -112,6 +112,27 @@ FronyBoard-managed.
 The server machine only deploys; development happens on client PCs and flows
 through git (`push` on a dev PC → `pull` + restart here).
 
+```mermaid
+flowchart LR
+    subgraph tailnet["Tailscale tailnet — only your enrolled devices"]
+        subgraph server["Home server (always on)"]
+            task["Task Scheduler<br>(at startup)"] -->|runs| serve["aira serve :8642"]
+            serve --- data[("data root<br>Frony/FronyBoard/data")]
+        end
+        pc1["Dev PC<br>Claude Code"] -->|"MCP · Bearer API key"| serve
+        pc2["Laptop<br>Claude Code"] -->|"MCP · Bearer API key"| serve
+        browser["Any browser<br>FronyBoard dashboard"] -->|"dashboard login"| serve
+    end
+    gh["GitHub<br>release tag vX.Y.Z"]
+    pc1 -.->|"git push --tags"| gh
+    gh -.->|"git checkout vX.Y.Z"| server
+```
+
+One always-on machine runs the server and owns the data; every other device is
+a client — Claude Code sessions talk MCP with an API key, humans open the
+dashboard in a browser. Code reaches the server only as release tags pulled
+from GitHub, never by editing in place.
+
 1. Install [Tailscale](https://tailscale.com/download), log in with the same
    account as your client PCs, and enable **Settings → Run unattended** so the
    tailnet stays up with nobody logged in. In the
