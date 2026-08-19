@@ -1,11 +1,13 @@
-# AIRA — AI + JIRA
+# FronyBoard
 
-An MCP server that gives AI agents (Claude Code and friends) a first-class project tracker.
+An MCP server that gives AI agents (Claude Code and friends) a first-class project
+tracker — AI + JIRA. `aira` is the codename: the package, CLI, and data directory
+keep that name.
 
-Where Jira is an issue tracker for humans behind a web UI, AIRA replaces each part with
-something an agent can use natively:
+Where Jira is an issue tracker for humans behind a web UI, FronyBoard replaces each
+part with something an agent can use natively:
 
-| Jira | AIRA |
+| Jira | FronyBoard |
 |---|---|
 | Database | Plain files in a dedicated data directory |
 | Records | YAML / Markdown |
@@ -35,7 +37,7 @@ Data lives under `~/.aira/` by default; set `AIRA_DATA_DIR` to relocate it.
 
 ### Remote (home server)
 
-AIRA is designed to run on one always-on machine, with every client PC talking
+FronyBoard is designed to run on one always-on machine, with every client PC talking
 to it over MCP streamable HTTP. Issue one API key per client machine, then start
 the server:
 
@@ -89,20 +91,20 @@ npm run build     # refresh frontend/dist, then commit it
 ## Project setup
 
 Connecting the MCP server gives every session the tools and the general workflow
-(delivered as server instructions). What it cannot know is **which AIRA project a
-codebase belongs to** — declare that in the codebase itself by adding this section
+(delivered as server instructions). What it cannot know is **which FronyBoard project
+a codebase belongs to** — declare that in the codebase itself by adding this section
 to its `CLAUDE.md` (create the file if the project has none):
 
 ```markdown
-## AIRA
+## FronyBoard
 
-This project is tracked by AIRA (project key: DLY).
-Manage tasks through the aira MCP tools, following the aira server instructions.
+This project is tracked by FronyBoard (project key: DLY).
+Manage tasks through the FronyBoard MCP tools, following the FronyBoard server instructions.
 ```
 
 Replace `DLY` with the project's key (register one first with `create_project`).
 The section is also the opt-in signal: a codebase without it is treated as not
-AIRA-managed.
+FronyBoard-managed.
 
 ## Deploy — Windows home server
 
@@ -153,7 +155,7 @@ projects/
 A project is two kinds of files — the roadmap, and one file per period.
 
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
-  periods and are never reused. They are the only link between AIRA and a codebase:
+  periods and are never reused. They are the only link between FronyBoard and a codebase:
   use them in branch names (`feat/DLY-042/short-desc`) and record the branch on the task.
 - **Reference chain**: `task.month → months[].id`, `period file → roadmap milestone`.
   Rollups follow this chain — months are the grouping unit.

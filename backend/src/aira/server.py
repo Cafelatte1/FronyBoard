@@ -1,4 +1,4 @@
-"""AIRA MCP server — the tool surface.
+"""FronyBoard MCP server (codename aira) — the tool surface.
 
 Commands:
     aira                                 stdio transport (local development)
@@ -22,16 +22,18 @@ from . import auth, service, web
 mcp = MCPServer(
     "aira",
     instructions=(
-        "AIRA is a project tracker for AI agents (AI + JIRA). Data lives in AIRA's own "
-        "store, not in the codebase you are working on.\n\n"
-        "Which project: the codebase declares its AIRA project key in a `## AIRA` section "
-        "of its CLAUDE.md (e.g. 'This project is tracked by AIRA, key: DLY'). No such "
-        "declaration means the project is not AIRA-managed — do not ask for a key; at most, "
-        "suggest registering it once. When registering a codebase (create_project), also add "
-        "that `## AIRA` declaration to its CLAUDE.md.\n\n"
+        "FronyBoard is a project tracker for AI agents (AI + JIRA — served as the `aira` "
+        "MCP server; aira is the codename). Data lives in FronyBoard's own store, not in "
+        "the codebase you are working on.\n\n"
+        "Which project: the codebase declares its FronyBoard project key in a "
+        "`## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by "
+        "FronyBoard (project key: DLY)'). No such declaration means the project is not "
+        "FronyBoard-managed — do not ask for a key; at most, suggest registering it once. "
+        "When registering a codebase (create_project), also add that `## FronyBoard` "
+        "declaration to its CLAUDE.md.\n\n"
         "Task workflow: when starting branch-sized work, transition its task to in_progress "
         "and record the branch name (branch names look like feat/DLY-042/short-desc — the "
-        "task id is the only link between AIRA and the codebase). When the work is merged, "
+        "task id is the only link between FronyBoard and the codebase). When the work is merged, "
         "transition it to done; if you cannot observe the merge, ask the user before marking "
         "done. If branch-sized work has no task yet, offer create_task first; trivial fixes "
         "need no task. There is no hard delete: to drop a task, transition it to cancelled "
@@ -56,7 +58,7 @@ def create_project(key: str, name: str | None = None) -> dict:
 
 @mcp.tool()
 def list_projects() -> dict:
-    """List all projects in the AIRA data store."""
+    """List all projects in the FronyBoard data store."""
     return service.list_projects()
 
 
@@ -166,7 +168,7 @@ def get_status(key: str) -> dict:
 
 @mcp.tool()
 def validate(key: str) -> dict:
-    """Validate a project's data against the AIRA schema and rules. Mutations run this gate automatically."""
+    """Validate a project's data against the FronyBoard schema and rules. Mutations run this gate automatically."""
     return service.validate(key)
 
 
@@ -189,7 +191,7 @@ def serve(host: str, port: int) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="aira", description="AIRA MCP server")
+    parser = argparse.ArgumentParser(prog="aira", description="FronyBoard MCP server")
     sub = parser.add_subparsers(dest="command")
     serve_p = sub.add_parser("serve", help="run the HTTP server (home server mode)")
     serve_p.add_argument("--host", default="0.0.0.0")
