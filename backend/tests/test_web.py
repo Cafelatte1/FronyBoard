@@ -3,26 +3,10 @@
 import json
 
 import anyio
-import pytest
 from starlette.applications import Starlette
 
 from aira import service, web
-
-
-@pytest.fixture(autouse=True)
-def data_root(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
-    return tmp_path
-
-
-def bootstrap(key="DLY"):
-    service.create_project(key, name="Dailying")
-    service.set_overview(key, "2026", goal="ship it", now="build core",
-                         next_="validate habit", later="expand")
-    service.upsert_milestone(key, "2026", "Q3", goal="MVP", status="planned")
-    service.open_period(key, "2026Q3")
-    service.upsert_month(key, "2026Q3", "M1", month="2026-07", goal="core", status="active")
-    return key
+from conftest import bootstrap
 
 
 def _request(method, path, query="", body=None, token=None):
@@ -138,6 +122,36 @@ def test_key_management_requires_dashboard_session():
 
     status, body = _request("DELETE", "/api/keys/pc2", token=session)
     assert status == 404
+
+
+def test_tasks_period_status_month_filters():
+    key = bootstrap()
+    service.upsert_month(key, "2026Q3", "M2", month="2026-08", goal="polish", status="planned")
+    service.create_task(key, "2026Q3", title="a", month="M1")
+    service.create_task(key, "2026Q3", title="b", month="M2")
+    service.transition_task(key, "DLY-001", "in_progress")
+
+    status, body = _get("/api/projects/DLY/tasks", query="period=2026Q3")
+    assert status == 200
+    assert body["count"] == 2
+    _, body = _get("/api/projects/DLY/tasks", query="status=in_progress")
+    assert [t["id"] for t in body["tasks"]] == ["DLY-001"]
+    _, body = _get("/api/projects/DLY/tasks", query="month=M2")
+    assert [t["id"] for t in body["tasks"]] == ["DLY-002"]
+    status, body = _get("/api/projects/DLY/tasks", query="period=1999Q1")
+    assert status == 400
+
+
+def test_logout_drops_session():
+    from aira import auth
+
+    auth.set_admin("admin", "1234")
+    _, body = _request("POST", "/api/login", body={"username": "admin", "password": "1234"})
+    token = body["token"]
+    assert auth.verify_session(token)
+    status, body = _request("POST", "/api/logout", token=token)
+    assert status == 200
+    assert not auth.verify_session(token)
 
 
 def test_unknown_project_is_404():

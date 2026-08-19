@@ -2,24 +2,12 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
-import pytest
-
 from aira import service
-
-
-@pytest.fixture(autouse=True)
-def data_root(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
-    return tmp_path
+from conftest import bootstrap
 
 
 def test_parallel_create_task_yields_unique_sequential_ids():
-    key = "DLY"
-    service.create_project(key)
-    service.set_overview(key, "2026", goal="g", now="n", next_="x", later="l")
-    service.upsert_milestone(key, "2026", "Q3", goal="mvp", status="planned")
-    service.open_period(key, "2026Q3")
-    service.upsert_month(key, "2026Q3", "M1", month="2026-07", goal="m", status="active")
+    key = bootstrap()
 
     with ThreadPoolExecutor(max_workers=10) as pool:
         results = list(pool.map(
@@ -29,3 +17,19 @@ def test_parallel_create_task_yields_unique_sequential_ids():
     ids = sorted(r["task"]["id"] for r in results)
     assert ids == [f"DLY-{n:03d}" for n in range(1, 11)]
     assert service.list_tasks(key)["count"] == 10
+
+
+def test_parallel_update_and_transition_keep_both_writes():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="x", month="M1")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(service.update_task, key, "DLY-001", "renamed"),
+                   pool.submit(service.transition_task, key, "DLY-001", "in_progress")]
+        for f in futures:
+            f.result()
+
+    task = service.list_tasks(key)["tasks"][0]
+    assert task["title"] == "renamed"
+    assert task["status"] == "in_progress"
+    assert service.validate(key)["ok"]

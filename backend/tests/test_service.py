@@ -1,24 +1,9 @@
-"""End-to-end tests for the AIRA service layer against a temp data root."""
+"""End-to-end tests for the FronyBoard service layer against a temp data root."""
 
 import pytest
 
 from aira import service, store
-
-
-@pytest.fixture(autouse=True)
-def data_root(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
-    return tmp_path
-
-
-def bootstrap(key="DLY"):
-    service.create_project(key, name="Dailying")
-    service.set_overview(key, "2026", goal="ship it", now="build core",
-                         next_="validate habit", later="expand")
-    service.upsert_milestone(key, "2026", "Q3", goal="MVP", status="planned")
-    service.open_period(key, "2026Q3")
-    service.upsert_month(key, "2026Q3", "M1", month="2026-07", goal="core", status="active")
-    return key
+from conftest import bootstrap
 
 
 def test_full_lifecycle():
