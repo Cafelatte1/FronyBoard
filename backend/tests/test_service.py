@@ -201,3 +201,31 @@ def test_list_projects():
     service.create_project("AIR", name="AIRA itself")
     keys = [p["key"] for p in service.list_projects()["projects"]]
     assert keys == ["AIR", "DLY"]
+
+def test_resolve_key_derives_and_checks():
+    assert service.resolve_key(None, "DLY-042") == "DLY"
+    assert service.resolve_key("DLY", "DLY-042") == "DLY"
+    with pytest.raises(service.AiraError, match="does not match"):
+        service.resolve_key("AIR", "DLY-042")
+    with pytest.raises(service.AiraError, match="full id"):
+        service.resolve_key(None, "042")
+
+
+def test_update_project_renames():
+    key = bootstrap()
+    service.update_project(key, "FronyBoard")
+    assert service.get_status(key)["name"] == "FronyBoard"
+    assert service.list_projects()["projects"][0]["name"] == "FronyBoard"
+
+
+def test_get_retrospective_and_rewrite():
+    key = bootstrap()
+    with pytest.raises(service.AiraError, match="not closed"):
+        service.get_retrospective(key, "2026Q3")
+    first = service.close_period(key, "2026Q3", "# v1")
+    assert first["rewritten"] is False
+    assert service.get_retrospective(key, "2026Q3")["result"] == "# v1"
+    second = service.close_period(key, "2026Q3", "# v2 — revised")
+    assert second["rewritten"] is True
+    assert service.get_retrospective(key, "2026Q3")["result"] == "# v2 — revised"
+    assert service.validate(key)["ok"]

@@ -1,4 +1,4 @@
-"""FronyBoard MCP server (codename aira) — the tool surface.
+"""FronyBoard MCP server — the tool surface.
 
 Commands:
     aira                                 stdio transport (local development)
@@ -7,7 +7,7 @@ Commands:
 
 Register a remote server in Claude Code:
 
-    claude mcp add --transport http aira http://<server>:8642/mcp \
+    claude mcp add --transport http fronyboard http://<server>:8642/mcp \
         --header "Authorization: Bearer <api key>"
 """
 
@@ -20,11 +20,10 @@ from mcp.server.mcpserver import MCPServer
 from . import auth, service, web
 
 mcp = MCPServer(
-    "aira",
+    "fronyboard",
     instructions=(
-        "FronyBoard is a project tracker for AI agents (AI + JIRA — served as the `aira` "
-        "MCP server; aira is the codename). Data lives in FronyBoard's own store, not in "
-        "the codebase you are working on.\n\n"
+        "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's "
+        "own store, not in the codebase you are working on.\n\n"
         "Which project: the codebase declares its FronyBoard project key in a "
         "`## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by "
         "FronyBoard (project key: DLY)'). No such declaration means the project is not "
@@ -33,7 +32,9 @@ mcp = MCPServer(
         "declaration to its CLAUDE.md.\n\n"
         "Task workflow: when starting branch-sized work, transition its task to in_progress "
         "and record the branch name (branch names look like feat/DLY-042/short-desc — the "
-        "task id is the only link between FronyBoard and the codebase). When the work is merged, "
+        "task id is the only link between FronyBoard and the codebase; update_task and "
+        "transition_task derive the project from the task id, so key is optional there). "
+        "When the work is merged, "
         "transition it to done; if you cannot observe the merge, ask the user before marking "
         "done. If branch-sized work has no task yet, offer create_task first; trivial fixes "
         "need no task. There is no hard delete: to drop a task, transition it to cancelled "
@@ -54,6 +55,12 @@ mcp = MCPServer(
 def create_project(key: str, name: str | None = None) -> dict:
     """Create a new project. `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY)."""
     return service.create_project(key, name)
+
+
+@mcp.tool()
+def update_project(key: str, name: str) -> dict:
+    """Rename a project's display name. The key (and task id prefix) never changes."""
+    return service.update_project(key, name)
 
 
 @mcp.tool()
@@ -97,8 +104,15 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
 
     The retrospective should stay under ~30 lines and hold judgment and reasons only —
     summary vs goal, per-month outcome, carried-over tasks (old id -> new id), lessons.
+    Calling it again on a closed period rewrites the retrospective.
     """
     return service.close_period(key, period, result_markdown)
+
+
+@mcp.tool()
+def get_retrospective(key: str, period: str) -> dict:
+    """Read a closed period's retrospective (the `result` markdown)."""
+    return service.get_retrospective(key, period)
 
 
 @mcp.tool()
@@ -124,28 +138,34 @@ def create_task(key: str, period: str, title: str, month: str,
 
 
 @mcp.tool()
-def update_task(key: str, task_id: str, title: str | None = None,
+def update_task(task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
-                prd: str | None = None, branch: str | None = None) -> dict:
+                prd: str | None = None, branch: str | None = None,
+                key: str | None = None) -> dict:
     """Update task fields (not status — use transition_task). `branch` records the working branch name.
 
-    `task_id` is the full id including the project prefix, e.g. DLY-042.
+    `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
+    is derived from that prefix, so `key` may be omitted (if given it must match).
     """
-    return service.update_task(key, task_id, title, month, week, content, prd, branch)
+    return service.update_task(service.resolve_key(key, task_id), task_id,
+                               title, month, week, content, prd, branch)
 
 
 @mcp.tool()
-def transition_task(key: str, task_id: str, status: str, branch: str | None = None,
-                    reason: str | None = None) -> dict:
+def transition_task(task_id: str, status: str, branch: str | None = None,
+                    reason: str | None = None, key: str | None = None) -> dict:
     """Transition a task's status (todo/in_progress/done/blocked/cancelled). `task_id` is the full id, e.g. DLY-042.
 
-    Call when work starts (in_progress, ideally with the branch name) and when it finishes
-    (done). The server stamps started_at on first in_progress and completed_at on done.
-    `cancelled` is the soft delete: the record is kept but hidden from queries by default,
-    and `reason` is required. Use blocked for work that may resume, cancelled for work
-    that will not happen. Transitioning a cancelled task to any other status restores it.
+    The project is derived from the task id prefix, so `key` may be omitted (if given
+    it must match). Call when work starts (in_progress, ideally with the branch name)
+    and when it finishes (done). The server stamps started_at on first in_progress and
+    completed_at on done. `cancelled` is the soft delete: the record is kept but hidden
+    from queries by default, and `reason` is required. Use blocked for work that may
+    resume, cancelled for work that will not happen. Transitioning a cancelled task to
+    any other status restores it.
     """
-    return service.transition_task(key, task_id, status, branch, reason)
+    return service.transition_task(service.resolve_key(key, task_id), task_id,
+                                   status, branch, reason)
 
 
 @mcp.tool()
@@ -213,7 +233,7 @@ def main() -> None:
             raise SystemExit(str(e))
         print(f"API key for '{args.name}' (shown once — store it now):\n\n  {token}\n")
         print("Register in Claude Code:\n"
-              f'  claude mcp add --transport http aira http://<server>:8642/mcp '
+              f'  claude mcp add --transport http fronyboard http://<server>:8642/mcp '
               f'--header "Authorization: Bearer {token}"')
     elif args.command == "admin":
         password = args.password

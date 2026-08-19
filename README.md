@@ -1,8 +1,7 @@
 # FronyBoard
 
 An MCP server that gives AI agents (Claude Code and friends) a first-class project
-tracker — AI + JIRA. `aira` is the codename: the package, CLI, and data directory
-keep that name.
+tracker.
 
 Where Jira is an issue tracker for humans behind a web UI, FronyBoard replaces each
 part with something an agent can use natively:
@@ -51,7 +50,7 @@ uv run aira serve             # binds 0.0.0.0:8642, requires a valid key on ever
 Register on each client (any project, or `--scope user` for everywhere):
 
 ```powershell
-claude mcp add --transport http aira http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
+claude mcp add --transport http fronyboard http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
 ```
 
 Keys are stored hash-only in `<data root>/auth.yaml`; revoke one by deleting its
@@ -63,7 +62,7 @@ anywhere.
 ### Local (stdio)
 
 ```powershell
-claude mcp add aira -- uv run --directory <path-to-project-aira>\backend aira
+claude mcp add fronyboard -- uv run --directory <path-to-project-aira>\backend aira
 ```
 
 ## FronyBoard — the dashboard
@@ -185,11 +184,15 @@ A project is two kinds of files — the roadmap, and one file per period.
 
 | Area | Tools |
 |---|---|
-| Projects | `create_project`, `list_projects`, `get_roadmap`, `get_status`, `validate` |
+| Projects | `create_project`, `update_project`, `list_projects`, `get_roadmap`, `get_status`, `validate` |
 | Roadmap | `set_overview`, `upsert_milestone` |
-| Periods | `open_period`, `close_period` |
+| Periods | `open_period`, `close_period`, `get_retrospective` |
 | Planning | `upsert_month`, `create_task`, `update_task`, `transition_task` |
 | Queries | `list_tasks` |
+
+`update_task` and `transition_task` derive the project from the task id prefix
+(`DLY-042` → `DLY`), so their `key` parameter is optional. Re-calling
+`close_period` on a closed period rewrites its retrospective.
 
 Typical flow:
 
