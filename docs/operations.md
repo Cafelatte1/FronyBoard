@@ -22,12 +22,16 @@ server runs, `aira.exe` in the venv is locked and sync fails with
 ```powershell
 schtasks /End /TN "AIRA Server"
 cd <path-to-project-aira>
+git checkout -- backend/uv.lock   # uv sync may have dirtied it; a dirty tree blocks checkout
 git fetch --tags
 git checkout vX.Y.Z          # detached HEAD is expected
 cd backend
 uv sync
 schtasks /Run /TN "AIRA Server"
 ```
+
+The server never commits, so discarding its local `uv.lock` drift is always
+safe.
 
 Verify: `GET /api/server` should report the new version (or check the version
 under the logo in the dashboard sidebar).
@@ -84,6 +88,7 @@ checkout is reproducible from git and holds no state.
 | symptom | cause | fix |
 |---|---|---|
 | `uv sync` fails with `os error 32` | server still running while syncing | `schtasks /End` first (see above), re-run sync, restart |
+| `git checkout vX.Y.Z` refuses ("local changes") | `uv sync` dirtied `backend/uv.lock` | `git checkout -- backend/uv.lock`, then check out the tag |
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
 | `aira serve` exits with "no API keys yet" | fresh data root | `uv run aira keygen <name>` once, then start |
 | dashboard loads but data errors | version mismatch: old backend serving a newer dist (or vice versa) after a partial deploy | redo the deploy sequence — checkout and sync must both complete |

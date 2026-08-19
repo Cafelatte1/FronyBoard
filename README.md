@@ -65,7 +65,7 @@ claude mcp add aira -- uv run --directory <path-to-project-aira>\backend aira
 ## FronyBoard — the dashboard
 
 FronyBoard is the human-facing, read-only view of the same data: yearly overview,
-quarterly/monthly milestones, per-epic progress, and the task table. The server
+quarterly/monthly milestones, per-month progress, and the task table. The server
 serves it at `http://<server>:8642/` — sign in with the dashboard login, set once
 on the server with `aira admin <username>` (all writes still go through the MCP
 tools; API keys stay agent-only). Sessions live in server memory, so a server
