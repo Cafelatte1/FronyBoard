@@ -75,7 +75,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           <span className="logo-mark">F</span>
           <div>
             <div className="logo-name">FronyBoard</div>
-            <div className="logo-sub">aira v{data?.server.version ?? "…"}</div>
+            <div className="logo-sub">v{data?.server.version ?? "…"}</div>
           </div>
         </div>
 
