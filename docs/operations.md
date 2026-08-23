@@ -41,8 +41,12 @@ and the backend serves it from the checkout.
 
 ## After a reboot
 
-The task is registered to start at boot; nothing to do. If the dashboard is
-unreachable, check:
+The task is registered to start at boot and re-checked every 10 minutes
+(a repeating trigger with `MultipleInstances = IgnoreNew`, so it is a no-op
+while the server is running). It has no execution time limit and is allowed
+on battery. The laptop is set so closing the lid does nothing and it never
+sleeps on AC; Fast Startup is off so a power-on counts as a boot. If the
+dashboard is still unreachable, check:
 
 ```powershell
 schtasks /Query /TN "AIRA Server" /FO LIST   # Status should be Running
@@ -92,4 +96,5 @@ checkout is reproducible from git and holds no state.
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
 | `aira serve` exits with "no API keys yet" | fresh data root | `uv run aira keygen <name>` once, then start |
 | server starts with empty data (all projects gone) | task runs as SYSTEM, whose `%LOCALAPPDATA%` is the system profile — the default root resolved elsewhere | set `AIRA_DATA_DIR` to the absolute data path in the launcher script |
+| server dead after closing the lid / after ~3 days | laptop slept on lid close, or the task's default 72h execution limit killed it | lid action = do nothing (`powercfg`), `ExecutionTimeLimit 0`, 10-minute watchdog trigger — all applied; re-check with `Get-ScheduledTask` if the task is ever re-created |
 | dashboard loads but data errors | version mismatch: old backend serving a newer dist (or vice versa) after a partial deploy | redo the deploy sequence — checkout and sync must both complete |
