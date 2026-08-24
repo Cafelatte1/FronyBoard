@@ -33,8 +33,8 @@ schtasks /Run /TN "AIRA Server"
 The server never commits, so discarding its local `uv.lock` drift is always
 safe.
 
-Verify: `GET /api/server` should report the new version (or check the version
-under the logo in the dashboard sidebar).
+Verify: `GET /api/server` should report the new version (or open the dashboard
+menu drawer — ☰ top-left — and check the version under the logo).
 
 The frontend needs no build step on the server — `frontend/dist` is committed,
 and the backend serves it from the checkout.

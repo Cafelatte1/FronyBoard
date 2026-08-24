@@ -68,12 +68,12 @@ export function useBoardData(onAuthFail: () => void) {
 
 // ------------------------------------------------------------ status labels
 
-export const TASK_ST: Record<string, { label: string; donut: string }> = {
-  done: { label: "완료", donut: "#A18CD1" },
-  in_progress: { label: "진행중", donut: "#7A63B8" },
-  todo: { label: "대기", donut: "rgba(255,255,255,.18)" },
-  blocked: { label: "블록", donut: "#D4585A" },
-  cancelled: { label: "취소", donut: "rgba(255,255,255,.08)" },
+export const TASK_ST: Record<string, { label: string; swatch: string }> = {
+  done: { label: "완료", swatch: "var(--success)" },
+  in_progress: { label: "진행중", swatch: "var(--accent)" },
+  todo: { label: "대기", swatch: "var(--neutral-subtle)" },
+  blocked: { label: "블록", swatch: "var(--danger)" },
+  cancelled: { label: "취소", swatch: "var(--neutral-subtle)" },
 };
 
 export const MILESTONE_ST: Record<string, string> = {
@@ -113,7 +113,7 @@ export function donutGradient(counts: Record<string, number>): string {
     const from = (acc / total) * 100;
     acc += counts[k] ?? 0;
     const to = (acc / total) * 100;
-    return `${TASK_ST[k].donut} ${from.toFixed(2)}% ${to.toFixed(2)}%`;
+    return `${TASK_ST[k].swatch} ${from.toFixed(2)}% ${to.toFixed(2)}%`;
   });
   return `conic-gradient(from -90deg, ${stops.join(", ")})`;
 }
@@ -143,10 +143,6 @@ export function fmtUptime(startedAt: string): string {
   return `${Math.floor(hours / 24)}일 ${hours % 24}시간`;
 }
 
-export function daysSince(s: string): number {
-  return Math.max(0, Math.floor((Date.now() - parseUtc(s).getTime()) / 86400000));
-}
-
 // ------------------------------------------------------------ small pieces
 
 export function StatusChip({ status }: { status: string }) {
@@ -156,12 +152,4 @@ export function StatusChip({ status }: { status: string }) {
 export function MilestoneChip({ status }: { status: string | null }) {
   const s = status ?? "planned";
   return <span className={`chip mst-${s}`}>{MILESTONE_ST[s] ?? s}</span>;
-}
-
-export function GradientBar({ pct }: { pct: number }) {
-  return (
-    <div className="bar">
-      <div className="bar-fill" style={{ width: `${pct}%` }} />
-    </div>
-  );
 }

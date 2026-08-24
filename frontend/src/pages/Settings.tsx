@@ -10,15 +10,13 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
 
   return (
     <div className="settings-col">
-      <section className="card" style={{ padding: "22px 24px" }}>
+      <section className="card">
         <div className="card-title">계정</div>
         <div className="account-row">
-          <span className="avatar lg">{username.charAt(0).toUpperCase()}</span>
+          <span className="avatar">{username.charAt(0).toUpperCase()}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="account-name">{username}</div>
-            <div className="account-sub">
-              대시보드 로그인 · 세션은 서버 메모리에 있어 재시작하면 로그아웃됩니다
-            </div>
+            <div className="account-sub">대시보드 로그인 · 세션은 서버 메모리에 있어 재시작하면 로그아웃됩니다</div>
           </div>
           <button className="ghost-btn" onClick={() => logout().then(onAuthFail)}>
             로그아웃
@@ -32,7 +30,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
 
       <KeysSection onAuthFail={onAuthFail} />
 
-      <section className="card" style={{ padding: "22px 24px" }}>
+      <section className="card">
         <div className="card-title">서버 정보</div>
         <div className="server-grid">
           {(
@@ -55,7 +53,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
             </div>
           ))}
         </div>
-        <div className="hint" style={{ marginTop: 16 }}>
+        <div className="hint" style={{ marginTop: 14 }}>
           홈서버는 release 태그(vX.Y.Z) 기준으로만 배포합니다 — main에 push해도 서버에는 반영되지
           않습니다.
         </div>
@@ -117,7 +115,7 @@ function KeysSection({ onAuthFail }: { onAuthFail: () => void }) {
   };
 
   return (
-    <section className="card" style={{ padding: "22px 24px" }}>
+    <section className="card">
       <div className="keys-head">
         <div>
           <div className="card-title">API 키</div>

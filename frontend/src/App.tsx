@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { clearSession, getToken, getUsername, login } from "./api";
 import { fmtAgo, useBoardData } from "./shared";
+import TaskPanel from "./TaskPanel";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
+import type { Task } from "./types";
 
 type Page = "dashboard" | "projects" | "settings";
 
@@ -28,21 +30,28 @@ export default function App() {
 
 function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const [page, setPage] = useState<Page>("dashboard");
-  const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
   const [openProject, setOpenProject] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Esc closes the topmost layer: task panel first, then the drawer.
+  useEffect(() => {
+    if (!menuOpen && !openTask) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (openTask) setOpenTask(null);
+      else setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen, openTask]);
 
   const go = (p: Page) => {
     setPage(p);
@@ -59,7 +68,14 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
     const q = search.trim().toUpperCase();
     if (!q || !data) return;
     for (const [key, list] of Object.entries(data.tasks)) {
-      if (list.some((t) => t.id.toUpperCase() === q || t.id.toUpperCase().startsWith(q))) {
+      const hit = list.find((t) => t.id.toUpperCase() === q);
+      if (hit) {
+        openDetail(key);
+        setOpenTask({ key, task: hit });
+        setSearch("");
+        return;
+      }
+      if (list.some((t) => t.id.toUpperCase().startsWith(q))) {
         openDetail(key);
         setSearch("");
         return;
@@ -74,91 +90,93 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
       ? `FronyBoard / projects / ${openProject}`
       : `FronyBoard / ${page}`;
   const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
+  const version = data?.server.version ?? "…";
 
   return (
-    <div className={`shell ${menuOpen ? "open" : ""}`} data-density="compact">
+    <div className="stage" data-density="compact">
       <div className="ambient" />
-      <div className="backdrop" onClick={() => setMenuOpen(false)} />
-      <aside className="sidebar" aria-hidden={!menuOpen}>
-        <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M5 5l10 10M15 5 5 15" strokeLinecap="round" />
-          </svg>
-        </button>
-        <div className="logo">
-          <span className="logo-mark">F</span>
-          <div className="logo-text">
-            <div className="logo-name">FronyBoard</div>
-            <div className="logo-sub">v{data?.server.version ?? "…"}</div>
-          </div>
-        </div>
+      <div className={`shell ${menuOpen ? "open" : ""}`}>
+        <main className="main">
+          <header className="head">
+            <button className="menu-btn" onClick={() => setMenuOpen(true)} title="메뉴 열기" aria-label="메뉴 열기">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M3 5.5h14M3 10h14M3 14.5h14" />
+              </svg>
+            </button>
+            <div className="head-titles">
+              <div className="crumb">{crumb}</div>
+              <h1>{title}</h1>
+            </div>
+            <form className="search" onSubmit={onSearch}>
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="9" cy="9" r="5.5" />
+                <path d="M13.2 13.2 17 17" strokeLinecap="round" />
+              </svg>
+              <input placeholder="태스크 ID 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </form>
+            <button className="synced" onClick={reload} title="다시 불러오기">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M16.5 10a6.5 6.5 0 1 1-2-4.7M17 3v3.5h-3.5" />
+              </svg>
+              {fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
+            </button>
+          </header>
 
-        <nav className="nav">
+          <div className="content">
+            {error && <p className="error">{error}</p>}
+            {!data && !error && <p className="muted">불러오는 중…</p>}
+            {data && page === "dashboard" && <Dashboard data={data} onOpenProject={openDetail} />}
+            {data && page === "projects" && (
+              <Projects
+                data={data}
+                openKey={openProject}
+                setOpenKey={setOpenProject}
+                onOpenTask={(key, task) => setOpenTask({ key, task })}
+              />
+            )}
+            {data && page === "settings" && <Settings data={data} onAuthFail={onAuthFail} />}
+          </div>
+        </main>
+
+        <TaskPanel task={openTask?.task ?? null} projectKey={openTask?.key ?? null} onClose={() => setOpenTask(null)} />
+
+        <div className="backdrop" onClick={() => setMenuOpen(false)} />
+        <aside className="sidebar" aria-hidden={!menuOpen}>
+          <div className="drawer-head">
+            <span className="logo-mark">F</span>
+            <div className="logo-text">
+              <div className="logo-name">FronyBoard</div>
+              <div className="logo-sub">v{version}</div>
+            </div>
+            <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M5 5l10 10M15 5 5 15" />
+              </svg>
+            </button>
+          </div>
+
           <div className="nav-label">메뉴</div>
           <NavItem label="대시보드" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
-          <NavItem label="프로젝트" on={page === "projects"} onClick={() => go("projects")} icon="folder" />
+          <NavItem
+            label="프로젝트"
+            on={page === "projects"}
+            onClick={() => go("projects")}
+            icon="folder"
+            count={data?.projects.length}
+          />
           <NavItem label="설정" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
-        </nav>
 
-        <div className="side-foot">
-          <div className="server-card">
-            <div className="server-state">
+          <div className="side-foot">
+            <span className="foot-state">
               <span className={`dot ${error ? "off" : ""}`} />
-              {error ? "서버 연결 안 됨" : "서버 연결됨"}
-            </div>
-            <div className="server-host">{window.location.host}</div>
-            <div className="server-sub">aira v{data?.server.version ?? "…"} · MCP HTTP</div>
+              {error ? "서버 연결 안 됨" : "서버 연결됨"} · {getUsername() ?? "?"}
+            </span>
+            <span className="foot-ver">
+              v{version} · {window.location.host}
+            </span>
           </div>
-          <div className="user-row">
-            <span className="avatar">{(getUsername() ?? "?").charAt(0).toUpperCase()}</span>
-            <div className="user-text">
-              <div className="user-name">{getUsername() ?? "?"}</div>
-              <div className="user-role">viewer · 조회 전용</div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <main className="main">
-        <header className="head">
-          <button className="menu-btn" onClick={() => setMenuOpen(true)} title="메뉴 열기" aria-label="메뉴 열기">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M3 5.5h14M3 10h14M3 14.5h14" strokeLinecap="round" />
-            </svg>
-          </button>
-          <div className="head-titles">
-            <div className="crumb">{crumb}</div>
-            <h1>{title}</h1>
-          </div>
-          <form className="search" onSubmit={onSearch}>
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <circle cx="9" cy="9" r="5.5" />
-              <path d="M13.2 13.2 17 17" />
-            </svg>
-            <input
-              placeholder="태스크 ID 검색 (예: AIR-011)"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </form>
-          <button className="synced" onClick={reload} title="다시 불러오기">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M16.5 10a6.5 6.5 0 1 1-2-4.7M17 3v3.5h-3.5" />
-            </svg>
-            {fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
-          </button>
-        </header>
-
-        <div className="content">
-          {error && <p className="error">{error}</p>}
-          {!data && !error && <p className="muted">불러오는 중…</p>}
-          {data && page === "dashboard" && <Dashboard data={data} onOpenProject={openDetail} />}
-          {data && page === "projects" && (
-            <Projects data={data} openKey={openProject} setOpenKey={setOpenProject} />
-          )}
-          {data && page === "settings" && <Settings data={data} onAuthFail={onAuthFail} />}
-        </div>
-      </main>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -168,14 +186,16 @@ function NavItem({
   on,
   onClick,
   icon,
+  count,
 }: {
   label: string;
   on: boolean;
   onClick: () => void;
   icon: "grid" | "folder" | "gear";
+  count?: number;
 }) {
   return (
-    <button className={`nav-item ${on ? "on" : ""}`} onClick={onClick} title={label}>
+    <button className={`nav-item ${on ? "on" : ""}`} onClick={onClick}>
       <span className="nav-bar" />
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
         {icon === "grid" && (
@@ -187,16 +207,17 @@ function NavItem({
           </>
         )}
         {icon === "folder" && (
-          <path d="M2.5 5.5a1.5 1.5 0 0 1 1.5-1.5h3l1.6 2h6.9a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-9Z" />
+          <path d="M2.4 5.4A1.5 1.5 0 0 1 3.9 3.9h3.1l1.7 2.1h7.4a1.5 1.5 0 0 1 1.5 1.5v7.1a1.5 1.5 0 0 1-1.5 1.5H3.9a1.5 1.5 0 0 1-1.5-1.5V5.4Z" />
         )}
         {icon === "gear" && (
           <>
             <circle cx="10" cy="10" r="2.6" />
-            <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" />
+            <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" strokeLinecap="round" />
           </>
         )}
       </svg>
       <span className="nav-text">{label}</span>
+      {count !== undefined && count > 0 && <span className="nav-count">{count}</span>}
     </button>
   );
 }
@@ -207,7 +228,7 @@ function LoginGate({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <div className="login-wrap">
+    <div className="login-wrap" data-density="compact">
       <div className="ambient" />
       <div className="login-card">
         <span className="logo-mark">F</span>
@@ -228,12 +249,7 @@ function LoginGate({ onDone }: { onDone: () => void }) {
               .finally(() => setBusy(false));
           }}
         >
-          <input
-            placeholder="아이디"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoFocus
-          />
+          <input placeholder="아이디" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
           <input
             type="password"
             placeholder="비밀번호"
