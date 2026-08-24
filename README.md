@@ -159,7 +159,9 @@ from GitHub, never by editing in place.
    `%LOCALAPPDATA%` points into the system profile — set `AIRA_DATA_DIR` to the
    intended absolute path (e.g.
    `C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`), for instance in a
-   small launcher `.cmd` the task runs instead.
+   small launcher `.cmd` the task runs instead. Set `AIRA_TZ=Asia/Seoul` there
+   too — the dashboard shows timestamps in the server's zone, and Windows cannot
+   name its own zone otherwise.
 4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
    then on the server **stop the task first** (`uv sync` cannot replace a
    running `aira.exe`), `git fetch --tags`, `git checkout vX.Y.Z`, `uv sync`
