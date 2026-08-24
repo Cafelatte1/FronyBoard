@@ -90,7 +90,7 @@
 
   /* layout — the console is a width-capped card floating on the page */
   --shell-max: 1024px;
-  --shell-max-h: 900px;
+  --shell-max-h: none;
   --stage-pad: 40px;
   --side-w: 212px;
   --panel-w: 520px;
@@ -1182,10 +1182,11 @@ input::placeholder {
 .table-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
 }
 
 .table-head .count {
+  flex: 1;
   font-size: var(--t-caption);
   font-weight: 600;
   color: var(--text-muted);
@@ -1196,19 +1197,72 @@ input::placeholder {
   color: var(--text);
 }
 
-.toggle-btn {
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
   border-radius: var(--r-md);
-  padding: 6px 11px;
+  padding: 0 11px;
+  height: var(--control-h);
   font-size: var(--t-meta);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.toggle-btn.on {
+.filter-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.filter-btn.on {
   background: var(--accent-subtle);
   color: var(--on-accent-subtle);
   border-color: var(--accent);
+}
+
+.filter-btn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* the filter picker: DS multi-select chips, revealed under the toolbar */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: -8px;
+}
+
+.filter-row .cap {
+  font-size: var(--t-meta);
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.fchip {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 12px;
+  font-size: var(--t-caption);
+}
+
+.fchip.on {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--on-accent-subtle);
+  font-weight: 600;
+}
+
+.fchip.clear {
+  color: var(--text-muted);
+  border-style: dashed;
 }
 
 .task-table {
