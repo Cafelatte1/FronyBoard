@@ -89,6 +89,17 @@ def test_server_info():
     assert body["projects"] == 1
     assert body["open_periods"] == [{"project": "DLY", "period": "2026Q3"}]
     assert body["api_keys"] == 1
+    assert isinstance(body["timezone"]["offset_minutes"], int)
+    assert body["timezone"]["name"] is None or body["timezone"]["name"].isascii()
+
+
+def test_server_timezone_honours_aira_tz(monkeypatch):
+    from aira import web
+
+    monkeypatch.setenv("AIRA_TZ", "Asia/Seoul")
+    assert web._timezone() == {"name": "KST", "offset_minutes": 540}
+    monkeypatch.setenv("AIRA_TZ", "Not/AZone")
+    assert isinstance(web._timezone()["offset_minutes"], int)  # falls back, no crash
 
 
 def test_key_management_requires_dashboard_session():

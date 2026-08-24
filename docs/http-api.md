@@ -101,13 +101,19 @@ filtered. Query parameters, all optional:
 Runtime facts for the Settings screen:
 
 ```json
-{"version": "0.3.0", "started_at": "2026-08-18 12:59:46",
+{"version": "0.5.2", "started_at": "2026-08-18 12:59:46",
  "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data", "projects": 1,
- "open_periods": [{"project": "AIR", "period": "2026Q3"}], "api_keys": 1}
+ "open_periods": [{"project": "AIR", "period": "2026Q3"}], "api_keys": 1,
+ "timezone": {"name": "KST", "offset_minutes": 540}}
 ```
 
 `open_periods` lists periods whose file has no `result` (retrospective) yet.
 Uptime is `now - started_at` (the process start).
+
+`timezone` is the zone the server is serving from — the dashboard shifts the
+stored naive-UTC timestamps by `offset_minutes` for display. Set `AIRA_TZ` to an
+IANA name (`Asia/Seoul`) to pin it; otherwise it is the process-local offset, and
+`name` is null when the OS only offers a localized long name (Windows).
 
 ## API keys (dashboard session required)
 

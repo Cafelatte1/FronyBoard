@@ -10,6 +10,9 @@ login (a session token), never an API key — plan data stays MCP-only.
 
 from __future__ import annotations
 
+import datetime
+import zoneinfo
+
 import os
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 from pathlib import Path
@@ -22,6 +25,26 @@ from . import auth, service, store
 from .service import AiraError
 
 _started_at = store.now()  # module import happens at process start — close enough for uptime
+
+
+def _timezone() -> dict:
+    """The zone this server is serving from, for display conversion of the naive-UTC
+    timestamps. AIRA_TZ (an IANA name) wins; otherwise the process-local offset.
+    `name` is only reported when it is a short ASCII abbreviation (KST, CET…) —
+    Windows hands back localized long names, which are useless as a label."""
+    tz = None
+    override = os.environ.get("AIRA_TZ")
+    if override:
+        try:
+            tz = zoneinfo.ZoneInfo(override)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+            tz = None
+    local = datetime.datetime.now(tz).astimezone(tz)
+    offset = local.utcoffset() or datetime.timedelta(0)
+    name = local.tzname() or ""
+    if not (name.isascii() and 2 <= len(name) <= 5):
+        name = None
+    return {"name": name, "offset_minutes": int(offset.total_seconds() // 60)}
 
 
 def _endpoint(fn):
@@ -80,6 +103,7 @@ def _server(request):
         "projects": len(projects),
         "open_periods": open_periods,
         "api_keys": len(auth.key_info()),
+        "timezone": _timezone(),
     }
 
 
