@@ -28,6 +28,7 @@ export default function App() {
 
 function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const [page, setPage] = useState<Page>("dashboard");
+  const [rail, setRail] = useState(false);
   const [openProject, setOpenProject] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
@@ -68,19 +69,29 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
 
   return (
-    <div className="shell">
+    <div className={`shell ${rail ? "rail" : ""}`} data-density="compact">
       <div className="ambient" />
       <aside className="sidebar">
+        <button
+          className="side-toggle"
+          onClick={() => setRail((v) => !v)}
+          title={rail ? "사이드바 펼치기" : "사이드바 접기"}
+          aria-label={rail ? "사이드바 펼치기" : "사이드바 접기"}
+        >
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d={rail ? "M7.5 4.5 13 10l-5.5 5.5" : "M12.5 4.5 7 10l5.5 5.5"} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <div className="logo">
           <span className="logo-mark">F</span>
-          <div>
+          <div className="logo-text">
             <div className="logo-name">FronyBoard</div>
             <div className="logo-sub">v{data?.server.version ?? "…"}</div>
           </div>
         </div>
 
         <nav className="nav">
-          <div className="nav-label">MENU</div>
+          <div className="nav-label">메뉴</div>
           <NavItem label="대시보드" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
           <NavItem label="프로젝트" on={page === "projects"} onClick={() => go("projects")} icon="folder" />
           <NavItem label="설정" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
@@ -97,7 +108,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           </div>
           <div className="user-row">
             <span className="avatar">{(getUsername() ?? "?").charAt(0).toUpperCase()}</span>
-            <div>
+            <div className="user-text">
               <div className="user-name">{getUsername() ?? "?"}</div>
               <div className="user-role">viewer · 조회 전용</div>
             </div>
@@ -156,7 +167,8 @@ function NavItem({
   icon: "grid" | "folder" | "gear";
 }) {
   return (
-    <button className={`nav-item ${on ? "on" : ""}`} onClick={onClick}>
+    <button className={`nav-item ${on ? "on" : ""}`} onClick={onClick} title={label}>
+      <span className="nav-bar" />
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
         {icon === "grid" && (
           <>
@@ -176,7 +188,7 @@ function NavItem({
           </>
         )}
       </svg>
-      {label}
+      <span className="nav-text">{label}</span>
     </button>
   );
 }
