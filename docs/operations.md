@@ -91,7 +91,7 @@ checkout is reproducible from git and holds no state.
 
 | symptom | cause | fix |
 |---|---|---|
-| `uv sync` fails with `os error 32` | server still running while syncing | `schtasks /End` first (see above), re-run sync, restart |
+| `uv sync` fails with `os error 32` | server still running while syncing — `schtasks /End` returns before the python child actually exits | wait until no `aira serve` process remains (`Get-CimInstance Win32_Process` filtered on the command line; force-stop after ~20s), then sync and `/Run`. A `/Run` while the old process lives is silently ignored (`IgnoreNew`), so the old version keeps serving |
 | `git checkout vX.Y.Z` refuses ("local changes") | `uv sync` dirtied `backend/uv.lock` | `git checkout -- backend/uv.lock`, then check out the tag |
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
 | `aira serve` exits with "no API keys yet" | fresh data root | `uv run aira keygen <name>` once, then start |
