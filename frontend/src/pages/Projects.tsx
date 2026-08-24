@@ -86,7 +86,7 @@ function ProjectDetail({
   onBack: () => void;
   onOpenTask: (t: Task) => void;
 }) {
-  const [showCancelled, setShowCancelled] = useState(false);
+  const [filter, setFilter] = useState<TaskFilter>({ status: [], month: [], cancelled: false, open: null });
   const status = data.statuses[projectKey];
   const allTasks = data.tasks[projectKey] ?? [];
 
@@ -124,8 +124,8 @@ function ProjectDetail({
           isCurrent={name === current}
           period={status.periods[name]}
           tasks={allTasks.filter((t) => t.period === name)}
-          showCancelled={showCancelled}
-          setShowCancelled={setShowCancelled}
+          filter={filter}
+          setFilter={setFilter}
           onOpenTask={onOpenTask}
         />
       ))}
@@ -133,25 +133,48 @@ function ProjectDetail({
   );
 }
 
+/** Table filters live on the detail screen so they apply to every period block. */
+interface TaskFilter {
+  status: string[];
+  month: string[];
+  cancelled: boolean;
+  open: "status" | "month" | null;
+}
+
+const STATUS_OPTIONS = ["done", "in_progress", "todo", "blocked"] as const;
+const EYE_ON = "M2.2 10S5.2 4.6 10 4.6 17.8 10 17.8 10 14.8 15.4 10 15.4 2.2 10 2.2 10Zm7.8 2.3a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z";
+const EYE_OFF = "M4 4l12 12M2.2 10S5.2 4.6 10 4.6c1.5 0 2.8.5 3.9 1.2M17.8 10s-3 5.4-7.8 5.4c-1.4 0-2.7-.4-3.8-1.1";
+
+function toggle(list: string[], v: string): string[] {
+  return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+}
+
 function PeriodBlock({
   name,
   isCurrent,
   period,
   tasks,
-  showCancelled,
-  setShowCancelled,
+  filter,
+  setFilter,
   onOpenTask,
 }: {
   name: string;
   isCurrent: boolean;
   period: PeriodStatus;
   tasks: Task[];
-  showCancelled: boolean;
-  setShowCancelled: (v: boolean) => void;
+  filter: TaskFilter;
+  setFilter: (f: TaskFilter) => void;
   onOpenTask: (t: Task) => void;
 }) {
-  const shown = tasks.filter((t) => showCancelled || t.status !== "cancelled");
+  const shown = tasks.filter(
+    (t) =>
+      (filter.cancelled || t.status !== "cancelled") &&
+      (filter.status.length === 0 || filter.status.includes(t.status)) &&
+      (filter.month.length === 0 || filter.month.includes(t.month)),
+  );
   const ratio = doneRatio(countBy(tasks));
+  const openPicker = (which: "status" | "month") =>
+    setFilter({ ...filter, open: filter.open === which ? null : which });
   return (
     <>
       {/* The current period is described by the summary card; older ones get a caption. */}
@@ -209,10 +232,79 @@ function PeriodBlock({
             {shown.length}/{tasks.length}
           </b>
         </span>
-        <button className={`toggle-btn ${showCancelled ? "on" : ""}`} onClick={() => setShowCancelled(!showCancelled)}>
-          취소된 태스크 표시
+        <button
+          className={`filter-btn ${filter.status.length > 0 ? "on" : ""}`}
+          onClick={() => openPicker("status")}
+          title="상태 필터"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M3 5.2h14M5.6 10h8.8M8.2 14.8h3.6" />
+          </svg>
+          상태{filter.status.length > 0 && ` · ${filter.status.length}`}
+        </button>
+        {period.months.length > 0 && (
+          <button
+            className={`filter-btn ${filter.month.length > 0 ? "on" : ""}`}
+            onClick={() => openPicker("month")}
+            title="월 필터"
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <rect x="3" y="4.4" width="14" height="12.2" rx="2" />
+              <path d="M3 8.2h14M7.2 2.8v2.6M12.8 2.8v2.6" />
+            </svg>
+            월{filter.month.length > 0 && ` · ${filter.month.length}`}
+          </button>
+        )}
+        <button
+          className={`filter-btn ${filter.cancelled ? "on" : ""}`}
+          onClick={() => setFilter({ ...filter, cancelled: !filter.cancelled })}
+          title="취소된 태스크 표시"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d={filter.cancelled ? EYE_ON : EYE_OFF} />
+          </svg>
+          취소된 태스크
         </button>
       </div>
+
+      {filter.open === "status" && (
+        <div className="filter-row">
+          <span className="cap">상태</span>
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              key={s}
+              className={`fchip ${filter.status.includes(s) ? "on" : ""}`}
+              onClick={() => setFilter({ ...filter, status: toggle(filter.status, s) })}
+            >
+              {TASK_ST[s].label}
+            </button>
+          ))}
+          {filter.status.length > 0 && (
+            <button className="fchip clear" onClick={() => setFilter({ ...filter, status: [] })}>
+              전체
+            </button>
+          )}
+        </div>
+      )}
+      {filter.open === "month" && (
+        <div className="filter-row">
+          <span className="cap">월</span>
+          {period.months.map((m) => (
+            <button
+              key={m.id}
+              className={`fchip ${filter.month.includes(m.id) ? "on" : ""}`}
+              onClick={() => setFilter({ ...filter, month: toggle(filter.month, m.id) })}
+            >
+              {m.id} · {m.month}
+            </button>
+          ))}
+          {filter.month.length > 0 && (
+            <button className="fchip clear" onClick={() => setFilter({ ...filter, month: [] })}>
+              전체
+            </button>
+          )}
+        </div>
+      )}
       <div className="task-table">
         <div className="task-grid thead">
           <span>ID</span>
@@ -241,7 +333,7 @@ function PeriodBlock({
         {shown.length === 0 && (
           <div className="task-grid">
             <span className="muted" style={{ gridColumn: "1 / -1" }}>
-              태스크가 없어요.
+              {tasks.length === 0 ? "태스크가 없어요." : "필터에 맞는 태스크가 없어요."}
             </span>
           </div>
         )}
