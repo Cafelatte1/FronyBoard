@@ -83,7 +83,7 @@
 
   --shell-max: 1024px;
   --side-w: 212px;
-  --side-w-rail: 56px;
+  --backdrop: rgba(0, 0, 0, 0.55);
 }
 
 /* compact density — the B2B desktop scale (see DS "App shell (desktop)") */
@@ -162,6 +162,7 @@ button {
   position: relative;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .ambient {
@@ -196,65 +197,93 @@ button {
 
 /* ---------------------------------------------------------------- sidebar */
 
+/* The sidebar is a drawer: it slides over the content and never changes
+   the content's width. Closed by default; the header's menu button opens it. */
 .sidebar {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: var(--side-w);
-  flex: none;
   padding: var(--s-4) var(--s-3) var(--s-3);
   background: var(--surface);
   border-right: 1px solid var(--border);
+  box-shadow: var(--e-3);
   display: flex;
   flex-direction: column;
   gap: var(--s-5);
-  transition: width var(--dur) var(--ease);
+  z-index: 20;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform var(--dur) var(--ease), visibility 0s linear var(--dur);
 }
 
-.shell.rail .sidebar {
-  width: var(--side-w-rail);
-  padding-left: var(--s-2);
-  padding-right: var(--s-2);
-  align-items: center;
+.shell.open .sidebar {
+  transform: none;
+  visibility: visible;
+  transition: transform var(--dur) var(--ease);
 }
 
-/* in rail mode only the icons survive */
-.shell.rail .logo-text,
-.shell.rail .nav-label,
-.shell.rail .nav-text,
-.shell.rail .server-card,
-.shell.rail .user-text {
-  display: none;
+/* dims the content while the drawer is open; clicking it closes the drawer */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--backdrop);
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur) var(--ease), visibility 0s linear var(--dur);
 }
 
-.shell.rail .nav-item {
-  justify-content: center;
-  padding-left: 0;
-  padding-right: 0;
+.shell.open .backdrop {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--dur) var(--ease);
 }
 
-.shell.rail .side-foot {
-  align-items: center;
-}
-
-.side-toggle {
+.side-close {
   position: absolute;
   top: var(--s-4);
-  right: calc(var(--s-3) * -1 + 2px);
-  width: 22px;
-  height: 22px;
+  right: var(--s-3);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-muted);
+  padding: 0;
+}
+
+.side-close:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.menu-btn {
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   background: var(--surface-raised);
   color: var(--text-muted);
   padding: 0;
-  z-index: 2;
 }
 
-.side-toggle:hover {
+.menu-btn:hover {
   color: var(--text);
   border-color: var(--border-strong);
+}
+
+.menu-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .logo {
@@ -262,10 +291,6 @@ button {
   align-items: center;
   gap: 10px;
   padding: 0 var(--s-2);
-}
-
-.shell.rail .logo {
-  padding: 0;
 }
 
 .logo-mark {
@@ -346,10 +371,6 @@ button {
 
 .nav-item.on .nav-bar {
   background: var(--accent);
-}
-
-.shell.rail .nav-item .nav-bar {
-  display: none;
 }
 
 .nav-item svg {
