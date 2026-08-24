@@ -28,7 +28,13 @@ export default function App() {
 
 function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const [page, setPage] = useState<Page>("dashboard");
-  const [rail, setRail] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
   const [openProject, setOpenProject] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
@@ -41,6 +47,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const go = (p: Page) => {
     setPage(p);
     setOpenProject(null);
+    setMenuOpen(false);
   };
   const openDetail = (key: string) => {
     setPage("projects");
@@ -69,17 +76,13 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
 
   return (
-    <div className={`shell ${rail ? "rail" : ""}`} data-density="compact">
+    <div className={`shell ${menuOpen ? "open" : ""}`} data-density="compact">
       <div className="ambient" />
-      <aside className="sidebar">
-        <button
-          className="side-toggle"
-          onClick={() => setRail((v) => !v)}
-          title={rail ? "사이드바 펼치기" : "사이드바 접기"}
-          aria-label={rail ? "사이드바 펼치기" : "사이드바 접기"}
-        >
-          <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d={rail ? "M7.5 4.5 13 10l-5.5 5.5" : "M12.5 4.5 7 10l5.5 5.5"} strokeLinecap="round" strokeLinejoin="round" />
+      <div className="backdrop" onClick={() => setMenuOpen(false)} />
+      <aside className="sidebar" aria-hidden={!menuOpen}>
+        <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M5 5l10 10M15 5 5 15" strokeLinecap="round" />
           </svg>
         </button>
         <div className="logo">
@@ -118,6 +121,11 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
 
       <main className="main">
         <header className="head">
+          <button className="menu-btn" onClick={() => setMenuOpen(true)} title="메뉴 열기" aria-label="메뉴 열기">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M3 5.5h14M3 10h14M3 14.5h14" strokeLinecap="round" />
+            </svg>
+          </button>
           <div className="head-titles">
             <div className="crumb">{crumb}</div>
             <h1>{title}</h1>
