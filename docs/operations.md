@@ -95,6 +95,7 @@ checkout is reproducible from git and holds no state.
 | `git checkout vX.Y.Z` refuses ("local changes") | `uv sync` dirtied `backend/uv.lock` | `git checkout -- backend/uv.lock`, then check out the tag |
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
 | `aira serve` exits with "no API keys yet" | fresh data root | `uv run aira keygen <name>` once, then start |
+| task-panel timestamps show `UTC+9` instead of `KST` (or a wrong zone) | the SYSTEM account's locale gives no short zone name / a different zone | set `AIRA_TZ=Asia/Seoul` in the launcher script next to `AIRA_DATA_DIR` |
 | server starts with empty data (all projects gone) | task runs as SYSTEM, whose `%LOCALAPPDATA%` is the system profile — the default root resolved elsewhere | set `AIRA_DATA_DIR` to the absolute data path in the launcher script |
 | server dead after closing the lid / after ~3 days | laptop slept on lid close, or the task's default 72h execution limit killed it | lid action = do nothing (`powercfg`), `ExecutionTimeLimit 0`, 10-minute watchdog trigger — all applied; re-check with `Get-ScheduledTask` if the task is ever re-created |
 | dashboard loads but data errors | version mismatch: old backend serving a newer dist (or vice versa) after a partial deploy | redo the deploy sequence — checkout and sync must both complete |

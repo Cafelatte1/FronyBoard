@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Unauthorized, api } from "./api";
-import type { BoardData, Roadmap, ServerInfo, StatusResp, Task } from "./types";
+import type { BoardData, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
 
 // ---------------------------------------------------------------- data hooks
 
@@ -124,6 +124,24 @@ export function donutGradient(counts: Record<string, number>): string {
 export function parseUtc(s: string): Date {
   const iso = s.replace(" ", "T");
   return new Date(iso.endsWith("Z") ? iso : iso + "Z");
+}
+
+/** "KST (UTC+9)" / "UTC+9" / "UTC" — the label for timestamps shifted by `tz`. */
+export function tzLabel(tz: ServerTimezone | undefined): string {
+  if (!tz) return "UTC";
+  const m = tz.offset_minutes;
+  const sign = m < 0 ? "-" : "+";
+  const h = Math.floor(Math.abs(m) / 60);
+  const mm = Math.abs(m) % 60;
+  const utc = m === 0 ? "UTC" : `UTC${sign}${h}${mm ? ":" + String(mm).padStart(2, "0") : ""}`;
+  return tz.name && tz.name !== utc ? `${tz.name} (${utc})` : utc;
+}
+
+/** A stored naive-UTC timestamp rendered in the server's zone: "2026-08-24 23:08:12". */
+export function fmtServerTime(s: string, tz: ServerTimezone | undefined): string {
+  const t = new Date(parseUtc(s).getTime() + (tz?.offset_minutes ?? 0) * 60000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${t.getUTCFullYear()}-${p(t.getUTCMonth() + 1)}-${p(t.getUTCDate())} ${p(t.getUTCHours())}:${p(t.getUTCMinutes())}:${p(t.getUTCSeconds())}`;
 }
 
 export function fmtAgo(d: Date, now: Date = new Date()): string {

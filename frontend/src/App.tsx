@@ -138,7 +138,12 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           </div>
         </main>
 
-        <TaskPanel task={openTask?.task ?? null} projectKey={openTask?.key ?? null} onClose={() => setOpenTask(null)} />
+        <TaskPanel
+          task={openTask?.task ?? null}
+          projectKey={openTask?.key ?? null}
+          tz={data?.server.timezone}
+          onClose={() => setOpenTask(null)}
+        />
 
         <div className="backdrop" onClick={() => setMenuOpen(false)} />
         <aside className="sidebar" aria-hidden={!menuOpen}>

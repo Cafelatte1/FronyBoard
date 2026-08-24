@@ -72,6 +72,13 @@ export interface ServerInfo {
   projects: number;
   open_periods: { project: string; period: string }[];
   api_keys: number;
+  /** Absent on servers older than 0.5.2. */
+  timezone?: ServerTimezone;
+}
+
+export interface ServerTimezone {
+  name: string | null;
+  offset_minutes: number;
 }
 
 export interface KeyInfo {

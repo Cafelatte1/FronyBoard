@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Unauthorized, api, apiSend, getUsername, logout } from "../api";
-import { fmtUptime } from "../shared";
-import type { BoardData, KeyInfo } from "../types";
+import { fmtServerTime, fmtUptime } from "../shared";
+import type { BoardData, KeyInfo, ServerTimezone } from "../types";
 
 export default function Settings({ data, onAuthFail }: { data: BoardData; onAuthFail: () => void }) {
   const username = getUsername() ?? "?";
@@ -28,7 +28,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
         </div>
       </section>
 
-      <KeysSection onAuthFail={onAuthFail} />
+      <KeysSection onAuthFail={onAuthFail} tz={server.timezone} />
 
       <section className="card">
         <div className="card-title">서버 정보</div>
@@ -62,7 +62,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
   );
 }
 
-function KeysSection({ onAuthFail }: { onAuthFail: () => void }) {
+function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTimezone | undefined }) {
   const [keys, setKeys] = useState<KeyInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
@@ -193,7 +193,7 @@ function KeysSection({ onAuthFail }: { onAuthFail: () => void }) {
               {k.name}
             </span>
             <span className="key-fp">{k.fingerprint ?? "—"}</span>
-            <span className="key-date">{k.created_at.slice(0, 10)}</span>
+            <span className="key-date">{fmtServerTime(k.created_at, tz).slice(0, 10)}</span>
             <button className="danger-btn" onClick={() => revoke(k.name)}>
               삭제
             </button>
