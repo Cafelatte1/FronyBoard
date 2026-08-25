@@ -1268,7 +1268,7 @@ input::placeholder {
 
 .task-grid {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) 78px 62px 46px 176px;
+  grid-template-columns: 82px minmax(0, 1fr) 78px 62px 46px 90px;
   gap: var(--gap);
   align-items: center;
   padding: 0 var(--card-pad);
@@ -1313,17 +1313,10 @@ button.task-grid:hover {
   white-space: nowrap;
 }
 
-.c-dim,
-.c-branch {
+.c-dim {
   font-family: var(--font-mono);
   font-size: var(--t-meta);
   color: var(--text-muted);
-}
-
-.c-branch {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .task-grid.cancelled {
