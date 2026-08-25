@@ -1,6 +1,16 @@
 import { useState } from "react";
-import { MilestoneChip, StatusChip, TASK_ST, countBy, currentPeriodName, doneRatio, monthOf, weekLabel } from "../shared";
-import type { BoardData, PeriodStatus, Task } from "../types";
+import {
+  MilestoneChip,
+  StatusChip,
+  TASK_ST,
+  countBy,
+  currentPeriodName,
+  doneRatio,
+  fmtServerTime,
+  monthOf,
+  weekLabel,
+} from "../shared";
+import type { BoardData, PeriodStatus, ServerTimezone, Task } from "../types";
 
 export default function Projects({
   data,
@@ -126,6 +136,7 @@ function ProjectDetail({
           tasks={allTasks.filter((t) => t.period === name)}
           filter={filter}
           setFilter={setFilter}
+          tz={data.server.timezone}
           onOpenTask={onOpenTask}
         />
       ))}
@@ -156,6 +167,7 @@ function PeriodBlock({
   tasks,
   filter,
   setFilter,
+  tz,
   onOpenTask,
 }: {
   name: string;
@@ -164,6 +176,7 @@ function PeriodBlock({
   tasks: Task[];
   filter: TaskFilter;
   setFilter: (f: TaskFilter) => void;
+  tz: ServerTimezone | undefined;
   onOpenTask: (t: Task) => void;
 }) {
   const shown = tasks.filter(
@@ -311,7 +324,7 @@ function PeriodBlock({
           <span>STATUS</span>
           <span>MONTH</span>
           <span>WEEK</span>
-          <span>BRANCH</span>
+          <span>CREATED</span>
         </div>
         {shown.map((t) => (
           <button
@@ -326,7 +339,7 @@ function PeriodBlock({
             </span>
             <span className="c-dim">{monthOf(period.months, t.month)}</span>
             <span className="c-dim">{weekLabel(t.week)}</span>
-            <span className="c-branch">{t.branch ?? "—"}</span>
+            <span className="c-dim">{fmtServerTime(t.meta.created_at, tz).slice(0, 10)}</span>
           </button>
         ))}
         {shown.length === 0 && (
