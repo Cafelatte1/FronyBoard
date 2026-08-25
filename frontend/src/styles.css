@@ -365,6 +365,12 @@ input::placeholder {
   gap: var(--s-4);
 }
 
+/* children never shrink to fit — an overflow:hidden card would otherwise
+   collapse instead of pushing the content area to scroll */
+.content > * {
+  flex-shrink: 0;
+}
+
 /* ----------------------------------------------------------------- drawer */
 
 .backdrop {
