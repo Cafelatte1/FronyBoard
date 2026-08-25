@@ -10,7 +10,7 @@ resolution-markers = [
 
 [[package]]
 name = "aira"
-version = "0.5.6"
+version = "0.5.7"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
