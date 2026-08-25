@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Unauthorized, api } from "./api";
 import type { BoardData, MonthInfo, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
 
@@ -25,6 +25,8 @@ export function useApi<T>(path: string, onAuthFail: () => void) {
 }
 
 /** Load everything the shell needs in one go; tiny data set, so no paging. */
+const REFRESH_MS = 60_000;
+
 export function useBoardData(onAuthFail: () => void) {
   const [data, setData] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +65,26 @@ export function useBoardData(onAuthFail: () => void) {
   }, []);
 
   useEffect(reload, [reload]);
+
+  // Auto refresh: every minute while the tab is visible, and right away when the
+  // tab comes back after being stale — agents write through MCP, the board follows.
+  const fetchedRef = useRef<Date | null>(null);
+  fetchedRef.current = fetchedAt;
+  useEffect(() => {
+    const stale = () => !fetchedRef.current || Date.now() - fetchedRef.current.getTime() >= REFRESH_MS;
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") reload();
+    }, REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && stale()) reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [reload]);
+
   return { data, error, fetchedAt, reload };
 }
 
