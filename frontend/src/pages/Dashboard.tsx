@@ -49,13 +49,6 @@ export default function Dashboard({
   const mainPeriod = perProject.find((p) => p.period)?.period ?? null;
   const burn = mainPeriod ? burnup(pooled, mainPeriod) : null;
 
-  const first = data.projects[0];
-  const roadmap = first ? data.roadmaps[first.key] : null;
-  const latestYear = roadmap
-    ? Object.keys(roadmap.years ?? {}).sort((a, b) => b.localeCompare(a))[0]
-    : null;
-  const yearData = roadmap && latestYear ? roadmap.years[latestYear] : null;
-
   return (
     <>
       <div className="stat-grid">
@@ -63,6 +56,7 @@ export default function Dashboard({
           label="전체 태스크"
           value={ratio.total}
           delta={createdThisWeek > 0 ? `+${createdThisWeek}` : ""}
+          deltaClass="dim"
           sub={`${mainPeriod ?? ""} · 취소 제외`}
         />
         <Stat label="진행 중" value={counts["in_progress"] ?? 0} delta="WIP" deltaClass="dim" sub={`브랜치 연결 ${withBranch}건`} />
@@ -184,30 +178,6 @@ export default function Dashboard({
         </div>
       </div>
 
-      <div className="card">
-        <div className="list-head">
-          <span className="card-title">{latestYear ?? ""} 로드맵</span>
-          <span className="mono">{first?.key}</span>
-        </div>
-        {yearData ? (
-          <div className="nnl">
-            {(
-              [
-                ["now", yearData.overview.now],
-                ["next", yearData.overview.next],
-                ["later", yearData.overview.later],
-              ] as const
-            ).map(([label, text]) => (
-              <div key={label} className="nnl-item">
-                <div className="nnl-label">{label}</div>
-                <div className="nnl-text">{text}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="muted">로드맵이 아직 없어요.</p>
-        )}
-      </div>
     </>
   );
 }

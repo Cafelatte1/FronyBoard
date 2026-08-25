@@ -33,7 +33,7 @@ export default function TaskPanel({
                 <div className="panel-title">{task.title}</div>
               </div>
               <button className="panel-close" onClick={onClose} title="닫기" aria-label="닫기">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
                 </svg>
               </button>

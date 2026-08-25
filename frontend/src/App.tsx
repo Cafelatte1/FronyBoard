@@ -99,8 +99,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
         <main className="main">
           <header className="head">
             <button className="menu-btn" onClick={() => setMenuOpen(true)} title="메뉴 열기" aria-label="메뉴 열기">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M3 5.5h14M3 10h14M3 14.5h14" />
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />
               </svg>
             </button>
             <div className="head-titles">
@@ -115,8 +115,9 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               <input placeholder="태스크 ID 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
             </form>
             <button className="synced" onClick={reload} title="다시 불러오기">
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M16.5 10a6.5 6.5 0 1 1-2-4.7M17 3v3.5h-3.5" />
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
+                <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
             </button>
@@ -155,7 +156,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               <div className="logo-sub">v{version}</div>
             </div>
             <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
-              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M5 5l10 10M15 5 5 15" />
               </svg>
             </button>
