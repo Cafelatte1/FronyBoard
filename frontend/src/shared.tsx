@@ -71,7 +71,7 @@ export function useBoardData(onAuthFail: () => void) {
 export const TASK_ST: Record<string, { label: string; swatch: string }> = {
   done: { label: "완료", swatch: "var(--success)" },
   in_progress: { label: "진행중", swatch: "var(--accent)" },
-  todo: { label: "대기", swatch: "var(--neutral-subtle)" },
+  todo: { label: "대기", swatch: "var(--border-strong)" },
   blocked: { label: "블록", swatch: "var(--danger)" },
   cancelled: { label: "취소", swatch: "var(--neutral-subtle)" },
 };

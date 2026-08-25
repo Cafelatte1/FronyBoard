@@ -10,7 +10,7 @@ import {
   monthOf,
   weekLabel,
 } from "../shared";
-import type { BoardData, PeriodStatus, ServerTimezone, Task } from "../types";
+import type { BoardData, MonthInfo, PeriodStatus, Roadmap, ServerTimezone, Task } from "../types";
 
 export default function Projects({
   data,
@@ -108,7 +108,7 @@ function ProjectDetail({
   return (
     <>
       <button className="back-btn" onClick={onBack}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12.5 4.5 7 10l5.5 5.5" />
         </svg>
         프로젝트 목록
@@ -127,6 +127,13 @@ function ProjectDetail({
         </span>
       </div>
 
+      <RoadmapCard
+        roadmap={data.roadmaps[projectKey]}
+        projectKey={projectKey}
+        current={current}
+        months={currentInfo?.months ?? []}
+      />
+
       {periodNames.map((name) => (
         <PeriodBlock
           key={name}
@@ -141,6 +148,92 @@ function ProjectDetail({
         />
       ))}
     </>
+  );
+}
+
+const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
+const NNL = ["now", "next", "later"] as const;
+
+/** Year goal → quarter timeline → current-period month ticks → NOW/NEXT/LATER. */
+function RoadmapCard({
+  roadmap,
+  projectKey,
+  current,
+  months,
+}: {
+  roadmap: Roadmap | undefined;
+  projectKey: string;
+  current: string | null;
+  months: MonthInfo[];
+}) {
+  const year = roadmap ? Object.keys(roadmap.years ?? {}).sort((a, b) => b.localeCompare(a))[0] : undefined;
+  const yd = roadmap && year ? roadmap.years[year] : null;
+  if (!yd) {
+    return (
+      <div className="card">
+        <div className="card-title">로드맵</div>
+        <p className="muted">로드맵이 아직 없어요.</p>
+      </div>
+    );
+  }
+  const ms = yd.milestones ?? {};
+  const activeIdx = QUARTERS.findIndex((q) => ms[q]?.status === "active");
+  const lit = (j: number) => j <= activeIdx;
+  return (
+    <div className="card">
+      <div className="road-head">
+        <span className="card-title">{year} 로드맵</span>
+        <span className="mono">{projectKey} · 연간</span>
+      </div>
+      <span className="road-goal">{yd.overview.goal}</span>
+
+      <div className="qtl">
+        {QUARTERS.map((q, i) => {
+          const st = ms[q]?.status ?? "planned";
+          return (
+            <div key={q} className={`q q-${st}`}>
+              <span className="q-line">
+                <span className={`q-seg ${i === 0 ? "hide" : lit(i) ? "lit" : ""}`} />
+                <span className={`q-seg ${i === QUARTERS.length - 1 ? "hide" : lit(i + 1) ? "lit" : ""}`} />
+                <span className="q-dot" />
+              </span>
+              <span className="q-id">{q}</span>
+              <MilestoneChip status={st} />
+              <span className="q-goal">{ms[q]?.goal ?? "—"}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {current && months.length > 0 && (
+        <div className="ticks">
+          <span className="ticks-period">{current}</span>
+          {months.map((m) => {
+            const r = doneRatio(m.task_counts);
+            return (
+              <span key={m.id} className={`tick ${m.status === "planned" ? "planned" : ""}`}>
+                <span className="tick-head">
+                  <span className="tick-month">{m.month}</span>
+                  <span className="tick-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
+                </span>
+                <span className="bar tick-bar">
+                  {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="nnl">
+        {NNL.map((k, i) => (
+          <div key={k} className={`nnl-item nnl-${i}`}>
+            <div className="nnl-label">{k}</div>
+            <div className="nnl-text">{yd.overview[k]}</div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -249,7 +342,7 @@ function PeriodBlock({
           onClick={() => openPicker("status")}
           title="상태 필터"
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d="M3 5.2h14M5.6 10h8.8M8.2 14.8h3.6" />
           </svg>
           상태{filter.status.length > 0 && ` · ${filter.status.length}`}
@@ -261,8 +354,8 @@ function PeriodBlock({
             title="월 필터"
           >
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <rect x="3" y="4.4" width="14" height="12.2" rx="2" />
-              <path d="M3 8.2h14M7.2 2.8v2.6M12.8 2.8v2.6" />
+              <rect x="3" y="4.5" width="14" height="12" rx="1.8" />
+              <path d="M3 8h14M7 3v3M13 3v3" />
             </svg>
             월{filter.month.length > 0 && ` · ${filter.month.length}`}
           </button>
@@ -272,7 +365,7 @@ function PeriodBlock({
           onClick={() => setFilter({ ...filter, cancelled: !filter.cancelled })}
           title="취소된 태스크 표시"
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d={filter.cancelled ? EYE_ON : EYE_OFF} />
           </svg>
           취소된 태스크

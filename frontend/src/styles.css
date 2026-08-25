@@ -48,8 +48,8 @@
   --on-neutral-subtle: #b4b4be;
 
   /* overlays */
-  --backdrop: rgba(0, 0, 0, 0.55);
-  --backdrop-strong: rgba(0, 0, 0, 0.6);
+  --backdrop: rgba(8, 7, 11, 0.62);
+  --backdrop-strong: rgba(8, 7, 11, 0.62);
   --glow-accent: rgba(161, 140, 209, 0.2);
   --glow-alt: rgba(251, 194, 235, 0.11);
 
@@ -267,21 +267,20 @@ input::placeholder {
 
 .menu-btn {
   flex: none;
-  width: var(--control-h);
-  height: var(--control-h);
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface-raised);
-  color: var(--text-muted);
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  color: var(--on-accent-subtle);
   padding: 0;
 }
 
 .menu-btn:hover {
   color: var(--text);
-  border-color: var(--accent);
 }
 
 .menu-btn svg {
@@ -372,6 +371,7 @@ input::placeholder {
   position: absolute;
   inset: 0;
   background: var(--backdrop);
+  backdrop-filter: blur(3px);
   z-index: 10;
   opacity: 0;
   visibility: hidden;
@@ -392,7 +392,7 @@ input::placeholder {
   width: var(--side-w);
   padding: var(--s-4) var(--s-3) var(--s-3);
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-strong);
   box-shadow: var(--e-3);
   display: flex;
   flex-direction: column;
@@ -976,7 +976,7 @@ input::placeholder {
 }
 
 .nnl {
-  margin-top: 12px;
+  margin-top: 18px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--gap);
@@ -986,14 +986,27 @@ input::placeholder {
   padding: 12px 14px;
   border-radius: var(--r-lg);
   background: var(--surface-raised);
+  border-left: 3px solid var(--border);
+}
+
+.nnl-item.nnl-0 {
+  border-left-color: var(--accent);
+}
+
+.nnl-item.nnl-1 {
+  border-left-color: var(--accent-subtle);
 }
 
 .nnl-label {
   font-size: var(--t-badge);
   font-weight: 600;
-  color: var(--on-accent-subtle);
+  color: var(--text-muted);
   letter-spacing: 0.4px;
   text-transform: uppercase;
+}
+
+.nnl-0 .nnl-label {
+  color: var(--on-accent-subtle);
 }
 
 .nnl-text {
@@ -1003,6 +1016,180 @@ input::placeholder {
 }
 
 /* --------------------------------------------------------------- projects */
+
+/* roadmap card: quarter timeline + month ticks */
+.road-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.road-head .mono {
+  font-size: var(--t-meta);
+  color: var(--text-muted);
+}
+
+.road-goal {
+  display: block;
+  margin-top: 5px;
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+
+.qtl {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.q {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.q-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 14px;
+}
+
+.q-seg {
+  position: absolute;
+  top: 6px;
+  width: 50%;
+  height: 2px;
+  background: var(--border);
+}
+
+.q-seg:first-child {
+  left: 0;
+}
+
+.q-seg:nth-child(2) {
+  right: 0;
+}
+
+.q-seg.lit {
+  background: var(--accent);
+}
+
+.q-seg.hide {
+  background: transparent;
+}
+
+.q-dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--neutral-subtle);
+}
+
+.q-done .q-dot {
+  background: var(--success);
+}
+
+.q-active .q-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-subtle);
+}
+
+.q-id {
+  margin-top: 10px;
+  font-size: var(--t-caption);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.q-done .q-id {
+  color: var(--text);
+}
+
+.q-active .q-id {
+  color: var(--on-accent-subtle);
+}
+
+.q .chip {
+  margin-top: 5px;
+}
+
+.q-goal {
+  margin-top: 7px;
+  padding: 0 8px;
+  font-size: var(--t-meta);
+  color: var(--text-disabled);
+  text-align: center;
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+
+.q-done .q-goal {
+  color: var(--text-muted);
+}
+
+.q-active .q-goal {
+  color: var(--text);
+}
+
+.ticks {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ticks-period {
+  flex: none;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--on-accent-subtle);
+}
+
+.tick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tick-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--t-meta);
+  font-family: var(--font-mono);
+}
+
+.tick-month {
+  flex: 1;
+  font-weight: 600;
+  color: var(--on-accent-subtle);
+}
+
+.tick.planned .tick-month {
+  color: var(--text-muted);
+}
+
+.tick-ratio {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tick-bar {
+  height: 6px;
+}
 
 .back-btn {
   align-self: flex-start;
@@ -1355,8 +1542,8 @@ button.task-grid:hover {
   width: var(--panel-w);
   max-width: calc(100% - 56px);
   background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--e-4);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--e-3);
   display: flex;
   flex-direction: column;
   z-index: 31;
