@@ -141,6 +141,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
         <TaskPanel
           task={openTask?.task ?? null}
           projectKey={openTask?.key ?? null}
+          months={(openTask && data?.statuses[openTask.key]?.periods[openTask.task.period]?.months) ?? []}
           tz={data?.server.timezone}
           onClose={() => setOpenTask(null)}
         />

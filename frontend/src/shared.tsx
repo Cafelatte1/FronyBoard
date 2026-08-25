@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Unauthorized, api } from "./api";
-import type { BoardData, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
+import type { BoardData, MonthInfo, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
 
 // ---------------------------------------------------------------- data hooks
 
@@ -103,6 +103,15 @@ export function currentPeriodName(status: StatusResp): string | null {
   const names = Object.keys(status.periods).sort();
   const active = [...names].reverse().find((n) => status.periods[n].milestone_status === "active");
   return active ?? names[names.length - 1] ?? null;
+}
+
+/** The month a task sits in, as its calendar month ("2026-07"); falls back to the id. */
+export function monthOf(months: MonthInfo[], monthId: string): string {
+  return months.find((m) => m.id === monthId)?.month ?? monthId;
+}
+
+export function weekLabel(week: number | undefined): string {
+  return week ? `${week}주차` : "—";
 }
 
 export function donutGradient(counts: Record<string, number>): string {

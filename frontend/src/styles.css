@@ -1108,17 +1108,11 @@ input::placeholder {
 }
 
 .m-id {
+  flex: 1;
   font-size: var(--t-badge);
   font-weight: 600;
   font-family: var(--font-mono);
   color: var(--on-accent-subtle);
-}
-
-.m-month {
-  font-size: var(--t-meta);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  flex: 1;
 }
 
 .month-goal {
@@ -1155,7 +1149,7 @@ input::placeholder {
   font-size: var(--t-meta);
   font-weight: 600;
   color: var(--on-accent-subtle);
-  width: 30px;
+  width: 58px;
   flex: none;
 }
 
@@ -1274,7 +1268,7 @@ input::placeholder {
 
 .task-grid {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) 78px 34px 40px 176px;
+  grid-template-columns: 82px minmax(0, 1fr) 78px 62px 46px 176px;
   gap: var(--gap);
   align-items: center;
   padding: 0 var(--card-pad);

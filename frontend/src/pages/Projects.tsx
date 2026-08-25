@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MilestoneChip, StatusChip, TASK_ST, countBy, currentPeriodName, doneRatio } from "../shared";
+import { MilestoneChip, StatusChip, TASK_ST, countBy, currentPeriodName, doneRatio, monthOf, weekLabel } from "../shared";
 import type { BoardData, PeriodStatus, Task } from "../types";
 
 export default function Projects({
@@ -194,8 +194,7 @@ function PeriodBlock({
           {period.months.map((m) => (
             <div key={m.id} className={`month-card ${m.status === "active" ? "on" : ""}`}>
               <div className="month-head">
-                <span className="m-id">{m.id}</span>
-                <span className="m-month">{m.month}</span>
+                <span className="m-id">{m.month}</span>
                 <MilestoneChip status={m.status} />
               </div>
               <div className="month-goal">{m.goal ?? "—"}</div>
@@ -212,7 +211,7 @@ function PeriodBlock({
               const r = doneRatio(m.task_counts);
               return (
                 <div key={m.id} className="rollup-row">
-                  <span className="r-id">{m.id}</span>
+                  <span className="r-id">{m.month}</span>
                   <span className="r-goal">{m.goal ?? "—"}</span>
                   <span className="r-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
                   <span className="bar r-bar">
@@ -295,7 +294,7 @@ function PeriodBlock({
               className={`fchip ${filter.month.includes(m.id) ? "on" : ""}`}
               onClick={() => setFilter({ ...filter, month: toggle(filter.month, m.id) })}
             >
-              {m.id} · {m.month}
+              {m.month}
             </button>
           ))}
           {filter.month.length > 0 && (
@@ -310,8 +309,8 @@ function PeriodBlock({
           <span>ID</span>
           <span>TITLE</span>
           <span>STATUS</span>
-          <span>M</span>
-          <span>W</span>
+          <span>MONTH</span>
+          <span>WEEK</span>
           <span>BRANCH</span>
         </div>
         {shown.map((t) => (
@@ -325,8 +324,8 @@ function PeriodBlock({
             <span>
               <StatusChip status={t.status} />
             </span>
-            <span className="c-dim">{t.month}</span>
-            <span className="c-dim">{t.week ? `W${t.week}` : "—"}</span>
+            <span className="c-dim">{monthOf(period.months, t.month)}</span>
+            <span className="c-dim">{weekLabel(t.week)}</span>
             <span className="c-branch">{t.branch ?? "—"}</span>
           </button>
         ))}
