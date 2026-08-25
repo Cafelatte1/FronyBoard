@@ -1,17 +1,19 @@
 import { parseMd, type Span } from "./markdown";
-import { StatusChip, TASK_ST, fmtServerTime, tzLabel } from "./shared";
-import type { ServerTimezone, Task } from "./types";
+import { StatusChip, TASK_ST, fmtServerTime, monthOf, tzLabel, weekLabel } from "./shared";
+import type { MonthInfo, ServerTimezone, Task } from "./types";
 
 /** Right-hand slide-over with the full task record. Stays mounted so the
     close transition can play; `task` null just means closed. */
 export default function TaskPanel({
   task,
   projectKey,
+  months,
   tz,
   onClose,
 }: {
   task: Task | null;
   projectKey: string | null;
+  months: MonthInfo[];
   tz: ServerTimezone | undefined;
   onClose: () => void;
 }) {
@@ -40,7 +42,10 @@ export default function TaskPanel({
             <div className="panel-body">
               <div className="field-grid">
                 <Field label="status" value={TASK_ST[task.status]?.label ?? task.status} tone="accent" />
-                <Field label="month" value={task.week ? `${task.month} · W${task.week}` : task.month} />
+                <Field
+                  label="month"
+                  value={task.week ? `${monthOf(months, task.month)} · ${weekLabel(task.week)}` : monthOf(months, task.month)}
+                />
                 <Field label="branch" value={task.branch ?? "—"} tone={task.branch ? undefined : "dim"} />
                 <Field label="project" value={projectKey ?? "—"} />
               </div>
