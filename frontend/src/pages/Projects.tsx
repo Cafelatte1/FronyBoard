@@ -81,7 +81,7 @@ function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) =>
                   <span className="since">since {fmtServerTime(p.meta.created_at, data.server.timezone).slice(0, 10)}</span>
                 )}
               </span>
-              <span>
+              <span className="card-bottom">
                 <span className="project-card-meta">
                   <span>진행률</span>
                   <span className="pct">
@@ -475,9 +475,9 @@ function PeriodView({
                 <path d="M3 5.2h14M5.6 10h8.8M8.2 14.8h3.6" />
               </svg>
               필터
-              <span className="tag">
-                {filter === "all" ? "전체" : TASK_ST[filter].label}
-                {cancelled && " +취소"}
+              <span className="dots">
+                <span className="fdot" style={{ background: filter === "all" ? "var(--text-muted)" : TASK_ST[filter].swatch }} />
+                {cancelled && <span className="fdot off" />}
               </span>
             </button>
             {menu === "filter" && (
@@ -503,11 +503,15 @@ function PeriodView({
           </span>
 
           <span className="tool">
-            <button className="filter-btn" onClick={() => setMenu(menu === "sort" ? null : "sort")} title="정렬">
+            <button
+              className={`filter-btn ${menu === "sort" ? "open" : ""}`}
+              onClick={() => setMenu(menu === "sort" ? null : "sort")}
+              title="정렬"
+            >
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 3.5v13M6 16.5 3.2 13.7M6 3.5 8.8 6.3M14 16.5v-13M14 3.5l2.8 2.8M14 3.5 11.2 6.3" />
               </svg>
-              정렬<span className="tag">{sortDef.label}</span>
+              정렬<span className="sort-label">{sortDef.label}</span>
             </button>
             {menu === "sort" && (
               <div className="menu narrow">
