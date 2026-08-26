@@ -132,6 +132,8 @@ class InterceptHandler(logging.Handler):
                 return
             if status < 400:
                 return
+            if method == "GET" and path == "/mcp" and status in (404, 405):
+                return  # a client opening the optional SSE listen stream — protocol chatter, not a fault
             event("WARNING" if status < 500 else "ERROR", "http", "response",
                   status=status, method=method, path=path, ip=str(addr).rsplit(":", 1)[0])
             return
