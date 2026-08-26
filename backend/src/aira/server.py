@@ -46,7 +46,11 @@ mcp = MCPServer(
         "and map old id -> new id in the closing retrospective. Record agreed plans and "
         "retrospectives through these tools — planning data never lives in the codebase. "
         "Every mutation is validated before it is written; ids and timestamps are issued by "
-        "the server — never invent them."
+        "the server — never invent them.\n\n"
+        "Task content: `content` is markdown that a human reads in a narrow side panel and "
+        "an agent reads to pick the task up cold, so follow the template in create_task "
+        "(Why / What / How / Done when, under ~25 lines) and keep What observable and How "
+        "implementation-level."
     ),
 )
 
@@ -130,9 +134,24 @@ def create_task(key: str, period: str, title: str, month: str,
 
     The id is assigned from the project-global sequence (never reused). Every task belongs
     to a month: `month` references a month id (M#) that must exist in the period first
-    (get_status lists them). `week` is the week-of-month (1-5), `content` is implementation
-    detail in markdown — enough for a model to pick the task up cold — and `prd` is an
-    optional link to or excerpt of the requirement behind it.
+    (get_status lists them). `week` is the week-of-month (1-5) and `prd` is an optional
+    link to or excerpt of the requirement behind it.
+
+    `content` is markdown, read by a human in a narrow panel and by an agent picking the
+    task up cold. Use this template (keep it under ~25 lines):
+
+        ## Why
+        1-3 sentences: the need, with context/date. For a bug: symptom -> cause.
+        ## What
+        - what changes, as observable behaviour (one bullet per user-visible unit)
+        - Out of scope: ... (only if needed)
+        ## How
+        - approach and files to touch (may be left empty until work starts)
+        ## Done when
+        - verifiable completion conditions ("do X, see Y" — not "checked")
+
+    Record decisions inline as "(YYYY-MM-DD decided)"; put implementation detail under
+    How, not What. The same Why/What/How later seeds the commit message.
     """
     return service.create_task(key, period, title, month, week, content, prd)
 
@@ -143,6 +162,8 @@ def update_task(task_id: str, title: str | None = None,
                 prd: str | None = None, branch: str | None = None,
                 key: str | None = None) -> dict:
     """Update task fields (not status — use transition_task). `branch` records the working branch name.
+    `content` replaces the whole markdown body — keep the create_task template (Why / What /
+    How / Done when); fill in How once the approach is known.
 
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
