@@ -17,7 +17,7 @@ zone (`AIRA_TZ`, else local) with offset — unlike the data files, which store 
 
 Not logged, ever: API keys (only the first 9 characters on a rejection), passwords,
 session tokens, and the planning prose (`content`, `prd`, `goal`, `now`, `next`,
-`later`, `retrospective`, `description` appear as `<field>_len`).
+`later`, `result_markdown`, `description` appear as `<field>_len`).
 
 ## tools.jsonl
 
