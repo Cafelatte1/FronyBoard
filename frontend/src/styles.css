@@ -1061,6 +1061,12 @@ input::placeholder {
   color: var(--text-muted);
 }
 
+/* the mock gives this list its own, larger heading (15px, full text color) */
+.list-head .card-title {
+  font-size: var(--t-title);
+  color: var(--text);
+}
+
 .rows {
   margin-top: 10px;
   display: flex;
