@@ -1,4 +1,4 @@
-import { TASK_ST, countBy, currentPeriodName, doneRatio, donutGradient, parseUtc } from "../shared";
+import { TASK_ST, countBy, currentPeriodName, doneRatio, donutGradient, latestUpdate, parseUtc } from "../shared";
 import type { BoardData, Task } from "../types";
 
 export default function Dashboard({
@@ -21,6 +21,10 @@ export default function Dashboard({
     return { ref: p, status, period, tasks };
   });
   const pooled = perProject.flatMap((p) => p.tasks);
+  // Cards: most recently touched project first (any task or the project record itself).
+  const recent = [...perProject].sort((a, b) =>
+    latestUpdate(b.ref, data.tasks[b.ref.key] ?? []).localeCompare(latestUpdate(a.ref, data.tasks[a.ref.key] ?? [])),
+  );
   const counts = countBy(pooled);
   const ratio = doneRatio(counts);
 
@@ -135,7 +139,7 @@ export default function Dashboard({
       </div>
 
       <div className="project-grid-3">
-        {perProject.map(({ ref, status, period, tasks }) => {
+        {recent.map(({ ref, status, period, tasks }) => {
           const r = doneRatio(countBy(tasks));
           const periodInfo = period ? status.periods[period] : null;
           return (
