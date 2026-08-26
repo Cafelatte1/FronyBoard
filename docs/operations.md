@@ -15,23 +15,24 @@ git tag -a vX.Y.Z -m "..."
 git push origin main vX.Y.Z
 ```
 
-On the server — **order matters: stop the task before `uv sync`**. While the
-server runs, `aira.exe` in the venv is locked and sync fails with
-`os error 32` ("file in use"), leaving the old version installed:
+On the server, `scripts/deploy.ps1` does the whole sequence (from a dev PC:
+`ssh <user>@<server> "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`):
 
 ```powershell
-schtasks /End /TN "AIRA Server"
-cd <path-to-project-aira>
-git checkout -- backend/uv.lock   # uv sync may have dirtied it; a dirty tree blocks checkout
-git fetch --tags
-git checkout vX.Y.Z          # detached HEAD is expected
-cd backend
-uv sync
-schtasks /Run /TN "AIRA Server"
+powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z
 ```
 
-The server never commits, so discarding its local `uv.lock` drift is always
-safe.
+It stops the task and any leftover `aira` process, discards the server's
+`uv.lock` drift (the server never commits, so this is always safe), `git fetch
+--tags` + `git checkout vX.Y.Z` (detached HEAD is expected), `uv sync` in
+`backend/`, then starts the task and prints its status. The task is started
+again even when checkout or sync fails, so a bad tag leaves the previous
+version running rather than nothing. Run it without `-Tag` to only restart.
+
+**Order matters: the task must be stopped before `uv sync`** — while the server
+runs, `aira.exe` in the venv is locked and sync fails with `os error 32`
+("file in use"), leaving the old version installed. The script handles this;
+doing it by hand, stop first.
 
 Verify: `GET /api/server` should report the new version (or open the dashboard
 menu drawer — ☰ top-left — and check the version under the logo).
@@ -50,7 +51,7 @@ dashboard is still unreachable, check:
 
 ```powershell
 schtasks /Query /TN "AIRA Server" /FO LIST   # Status should be Running
-schtasks /Run /TN "AIRA Server"              # start it if not
+powershell -NoProfile -File scripts\deploy.ps1   # restart it if not (no -Tag = restart only)
 ```
 
 A restart (reboot or task restart) clears all dashboard sessions — everyone
