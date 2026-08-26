@@ -21,7 +21,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import auth, service, store
+from . import auth, log, service, store
 from .service import AiraError
 
 _started_at = store.now()  # module import happens at process start — close enough for uptime
@@ -45,6 +45,11 @@ def _timezone() -> dict:
     if not (name.isascii() and 2 <= len(name) <= 5):
         name = None
     return {"name": name, "offset_minutes": int(offset.total_seconds() // 60)}
+
+
+def _ip(request) -> str | None:
+    client = getattr(request, "client", None)
+    return client.host if client else None
 
 
 def _endpoint(fn):
@@ -134,6 +139,7 @@ async def _keys(request):
         key = auth.generate_key(name)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+    log.event("INFO", "auth", "key_created", name=name, ip=_ip(request))
     return JSONResponse({"name": name, "key": key})
 
 
@@ -145,6 +151,7 @@ async def _delete_key(request):
         auth.revoke_key(request.path_params["name"])
     except FileNotFoundError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
+    log.event("INFO", "auth", "key_revoked", name=request.path_params["name"], ip=_ip(request))
     return JSONResponse({"ok": True})
 
 
@@ -155,8 +162,10 @@ async def _login(request):
         return JSONResponse({"error": "invalid JSON body"}, status_code=400)
     username = str(body.get("username", ""))
     if not auth.verify_admin(username, str(body.get("password", ""))):
+        log.event("WARNING", "auth", "login_failed", user=username, ip=_ip(request))
         return JSONResponse({"error": "invalid credentials"}, status_code=401)
-    return JSONResponse({"token": auth.create_session(), "username": username})
+    log.event("INFO", "auth", "login_ok", user=username, ip=_ip(request))
+    return JSONResponse({"token": auth.create_session(username), "username": username})
 
 
 async def _logout(request):

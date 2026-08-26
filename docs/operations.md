@@ -99,3 +99,15 @@ checkout is reproducible from git and holds no state.
 | server starts with empty data (all projects gone) | task runs as SYSTEM, whose `%LOCALAPPDATA%` is the system profile — the default root resolved elsewhere | set `AIRA_DATA_DIR` to the absolute data path in the launcher script |
 | server dead after closing the lid / after ~3 days | laptop slept on lid close, or the task's default 72h execution limit killed it | lid action = do nothing (`powercfg`), `ExecutionTimeLimit 0`, 10-minute watchdog trigger — all applied; re-check with `Get-ScheduledTask` if the task is ever re-created |
 | dashboard loads but data errors | version mismatch: old backend serving a newer dist (or vice versa) after a partial deploy | redo the deploy sequence — checkout and sync must both complete |
+
+## Logs
+
+Two JSON Lines files under `%LOCALAPPDATA%\Frony\FronyBoard\logs` (next to the data
+root; `AIRA_LOG_DIR` overrides), rotated daily and gzipped:
+
+- `server.jsonl` — boot/shutdown, login and key events, HTTP 4xx/5xx, rejected tool
+  calls, unhandled exceptions with `trace`. **Look here first when something is wrong.**
+- `tools.jsonl` — one line per MCP tool call (who, what, which record, ms, ok).
+
+Field reference and query recipes: [logging.md](logging.md). A tool line and its
+server follow-ups share a `req` id.

@@ -14,13 +14,15 @@ Register a remote server in Claude Code:
 from __future__ import annotations
 
 import argparse
+import os
 
 from mcp.server.mcpserver import MCPServer
 
-from . import auth, service, web
+from . import auth, log, service, store, web
 
 mcp = MCPServer(
     "fronyboard",
+    middleware=[log.ToolLogMiddleware()],
     instructions=(
         "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's "
         "own store, not in the codebase you are working on.\n\n"
@@ -240,9 +242,24 @@ def serve(host: str, port: int) -> None:
     app = mcp.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
     web.attach(app)
-    uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
-                                          open_paths=("/api/login",)),
-                host=host, port=port)
+    _boot("http", host=f"{host}:{port}")
+    try:
+        uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
+                                              open_paths=("/api/login",)),
+                    host=host, port=port, log_config=None)
+    finally:
+        log.event("INFO", "boot", "shutdown", mode="http")
+
+
+def _boot(mode: str, **fields) -> None:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        ver = version("aira")
+    except PackageNotFoundError:
+        ver = "dev"
+    log.event("INFO", "boot", "start", mode=mode, version=ver, data=str(store.data_root()),
+              logs=str(log.log_dir()), tz=os.environ.get("AIRA_TZ"), **fields)
 
 
 def main() -> None:
@@ -260,6 +277,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "serve":
+        log.setup()
         serve(args.host, args.port)
     elif args.command == "keygen":
         try:
@@ -281,7 +299,12 @@ def main() -> None:
             raise SystemExit(str(e))
         print(f"dashboard login set for '{args.username.strip()}'")
     else:
-        mcp.run()
+        log.setup(stderr=True)  # stdout is the MCP channel — never a log sink
+        _boot("stdio")
+        try:
+            mcp.run()
+        finally:
+            log.event("INFO", "boot", "shutdown", mode="stdio")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ version = "0.6.1"
 description = "FronyBoard — an MCP server that gives AI agents a first-class project tracker"
 requires-python = ">=3.10"
 dependencies = [
+    "loguru>=0.7",
     "mcp>=1.2.0",
     "pyyaml>=6.0",
     "tzdata>=2024.1",
