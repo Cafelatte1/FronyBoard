@@ -102,7 +102,34 @@ export const MILESTONE_ST: Record<string, string> = {
   active: "진행",
   done: "완료",
   planned: "예정",
+  none: "없음", // a roadmap quarter with no period file
 };
+
+// ------------------------------------------------------------------ sorting
+
+export type SortKey = "id" | "created" | "status" | "month";
+
+export const SORTS: { key: SortKey; label: string; col: string }[] = [
+  { key: "id", label: "ID 순", col: "ID" },
+  { key: "created", label: "최근 생성 순", col: "CREATED" },
+  { key: "status", label: "상태 순", col: "STATUS" },
+  { key: "month", label: "월 · 주차 순", col: "MONTH" },
+];
+
+const STATUS_ORDER = ["in_progress", "blocked", "todo", "done", "cancelled"];
+
+/** Stable sort by the chosen key; ties fall back to id. `monthOrder` is the period's month ids. */
+export function sortTasks(tasks: Task[], key: SortKey, monthOrder: string[]): Task[] {
+  const byId = (a: Task, b: Task) => a.id.localeCompare(b.id);
+  const cmp: Record<SortKey, (a: Task, b: Task) => number> = {
+    id: byId,
+    created: (a, b) => b.meta.created_at.localeCompare(a.meta.created_at) || byId(a, b),
+    status: (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || byId(a, b),
+    month: (a, b) =>
+      monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month) || (a.week ?? 9) - (b.week ?? 9) || byId(a, b),
+  };
+  return [...tasks].sort(cmp[key]);
+}
 
 // ------------------------------------------------------------- computations
 

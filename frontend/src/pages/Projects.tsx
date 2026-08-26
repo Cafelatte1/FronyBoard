@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MilestoneChip,
   ProjectStatusChip,
   RepoIcon,
+  SORTS,
   StatusChip,
   TASK_ST,
   countBy,
@@ -10,9 +11,11 @@ import {
   doneRatio,
   fmtServerTime,
   monthOf,
+  sortTasks,
   weekLabel,
+  type SortKey,
 } from "../shared";
-import type { BoardData, MonthInfo, PeriodStatus, Roadmap, ServerTimezone, Task } from "../types";
+import type { BoardData, PeriodStatus, Roadmap, ServerTimezone, StatusResp, Task } from "../types";
 
 export default function Projects({
   data,
@@ -28,6 +31,7 @@ export default function Projects({
   if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
   return (
     <ProjectDetail
+      key={openKey}
       data={data}
       projectKey={openKey}
       onBack={() => setOpenKey(null)}
@@ -93,6 +97,19 @@ function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) =>
   );
 }
 
+const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
+const NNL = ["now", "next", "later"] as const;
+
+/** Periods of a year, in order: the active one first if any, else the earliest. */
+function landingPeriod(year: string, status: StatusResp): string | null {
+  const names = Object.keys(status.periods)
+    .filter((n) => n.startsWith(year))
+    .sort();
+  return names.find((n) => status.periods[n].milestone_status === "active") ?? names[0] ?? null;
+}
+
+/** The detail screen shows one period at a time: the roadmap picks the year, the
+    quarter dots / stepper pick the period, the table below belongs to that period. */
 function ProjectDetail({
   data,
   projectKey,
@@ -104,13 +121,29 @@ function ProjectDetail({
   onBack: () => void;
   onOpenTask: (t: Task) => void;
 }) {
-  const [filter, setFilter] = useState<TaskFilter>({ status: [], month: [], cancelled: false, open: null });
   const status = data.statuses[projectKey];
   const ref = data.projects.find((p) => p.key === projectKey);
+  const roadmap = data.roadmaps[projectKey];
   const allTasks = data.tasks[projectKey] ?? [];
 
   const current = currentPeriodName(status);
-  const periodNames = Object.keys(status.periods).sort((a, b) => b.localeCompare(a));
+  const periodNames = Object.keys(status.periods).sort();
+  const years = [...new Set([...Object.keys(roadmap?.years ?? {}), ...periodNames.map((n) => n.slice(0, 4))])].sort();
+  const currentYear = current?.slice(0, 4) ?? years[years.length - 1] ?? null;
+
+  const [year, setYear] = useState<string | null>(currentYear);
+  const [periodId, setPeriodId] = useState<string | null>(current);
+
+  const selectPeriod = (id: string) => {
+    setPeriodId(id);
+    setYear(id.slice(0, 4));
+  };
+  const goYear = (y: string) => {
+    setYear(y);
+    const landing = landingPeriod(y, status);
+    if (landing) setPeriodId(landing);
+  };
+
   const currentInfo = current ? status.periods[current] : null;
   const currentRatio = doneRatio(countBy(allTasks.filter((t) => t.period === current)));
 
@@ -123,6 +156,7 @@ function ProjectDetail({
         프로젝트 목록
       </button>
 
+      {/* Always the active period — the summary does not follow the stepper. */}
       <div className="card summary-card">
         <div className="summary-head">
           <span className="id-chip">{projectKey}</span>
@@ -168,47 +202,54 @@ function ProjectDetail({
       </div>
 
       <RoadmapCard
-        roadmap={data.roadmaps[projectKey]}
-        projectKey={projectKey}
-        current={current}
-        months={currentInfo?.months ?? []}
+        roadmap={roadmap}
+        status={status}
+        year={year}
+        years={years}
+        currentYear={currentYear}
+        periodId={periodId}
+        onYear={goYear}
+        onPeriod={selectPeriod}
       />
 
-      {periodNames.map((name) => (
-        <PeriodBlock
-          key={name}
-          name={name}
-          isCurrent={name === current}
-          period={status.periods[name]}
-          tasks={allTasks.filter((t) => t.period === name)}
-          filter={filter}
-          setFilter={setFilter}
+      {periodId && status.periods[periodId] && (
+        <PeriodView
+          key={periodId}
+          name={periodId}
+          names={periodNames}
+          period={status.periods[periodId]}
+          tasks={allTasks.filter((t) => t.period === periodId)}
           tz={data.server.timezone}
+          onPeriod={selectPeriod}
           onOpenTask={onOpenTask}
         />
-      ))}
+      )}
     </>
   );
 }
 
-const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
-const NNL = ["now", "next", "later"] as const;
-
-/** Year goal → quarter timeline → current-period month ticks → NOW/NEXT/LATER. */
+/** Year goal → quarter timeline (dots are buttons) → NOW/NEXT/LATER on the active year. */
 function RoadmapCard({
   roadmap,
-  projectKey,
-  current,
-  months,
+  status,
+  year,
+  years,
+  currentYear,
+  periodId,
+  onYear,
+  onPeriod,
 }: {
   roadmap: Roadmap | undefined;
-  projectKey: string;
-  current: string | null;
-  months: MonthInfo[];
+  status: StatusResp;
+  year: string | null;
+  years: string[];
+  currentYear: string | null;
+  periodId: string | null;
+  onYear: (y: string) => void;
+  onPeriod: (id: string) => void;
 }) {
-  const year = roadmap ? Object.keys(roadmap.years ?? {}).sort((a, b) => b.localeCompare(a))[0] : undefined;
-  const yd = roadmap && year ? roadmap.years[year] : null;
-  if (!yd) {
+  const yd = roadmap && year ? roadmap.years[year] : undefined;
+  if (!year) {
     return (
       <div className="card">
         <div className="card-title">로드맵</div>
@@ -216,22 +257,44 @@ function RoadmapCard({
       </div>
     );
   }
-  const ms = yd.milestones ?? {};
+  const yi = years.indexOf(year);
+  const prev = yi > 0 ? years[yi - 1] : null;
+  const next = yi >= 0 && yi < years.length - 1 ? years[yi + 1] : null;
+  const ms = yd?.milestones ?? {};
   const activeIdx = QUARTERS.findIndex((q) => ms[q]?.status === "active");
   const lit = (j: number) => j <= activeIdx;
   return (
     <div className="card">
       <div className="road-head">
-        <span className="card-title">{year} 로드맵</span>
-        <span className="mono">{projectKey} · 연간</span>
+        <span className="road-title">
+          <span className="card-title">{year} 로드맵</span>
+          <span className="road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
+        </span>
+        <span className="ynav">
+          <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="이전 연도" aria-label="이전 연도">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+          </button>
+          <span className="ynav-year">{year}</span>
+          <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="다음 연도" aria-label="다음 연도">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+          </button>
+        </span>
       </div>
-      <span className="road-goal">{yd.overview.goal}</span>
 
       <div className="qtl">
         {QUARTERS.map((q, i) => {
-          const st = ms[q]?.status ?? "planned";
+          const pid = `${year}${q}`;
+          const hasFile = !!status.periods[pid];
+          const st = ms[q]?.status ?? (hasFile ? (status.periods[pid].milestone_status ?? "planned") : "none");
+          const sel = pid === periodId;
           return (
-            <div key={q} className={`q q-${st}`}>
+            <button
+              key={q}
+              className={`q q-${st} ${sel ? "sel" : ""} ${hasFile ? "" : "nofile"}`}
+              disabled={!hasFile}
+              onClick={() => onPeriod(pid)}
+              title={hasFile ? `${pid} 보기` : `${pid} — 기간 파일 없음`}
+            >
               <span className="q-line">
                 <span className={`q-seg ${i === 0 ? "hide" : lit(i) ? "lit" : ""}`} />
                 <span className={`q-seg ${i === QUARTERS.length - 1 ? "hide" : lit(i + 1) ? "lit" : ""}`} />
@@ -239,115 +302,107 @@ function RoadmapCard({
               </span>
               <span className="q-id">{q}</span>
               <MilestoneChip status={st} />
-              <span className="q-goal">{ms[q]?.goal ?? "—"}</span>
-            </div>
+              <span className="q-goal">{ms[q]?.goal ?? status.periods[pid]?.goal ?? "—"}</span>
+            </button>
           );
         })}
       </div>
 
-      {current && months.length > 0 && (
-        <div className="ticks">
-          <span className="ticks-period">{current}</span>
-          {months.map((m) => {
-            const r = doneRatio(m.task_counts);
-            return (
-              <span key={m.id} className={`tick ${m.status === "planned" ? "planned" : ""}`}>
-                <span className="tick-head">
-                  <span className="tick-month">{m.month}</span>
-                  <span className="tick-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
-                </span>
-                <span className="bar tick-bar">
-                  {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="nnl">
-        {NNL.map((k, i) => (
-          <div key={k} className={`nnl-item nnl-${i}`}>
-            <div className="nnl-label">{k}</div>
-            <div className="nnl-text">{yd.overview[k]}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Table filters live on the detail screen so they apply to every period block. */
-interface TaskFilter {
-  status: string[];
-  month: string[];
-  cancelled: boolean;
-  open: "status" | "month" | null;
-}
-
-const STATUS_OPTIONS = ["done", "in_progress", "todo", "blocked"] as const;
-const EYE_ON = "M2.2 10S5.2 4.6 10 4.6 17.8 10 17.8 10 14.8 15.4 10 15.4 2.2 10 2.2 10Zm7.8 2.3a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z";
-const EYE_OFF = "M4 4l12 12M2.2 10S5.2 4.6 10 4.6c1.5 0 2.8.5 3.9 1.2M17.8 10s-3 5.4-7.8 5.4c-1.4 0-2.7-.4-3.8-1.1";
-
-function toggle(list: string[], v: string): string[] {
-  return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
-}
-
-function PeriodBlock({
-  name,
-  isCurrent,
-  period,
-  tasks,
-  filter,
-  setFilter,
-  tz,
-  onOpenTask,
-}: {
-  name: string;
-  isCurrent: boolean;
-  period: PeriodStatus;
-  tasks: Task[];
-  filter: TaskFilter;
-  setFilter: (f: TaskFilter) => void;
-  tz: ServerTimezone | undefined;
-  onOpenTask: (t: Task) => void;
-}) {
-  const shown = tasks.filter(
-    (t) =>
-      (filter.cancelled || t.status !== "cancelled") &&
-      (filter.status.length === 0 || filter.status.includes(t.status)) &&
-      (filter.month.length === 0 || filter.month.includes(t.month)),
-  );
-  const ratio = doneRatio(countBy(tasks));
-  const openPicker = (which: "status" | "month") =>
-    setFilter({ ...filter, open: filter.open === which ? null : which });
-  return (
-    <>
-      {/* The current period is described by the summary card; older ones get a caption. */}
-      {!isCurrent && (
-        <div className="period-cap">
-          <span className="p-name">{name}</span>
-          <MilestoneChip status={period.milestone_status} />
-          <span>{period.goal ?? ""}</span>
-          <span className="mono" style={{ marginLeft: "auto" }}>
-            {ratio.done}/{ratio.total} · {ratio.pct}%
-          </span>
-        </div>
-      )}
-
-      {period.months.length > 0 && (
-        <div className="month-grid">
-          {period.months.map((m) => (
-            <div key={m.id} className={`month-card ${m.status === "active" ? "on" : ""}`}>
-              <div className="month-head">
-                <span className="m-id">{m.month}</span>
-                <MilestoneChip status={m.status} />
-              </div>
-              <div className="month-goal">{m.goal ?? "—"}</div>
+      {yd && year === currentYear && (
+        <div className="nnl">
+          {NNL.map((k, i) => (
+            <div key={k} className={`nnl-item nnl-${i}`}>
+              <div className="nnl-label">{k}</div>
+              <div className="nnl-text">{yd.overview[k]}</div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const ROWS_PER_PAGE = 10;
+const FILTERS = ["all", "in_progress", "todo", "blocked", "done"] as const;
+type Filter = (typeof FILTERS)[number];
+
+/** One period: stepper bar, monthly rollup, and the task table with its own
+    filter / sort / page state (reset whenever the period changes — see key=). */
+function PeriodView({
+  name,
+  names,
+  period,
+  tasks,
+  tz,
+  onPeriod,
+  onOpenTask,
+}: {
+  name: string;
+  names: string[];
+  period: PeriodStatus;
+  tasks: Task[];
+  tz: ServerTimezone | undefined;
+  onPeriod: (id: string) => void;
+  onOpenTask: (t: Task) => void;
+}) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [cancelled, setCancelled] = useState(false);
+  const [sort, setSort] = useState<SortKey>("created");
+  const [page, setPage] = useState(1);
+  const [menu, setMenu] = useState<"filter" | "sort" | null>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
+
+  const i = names.indexOf(name);
+  const older = i > 0 ? names[i - 1] : null;
+  const newer = i >= 0 && i < names.length - 1 ? names[i + 1] : null;
+  const ratio = doneRatio(countBy(tasks));
+
+  const counts = countBy(tasks);
+  const visible = tasks.filter(
+    (t) => (cancelled || t.status !== "cancelled") && (filter === "all" || t.status === filter),
+  );
+  const sorted = sortTasks(visible, sort, period.months.map((m) => m.id));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
+  const pageNo = Math.min(page, pageCount);
+  const from = (pageNo - 1) * ROWS_PER_PAGE;
+  const rows = sorted.slice(from, from + ROWS_PER_PAGE);
+  const sortDef = SORTS.find((s) => s.key === sort)!;
+
+  const pick = <T,>(set: (v: T) => void) => (v: T) => {
+    set(v);
+    setPage(1);
+    setMenu(null);
+  };
+
+  return (
+    <>
+      <div className="pstep">
+        <span className="ynav">
+          <button className="ynav-btn lg" disabled={!older} onClick={() => older && onPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+          </button>
+          <span className="pstep-id">{name}</span>
+          <button className="ynav-btn lg" disabled={!newer} onClick={() => newer && onPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+          </button>
+        </span>
+        <MilestoneChip status={period.milestone_status} />
+        <span className="pstep-goal">{period.goal ?? "—"}</span>
+        <span className="pstep-ratio">
+          {ratio.done}/{ratio.total} · {ratio.pct}%
+        </span>
+        <span className="bar pstep-bar">
+          <span className="bar-fill" style={{ width: `${ratio.pct}%` }} />
+        </span>
+      </div>
 
       {period.months.length > 0 && (
         <div className="card">
@@ -359,6 +414,7 @@ function PeriodBlock({
                 <div key={m.id} className="rollup-row">
                   <span className="r-id">{m.month}</span>
                   <span className="r-goal">{m.goal ?? "—"}</span>
+                  <MilestoneChip status={m.status} />
                   <span className="r-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
                   <span className="bar r-bar">
                     {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
@@ -370,96 +426,82 @@ function PeriodBlock({
         </div>
       )}
 
-      <div className="table-head">
-        <span className="count">
-          태스크{" "}
-          <b>
-            {shown.length}/{tasks.length}
-          </b>
-        </span>
-        <button
-          className={`filter-btn ${filter.status.length > 0 ? "on" : ""}`}
-          onClick={() => openPicker("status")}
-          title="상태 필터"
-        >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M3 5.2h14M5.6 10h8.8M8.2 14.8h3.6" />
-          </svg>
-          상태{filter.status.length > 0 && ` · ${filter.status.length}`}
-        </button>
-        {period.months.length > 0 && (
-          <button
-            className={`filter-btn ${filter.month.length > 0 ? "on" : ""}`}
-            onClick={() => openPicker("month")}
-            title="월 필터"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <rect x="3" y="4.5" width="14" height="12" rx="1.8" />
-              <path d="M3 8h14M7 3v3M13 3v3" />
-            </svg>
-            월{filter.month.length > 0 && ` · ${filter.month.length}`}
-          </button>
-        )}
-        <button
-          className={`filter-btn ${filter.cancelled ? "on" : ""}`}
-          onClick={() => setFilter({ ...filter, cancelled: !filter.cancelled })}
-          title="취소된 태스크 표시"
-        >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d={filter.cancelled ? EYE_ON : EYE_OFF} />
-          </svg>
-          취소된 태스크
-        </button>
-      </div>
+      {menu && <div className="menu-overlay" onClick={() => setMenu(null)} />}
 
-      {filter.open === "status" && (
-        <div className="filter-row">
-          <span className="cap">상태</span>
-          {STATUS_OPTIONS.map((s) => (
-            <button
-              key={s}
-              className={`fchip ${filter.status.includes(s) ? "on" : ""}`}
-              onClick={() => setFilter({ ...filter, status: toggle(filter.status, s) })}
-            >
-              {TASK_ST[s].label}
-            </button>
-          ))}
-          {filter.status.length > 0 && (
-            <button className="fchip clear" onClick={() => setFilter({ ...filter, status: [] })}>
-              전체
-            </button>
-          )}
-        </div>
-      )}
-      {filter.open === "month" && (
-        <div className="filter-row">
-          <span className="cap">월</span>
-          {period.months.map((m) => (
-            <button
-              key={m.id}
-              className={`fchip ${filter.month.includes(m.id) ? "on" : ""}`}
-              onClick={() => setFilter({ ...filter, month: toggle(filter.month, m.id) })}
-            >
-              {m.month}
-            </button>
-          ))}
-          {filter.month.length > 0 && (
-            <button className="fchip clear" onClick={() => setFilter({ ...filter, month: [] })}>
-              전체
-            </button>
-          )}
-        </div>
-      )}
       <div className="task-table">
-        <div className="task-grid thead">
-          <span>ID</span>
-          <span>TITLE</span>
-          <span>STATUS</span>
-          <span>MONTH</span>
-          <span>WEEK</span>
-          <span>CREATED</span>
+        <div className="table-top">
+          <span className="table-title">
+            <span className="card-title">태스크</span>
+            <span className="table-summary">
+              {name} · {sorted.length}건{tasks.length !== sorted.length && ` / 전체 ${tasks.length}건`}
+            </span>
+          </span>
+
+          <span className="tool">
+            <button
+              className={`filter-btn ${filter !== "all" || cancelled ? "on" : ""}`}
+              onClick={() => setMenu(menu === "filter" ? null : "filter")}
+              title="필터"
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M3 5.2h14M5.6 10h8.8M8.2 14.8h3.6" />
+              </svg>
+              필터
+              <span className="tag">
+                {filter === "all" ? "전체" : TASK_ST[filter].label}
+                {cancelled && " +취소"}
+              </span>
+            </button>
+            {menu === "filter" && (
+              <div className="menu">
+                <span className="menu-cap">상태</span>
+                {FILTERS.map((f) => (
+                  <button key={f} className={`menu-item ${filter === f ? "on" : ""}`} onClick={() => pick(setFilter)(f)}>
+                    <span className="dot" style={{ background: f === "all" ? "var(--text-muted)" : TASK_ST[f].swatch }} />
+                    <span className="grow">{f === "all" ? "전체" : TASK_ST[f].label}</span>
+                    <span className="n">{f === "all" ? tasks.length : (counts[f] ?? 0)}</span>
+                    <span className="check">✓</span>
+                  </button>
+                ))}
+                <span className="menu-sep" />
+                <button className="menu-item" onClick={() => pick(setCancelled)(!cancelled)}>
+                  <span className="grow">취소된 태스크 포함</span>
+                  <span className={`switch ${cancelled ? "on" : ""}`}>
+                    <span className="knob" />
+                  </span>
+                </button>
+              </div>
+            )}
+          </span>
+
+          <span className="tool">
+            <button className="filter-btn" onClick={() => setMenu(menu === "sort" ? null : "sort")} title="정렬">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3.5v13M6 16.5 3.2 13.7M6 3.5 8.8 6.3M14 16.5v-13M14 3.5l2.8 2.8M14 3.5 11.2 6.3" />
+              </svg>
+              정렬<span className="tag">{sortDef.label}</span>
+            </button>
+            {menu === "sort" && (
+              <div className="menu narrow">
+                {SORTS.map((s) => (
+                  <button key={s.key} className={`menu-item ${sort === s.key ? "on" : ""}`} onClick={() => pick(setSort)(s.key)}>
+                    <span className="grow">{s.label}</span>
+                    <span className="check">✓</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </span>
         </div>
-        {shown.map((t) => (
+
+        <div className="task-grid thead">
+          {(["ID", "TITLE", "STATUS", "MONTH", "WEEK", "CREATED"] as const).map((col) => (
+            <span key={col} className={sortDef.col === col ? "on" : ""}>
+              {col}
+            </span>
+          ))}
+        </div>
+        {rows.map((t) => (
           <button
             key={t.id}
             className={`task-grid ${t.status === "cancelled" ? "cancelled" : ""}`}
@@ -475,11 +517,27 @@ function PeriodBlock({
             <span className="c-dim">{fmtServerTime(t.meta.created_at, tz).slice(0, 10)}</span>
           </button>
         ))}
-        {shown.length === 0 && (
-          <div className="task-grid">
-            <span className="muted" style={{ gridColumn: "1 / -1" }}>
-              {tasks.length === 0 ? "태스크가 없어요." : "필터에 맞는 태스크가 없어요."}
+        {sorted.length === 0 && (
+          <span className="empty-row">
+            {tasks.length === 0 ? "이 분기에는 아직 기간 파일의 태스크가 없어요." : "조건에 맞는 태스크가 없어요."}
+          </span>
+        )}
+        {sorted.length > 0 && (
+          <div className="pager">
+            <span className="range">
+              {from + 1}–{Math.min(from + ROWS_PER_PAGE, sorted.length)} / {sorted.length}
             </span>
+            <button className="pg" disabled={pageNo <= 1} onClick={() => setPage(pageNo - 1)} title="이전 페이지" aria-label="이전 페이지">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+            </button>
+            {Array.from({ length: pageCount }, (_, k) => k + 1).map((n) => (
+              <button key={n} className={`pg num ${n === pageNo ? "on" : ""}`} onClick={() => setPage(n)}>
+                {n}
+              </button>
+            ))}
+            <button className="pg" disabled={pageNo >= pageCount} onClick={() => setPage(pageNo + 1)} title="다음 페이지" aria-label="다음 페이지">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+            </button>
           </div>
         )}
       </div>
