@@ -325,6 +325,10 @@ def create_task(key: str, period: str, title: str, month: str,
     return _ok({"period": period, "task": task}, warnings)
 
 
+# Optional task fields; an "empty" value (0 / "") passed to update_task removes them.
+_CLEARABLE = {"week", "content", "prd", "branch"}
+
+
 @_locked
 def update_task(key: str, task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
@@ -336,7 +340,11 @@ def update_task(key: str, task_id: str, title: str | None = None,
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise AiraError("nothing to update — pass at least one field (status changes go through transition_task)")
-    task.update(changed)
+    for k, v in changed.items():
+        if k in _CLEARABLE and v in (0, ""):
+            task.pop(k, None)
+        else:
+            task[k] = v
     store.touch_meta(task)
     warnings = _gate(state)
     store.save_period(state, period)
