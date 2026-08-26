@@ -67,5 +67,6 @@ def test_event_lines_have_fixed_shape(logs):
 
 
 def test_summarize_args_hides_prose():
-    out = log.summarize_args({"title": "x", "content": "abc", "goal": "", "week": None, "status": "done"})
-    assert out == {"title": "x", "content_len": 3, "goal_len": 0, "status": "done"}
+    out = log.summarize_args({"title": "x", "content": "abc", "goal": "", "week": None, "status": "done",
+                              "result_markdown": "## 회고"})  # close_period's argument name
+    assert out == {"title": "x", "content_len": 3, "goal_len": 0, "status": "done", "result_markdown_len": 5}

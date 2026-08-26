@@ -34,7 +34,7 @@ logger.remove()
 
 # Free-text fields are logged as their length only: they are long, and they are
 # the user's planning prose, not telemetry.
-TEXT_FIELDS = {"content", "prd", "goal", "now", "next", "later", "retrospective", "description"}
+TEXT_FIELDS = {"content", "prd", "goal", "now", "next", "later", "result_markdown", "description"}
 
 _tz: datetime.tzinfo | None = None
 
