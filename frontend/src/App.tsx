@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { clearSession, getToken, getUsername, login } from "./api";
-import { fmtAgo, useBoardData } from "./shared";
+import { currentPeriodName, fmtAgo, useBoardData } from "./shared";
 import TaskPanel from "./TaskPanel";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -10,7 +10,7 @@ import type { Task } from "./types";
 type Page = "dashboard" | "projects" | "settings";
 
 const PAGE_TITLES: Record<Page, string> = {
-  dashboard: "전체 진행 상황",
+  dashboard: "대시보드",
   projects: "프로젝트",
   settings: "설정",
 };
@@ -34,6 +34,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
   const [, tick] = useState(0);
   useEffect(() => {
@@ -85,10 +86,25 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
 
   const detailName =
     openProject !== null ? (data?.statuses[openProject]?.name ?? openProject) : null;
+  // Only the detail screen gets a path line: "AIR / 2026Q3".
   const crumb =
-    page === "projects" && openProject !== null
-      ? `FronyBoard / projects / ${openProject}`
-      : `FronyBoard / ${page}`;
+    page === "projects" && openProject !== null && data
+      ? `${openProject} / ${currentPeriodName(data.statuses[openProject]) ?? "—"}`
+      : null;
+
+  // Manual sync: the fetch is quick, so keep the spinner up for a beat so the click reads.
+  const sync = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    const started = Date.now();
+    try {
+      await reload();
+    } finally {
+      const wait = 700 - (Date.now() - started);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      setSyncing(false);
+    }
+  };
   const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
   const version = data?.server.version ?? "…";
 
@@ -104,7 +120,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </svg>
             </button>
             <div className="head-titles">
-              <div className="crumb">{crumb}</div>
+              {crumb && <div className="crumb">{crumb}</div>}
               <h1>{title}</h1>
             </div>
             <form className="search" onSubmit={onSearch}>
@@ -114,12 +130,12 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </svg>
               <input placeholder="태스크 ID 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
             </form>
-            <button className="synced" onClick={reload} title="다시 불러오기">
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
+              <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
                 <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              {fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
+              {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
             </button>
           </header>
 

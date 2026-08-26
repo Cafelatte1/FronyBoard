@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Unauthorized, api } from "./api";
-import type { BoardData, MonthInfo, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
+import type { BoardData, MonthInfo, ProjectRef, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
 
 // ---------------------------------------------------------------- data hooks
 
@@ -33,7 +33,7 @@ export function useBoardData(onAuthFail: () => void) {
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
 
   const reload = useCallback(() => {
-    (async () => {
+    return (async () => {
       const [server, projectsResp] = await Promise.all([
         api<ServerInfo>("/api/server"),
         api<{ projects: BoardData["projects"] }>("/api/projects"),
@@ -64,7 +64,9 @@ export function useBoardData(onAuthFail: () => void) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(reload, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   // Auto refresh: every minute while the tab is visible, and right away when the
   // tab comes back after being stale — agents write through MCP, the board follows.
@@ -145,6 +147,45 @@ export function doneRatio(counts: Record<string, number>): { done: number; total
     .filter(([s]) => s !== "cancelled")
     .reduce((n, [, c]) => n + c, 0);
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
+}
+
+// ---------------------------------------------------------------- favorites
+
+const FAV_KEY = "fronyboard_favorites";
+
+function readFavorites(): string[] {
+  try {
+    const raw = localStorage.getItem(FAV_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return []; // storage blocked or corrupt — behave as "no favorites"
+  }
+}
+
+/** Starred project keys, kept per browser in localStorage (the board is read-only
+    and single-user, so this never touches the server). */
+export function useFavorites(): [Set<string>, (key: string) => void] {
+  const [favs, setFavs] = useState<string[]>(readFavorites);
+  const toggle = useCallback((key: string) => {
+    setFavs((cur) => {
+      const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+      try {
+        localStorage.setItem(FAV_KEY, JSON.stringify(next));
+      } catch {
+        // keep the in-memory value for this page view
+      }
+      return next;
+    });
+  }, []);
+  return [new Set(favs), toggle];
+}
+
+/** Newest `meta.updated_at` across a project's record and its tasks ("" when unknown). */
+export function latestUpdate(ref: ProjectRef, tasks: Task[]): string {
+  let latest = ref.meta?.updated_at ?? "";
+  for (const t of tasks) if (t.meta.updated_at > latest) latest = t.meta.updated_at;
+  return latest;
 }
 
 /** The period a project is "on": the newest active milestone, else the newest period. */

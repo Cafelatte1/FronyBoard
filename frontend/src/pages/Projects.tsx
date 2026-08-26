@@ -12,6 +12,7 @@ import {
   fmtServerTime,
   monthOf,
   sortTasks,
+  useFavorites,
   weekLabel,
   type SortKey,
 } from "../shared";
@@ -43,13 +44,22 @@ export default function Projects({
 const COUNT_ORDER = ["done", "in_progress", "todo", "blocked"] as const;
 
 function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) => void }) {
+  const [favs, toggleFav] = useFavorites();
   if (data.projects.length === 0)
     return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
+  // Starred first, otherwise the server's key order (sort is stable).
+  const ordered = [...data.projects].sort((a, b) => Number(favs.has(b.key)) - Number(favs.has(a.key)));
   return (
     <>
       <span className="hint-text">카드를 누르면 해당 프로젝트의 상세 화면으로 이동합니다.</span>
       <div className="project-grid-2">
-        {data.projects.map((p) => {
+        {ordered.map((p) => {
+          const fav = favs.has(p.key);
+          const onFav = (e: { stopPropagation: () => void; preventDefault: () => void }) => {
+            e.stopPropagation();
+            e.preventDefault();
+            toggleFav(p.key);
+          };
           const status = data.statuses[p.key];
           const period = currentPeriodName(status);
           const tasks = (data.tasks[p.key] ?? []).filter((t) => t.period === period);
@@ -88,6 +98,24 @@ function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) =>
                     {TASK_ST[s].label} {c[s]}
                   </span>
                 ))}
+                <span className="spacer" />
+                {/* a span, not a button: it sits inside the card button */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className={`fav-btn ${fav ? "on" : ""}`}
+                  title={fav ? "즐겨찾기 해제" : "즐겨찾기에 추가"}
+                  aria-label={fav ? "즐겨찾기 해제" : "즐겨찾기에 추가"}
+                  aria-pressed={fav}
+                  onClick={onFav}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") onFav(e);
+                  }}
+                >
+                  <svg viewBox="0 0 20 20" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+                    <path d="M10 2.6l2.28 4.7 5.12.72-3.72 3.63.9 5.1L10 14.35l-4.58 2.4.9-5.1L2.6 8.02l5.12-.72L10 2.6z" />
+                  </svg>
+                </span>
               </span>
             </button>
           );
