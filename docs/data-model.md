@@ -90,7 +90,8 @@ tasks:
     week: 3             # optional, integer 1-5 (week of month)
     content: ...        # optional markdown — see "Task content" below
     prd: ...            # optional requirement link/excerpt
-    branch: feat/AIR-012/short-desc   # optional working branch
+    branch: feat/AIR-012/short-desc   # optional working branch — optional fields are
+                        # removed by passing an empty value to update_task (week=0, "")
     cancel_reason: ...  # required iff status is cancelled
     meta: {...}
 result: |               # written by close_period; its presence marks the period

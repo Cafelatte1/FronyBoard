@@ -181,6 +181,9 @@ def update_task(task_id: str, title: str | None = None,
     `content` replaces the whole markdown body — keep the create_task template (Why / What /
     How / Done when); fill in How once the approach is known.
 
+    Omitted fields are left as they are. To remove an optional field pass an empty value:
+    `week=0`, `content=""`, `prd=""`, `branch=""` (title and month cannot be removed).
+
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
     """

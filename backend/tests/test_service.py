@@ -103,6 +103,17 @@ def test_guardrails():
         service.update_task(key, "DLY-001")
 
 
+def test_update_task_empty_value_removes_optional_field():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="x", month="M1", week=3)
+    service.update_task(key, "DLY-001", branch="feat/DLY-001/x", prd="spec")
+    task = service.update_task(key, "DLY-001", week=0, branch="", prd="")["task"]
+    assert "week" not in task and "branch" not in task and "prd" not in task
+    assert "week" not in service.list_tasks(key)["tasks"][0]  # gone from the file too
+    with pytest.raises(service.AiraError, match="missing title"):
+        service.update_task(key, "DLY-001", title="")  # required fields cannot be cleared
+
+
 def test_cancel_requires_reason():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="mistake", month="M1")
