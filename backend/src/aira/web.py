@@ -60,7 +60,8 @@ def _endpoint(fn):
 
 @_endpoint
 def _projects(request):
-    return service.list_projects()
+    include_archived = request.query_params.get("include_archived") in ("1", "true")
+    return service.list_projects(include_archived=include_archived)
 
 
 @_endpoint

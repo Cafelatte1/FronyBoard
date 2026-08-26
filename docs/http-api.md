@@ -44,8 +44,12 @@ Drops the bearer session token. Returns `{"ok": true}`.
 
 ### GET /api/projects
 
+Archived projects are left out unless `?include_archived=true`.
+
 ```json
-{"projects": [{"key": "AIR", "name": "FronyBoard"}], "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data"}
+{"projects": [{"key": "AIR", "name": "FronyBoard", "description": "…", "repo": "owner/aira",
+               "status": "active", "meta": {"created_at": "2026-08-18T06:00:00", "updated_at": "…"}}],
+ "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data"}
 ```
 
 ### GET /api/projects/{key}/roadmap

@@ -20,6 +20,7 @@ QUARTER_KEY = re.compile(r"^Q[1-4]$")
 PERIOD_NAME = re.compile(r"^\d{4}Q[1-4]$")
 MONTH_ID = re.compile(r"^M\d+$")
 PROJECT_KEY = re.compile(r"^[A-Z]{2,5}$")
+PROJECT_STATUS = {"active", "paused", "archived"}
 
 
 class Report:
@@ -66,6 +67,13 @@ def _check_roadmap(state: ProjectState, r: Report) -> dict[str, str]:
         r.err(f"roadmap.yaml: key must be 2-5 uppercase letters ({key!r})")
     elif key != state.key:
         r.err(f"roadmap.yaml: key {key!r} does not match project folder '{state.key}'")
+    for field in ("name", "description", "repo"):
+        if roadmap.get(field) is not None and not isinstance(roadmap[field], str):
+            r.err(f"roadmap.yaml: {field} must be a string")
+    if roadmap.get("status") is not None and roadmap["status"] not in PROJECT_STATUS:
+        r.err(f"roadmap.yaml: status must be one of {sorted(PROJECT_STATUS)}")
+    if roadmap.get("meta") is not None:  # projects created before v0.6 carry no meta
+        _check_meta(roadmap, "roadmap.yaml", r)
 
     years = roadmap.get("years")
     if years is None:
