@@ -141,15 +141,14 @@ export default function Dashboard({
       <div className="project-grid-3">
         {recent.map(({ ref, status, period, tasks }) => {
           const r = doneRatio(countBy(tasks));
-          const periodInfo = period ? status.periods[period] : null;
           return (
             <button key={ref.key} className="card project-card" onClick={() => onOpenProject(ref.key)}>
               <span className="project-card-head">
                 <span className="id-chip">{ref.key}</span>
                 <span className="project-card-name">{status.name ?? ref.key}</span>
               </span>
-              <span className="project-card-goal">{periodInfo?.goal ?? "열린 기간 없음"}</span>
-              <span>
+              <span className="project-card-goal l3">{ref.description ?? "설명이 아직 없어요."}</span>
+              <span className="card-bottom">
                 <span className="project-card-meta">
                   <span className="mono">{period ?? "—"}</span>
                   <span className="pct">
