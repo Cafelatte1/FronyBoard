@@ -32,7 +32,8 @@ the FronyBoard web dashboard. Commands below run from `backend/`.
 
 Data lives under `%LOCALAPPDATA%\Frony\FronyBoard\data` by default
 (`~/.Frony/FronyBoard/data` where `LOCALAPPDATA` is unset); set `AIRA_DATA_DIR`
-to relocate it.
+to relocate it. Logs (JSON Lines, one line per MCP tool call plus server events) go
+to the sibling `logs` folder — `AIRA_LOG_DIR` overrides; see [docs/logging.md](docs/logging.md).
 
 ## Run
 

@@ -18,7 +18,7 @@ import hashlib
 import json
 import secrets
 
-from . import store
+from . import log, store
 
 
 def _auth_path():
@@ -106,13 +106,17 @@ def verify_admin(username: str, password: str) -> bool:
 
 
 # Dashboard sessions are held in memory only — a server restart signs everyone out.
-_sessions: set[str] = set()
+_sessions: dict[str, str] = {}  # token -> username
 
 
-def create_session() -> str:
+def create_session(username: str = "admin") -> str:
     token = "fbsession_" + secrets.token_hex(24)
-    _sessions.add(token)
+    _sessions[token] = username
     return token
+
+
+def session_user(token: str | None) -> str | None:
+    return _sessions.get(token or "")
 
 
 def verify_session(token: str | None) -> bool:
@@ -120,7 +124,7 @@ def verify_session(token: str | None) -> bool:
 
 
 def drop_session(token: str | None) -> None:
-    _sessions.discard(token)
+    _sessions.pop(token or "", None)
 
 
 def verify_key(token: str | None) -> str | None:
@@ -161,7 +165,11 @@ class BearerAuthMiddleware:
                 auth_header = value.decode("latin-1")
                 break
         token = auth_header[7:] if auth_header.lower().startswith("bearer ") else None
-        if verify_key(token) is None and not verify_session(token):
+        key_name = verify_key(token)
+        if key_name is None and not verify_session(token):
+            client = scope.get("client") or ("?", 0)
+            log.event("WARNING", "auth", "key_rejected", ip=str(client[0]), path=path,
+                      prefix=(token or "")[:9] or None)
             body = json.dumps({"error": "unauthorized — send 'Authorization: Bearer <api key>'"}).encode()
             await send({
                 "type": "http.response.start",
@@ -171,4 +179,7 @@ class BearerAuthMiddleware:
             })
             await send({"type": "http.response.body", "body": body})
             return
+        # Tag the request so the MCP tool log can name its caller.
+        scope.setdefault("state", {})["caller"] = (
+            f"key:{key_name}" if key_name else f"session:{session_user(token)}")
         await self.app(scope, receive, send)
