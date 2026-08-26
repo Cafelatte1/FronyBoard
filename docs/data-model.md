@@ -84,7 +84,7 @@ tasks:
     month: M1           # must reference a month in THIS period
     status: todo | in_progress | done | blocked | cancelled
     week: 3             # optional, integer 1-5 (week of month)
-    content: ...        # optional markdown — enough to pick the task up cold
+    content: ...        # optional markdown — see "Task content" below
     prd: ...            # optional requirement link/excerpt
     branch: feat/AIR-012/short-desc   # optional working branch
     cancel_reason: ...  # required iff status is cancelled
@@ -93,6 +93,28 @@ result: |               # written by close_period; its presence marks the period
   # 2026Q3 result       # closed (re-closing rewrites it). Markdown: judgment
   ...                   # and reasons only.
 ```
+
+### Task content
+
+`content` is free markdown, but every task should follow one template so a human can
+read it in the dashboard's task panel and an agent can pick it up cold:
+
+```md
+## Why
+1-3 sentences: the need, with context/date. For a bug: symptom -> cause.
+## What
+- what changes, as observable behaviour (one bullet per user-visible unit)
+- Out of scope: ... (only if needed)
+## How
+- approach and files to touch (may be empty until work starts)
+## Done when
+- verifiable completion conditions ("do X, see Y" — not "checked")
+```
+
+Keep it under ~25 lines. Decisions go inline as `(YYYY-MM-DD decided)`; implementation
+detail belongs under How, not What. The template is not validated — the server only
+checks that `content` is a string — it is carried by the `create_task`/`update_task`
+tool descriptions and the server instructions.
 
 Status invariants:
 
