@@ -67,6 +67,12 @@ years:
         meta: {...}
 ```
 
+`status`: `archived` hides the project from `list_projects` unless `include_archived`
+is passed, and refuses every mutation except `create_project` and `update_project`
+(the only way back to `active`); `paused` only changes the dashboard badge — no other
+behavior change. `update_project` requires at least one of `name`, `description`,
+`repo`, `status`.
+
 Milestone ↔ file consistency: an `active` or `done` milestone must have its
 period file (error); a `planned` one may not be opened yet (warning). A period
 file without a matching milestone is an orphan (warning). A `done` milestone
@@ -90,8 +96,9 @@ tasks:
     week: 3             # optional, integer 1-5 (week of month)
     content: ...        # optional markdown — see "Task content" below
     prd: ...            # optional requirement link/excerpt
-    branch: feat/AIR-012/short-desc   # optional working branch — optional fields are
-                        # removed by passing an empty value to update_task (week=0, "")
+    branch: feat/AIR-012/short-desc   # optional working branch — week/content/prd/branch
+                        # are removed by passing an empty value to update_task (0 or "");
+                        # title/month cannot be removed this way
     cancel_reason: ...  # required iff status is cancelled
     meta: {...}
 result: |               # written by close_period; its presence marks the period
