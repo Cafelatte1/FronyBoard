@@ -38,7 +38,9 @@ mcp = MCPServer(
         "transition it to done; if you cannot observe the merge, ask the user before marking "
         "done. If branch-sized work has no task yet, offer create_task first; trivial fixes "
         "need no task. There is no hard delete: to drop a task, transition it to cancelled "
-        "with a reason (blocked = may resume, cancelled = will not happen).\n\n"
+        "with a reason (blocked = may resume, cancelled = will not happen). Projects are not "
+        "deleted either: update_project(status='archived') hides one and freezes its data; "
+        "paused only changes the badge.\n\n"
         "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
         "-> open_period -> upsert_month, create_task -> transition_task as work "
         "progresses -> close_period with a retrospective. A task that outlives its period is "
@@ -56,21 +58,33 @@ mcp = MCPServer(
 
 
 @mcp.tool()
-def create_project(key: str, name: str | None = None) -> dict:
-    """Create a new project. `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY)."""
-    return service.create_project(key, name)
+def create_project(key: str, name: str | None = None, description: str | None = None,
+                   repo: str | None = None) -> dict:
+    """Create a new project. `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY).
+
+    `description` is one line saying what the project is (shown on the dashboard cards);
+    `repo` is where its code lives (owner/name or a URL). Status starts as active.
+    """
+    return service.create_project(key, name, description, repo)
 
 
 @mcp.tool()
-def update_project(key: str, name: str) -> dict:
-    """Rename a project's display name. The key (and task id prefix) never changes."""
-    return service.update_project(key, name)
+def update_project(key: str, name: str | None = None, description: str | None = None,
+                   repo: str | None = None, status: str | None = None) -> dict:
+    """Update project fields — pass at least one. The key (and task id prefix) never changes.
+
+    `status`: active | paused | archived. paused only changes the badge; archived hides the
+    project from list_projects and refuses every other mutation until it is set back to
+    active. There is no hard delete.
+    """
+    return service.update_project(key, name, description, repo, status)
 
 
 @mcp.tool()
-def list_projects() -> dict:
-    """List all projects in the FronyBoard data store."""
-    return service.list_projects()
+def list_projects(include_archived: bool = False) -> dict:
+    """List projects (key, name, description, repo, status, meta). Archived ones are
+    left out unless `include_archived` is set."""
+    return service.list_projects(include_archived)
 
 
 @mcp.tool()

@@ -633,6 +633,21 @@ input::placeholder {
   color: var(--on-danger-subtle);
 }
 
+.chip.pst-active {
+  background: var(--accent-subtle);
+  color: var(--on-accent-subtle);
+}
+
+.chip.pst-paused {
+  background: var(--neutral-subtle);
+  color: var(--on-neutral-subtle);
+}
+
+.chip.pst-archived {
+  background: var(--neutral-subtle);
+  color: var(--text-disabled);
+}
+
 .chip.st-cancelled {
   background: var(--neutral-subtle);
   color: var(--text-disabled);
@@ -905,6 +920,39 @@ input::placeholder {
   color: var(--text-muted);
   line-height: var(--lh-body);
   min-height: 36px;
+}
+
+.project-card-repo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-meta);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.project-card-repo.none {
+  color: var(--text-disabled);
+}
+
+.project-card-repo svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.project-card-repo .repo-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-repo .since {
+  flex: none;
+  color: var(--text-muted);
 }
 
 .project-card-meta {
@@ -1224,8 +1272,18 @@ input::placeholder {
 
 .summary-card {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-head {
+  display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.summary-head .spacer {
+  flex: 1;
 }
 
 .summary-name {
@@ -1234,10 +1292,66 @@ input::placeholder {
   white-space: nowrap;
 }
 
-.summary-goal {
+.summary-desc {
   font-size: var(--t-caption);
+  color: var(--text);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+
+.summary-facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fact-label {
+  font-size: var(--t-badge);
+  font-weight: 600;
+  letter-spacing: 0.4px;
   color: var(--text-muted);
-  flex: 1;
+  text-transform: uppercase;
+}
+
+.fact-value {
+  font-size: var(--t-caption);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fact-value.muted {
+  color: var(--text-muted);
+}
+
+.fact-value.repo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--on-accent-subtle);
+}
+
+.fact-value.repo.none {
+  color: var(--text-disabled);
+}
+
+.fact-value.repo svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.ellipsis {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

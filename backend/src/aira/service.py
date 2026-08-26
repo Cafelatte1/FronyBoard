@@ -24,15 +24,32 @@ class AiraError(ValueError):
 _locks_guard = threading.Lock()
 _project_locks: dict[str, threading.Lock] = {}
 
+# Mutations that may run against an archived project: creating it, and update_project
+# (the only way to set its status back to active).
+_ARCHIVE_EXEMPT = {"create_project", "update_project"}
+
+
+def _refuse_archived(key: str) -> None:
+    path = store.project_dir(key) / "roadmap.yaml"
+    if not path.exists():
+        return  # let the operation raise its own "unknown project" error
+    roadmap = store.load_yaml(path) or {}
+    if roadmap.get("status") == "archived":
+        raise AiraError(f"project '{key}' is archived — update_project(status='active') to reactivate it first")
+
 
 def _locked(fn):
-    """Serialize mutations per project — tools may run concurrently for multiple clients."""
+    """Serialize mutations per project — tools may run concurrently for multiple clients.
+
+    Also refuses every mutation on an archived project except the exempt ones."""
 
     @functools.wraps(fn)
     def wrapper(key: str, *args, **kwargs):
         with _locks_guard:
             lock = _project_locks.setdefault(key, threading.Lock())
         with lock:
+            if fn.__name__ not in _ARCHIVE_EXEMPT:
+                _refuse_archived(key)
             return fn(key, *args, **kwargs)
 
     return wrapper
@@ -67,7 +84,8 @@ def _ok(payload: dict, warnings: list[str]) -> dict:
 
 
 @_locked
-def create_project(key: str, name: str | None = None) -> dict:
+def create_project(key: str, name: str | None = None, description: str | None = None,
+                   repo: str | None = None) -> dict:
     if not validation.PROJECT_KEY.fullmatch(key or ""):
         raise AiraError(f"project key must be 2-5 uppercase letters, got {key!r}")
     pdir = store.project_dir(key)
@@ -76,6 +94,12 @@ def create_project(key: str, name: str | None = None) -> dict:
     roadmap: dict = {"key": key}
     if name:
         roadmap["name"] = name
+    if description:
+        roadmap["description"] = description
+    if repo:
+        roadmap["repo"] = repo
+    roadmap["status"] = "active"
+    roadmap["meta"] = store.new_meta()
     roadmap["years"] = {}
     state = ProjectState(key=key, roadmap=roadmap)
     warnings = _gate(state)
@@ -84,23 +108,37 @@ def create_project(key: str, name: str | None = None) -> dict:
 
 
 @_locked
-def update_project(key: str, name: str) -> dict:
+def update_project(key: str, name: str | None = None, description: str | None = None,
+                   repo: str | None = None, status: str | None = None) -> dict:
     state = store.load_state(key)
-    state.roadmap["name"] = name
+    fields = {"name": name, "description": description, "repo": repo, "status": status}
+    changed = {k: v for k, v in fields.items() if v is not None}
+    if not changed:
+        raise AiraError("nothing to update — pass at least one of name, description, repo, status")
+    state.roadmap.update(changed)
+    store.touch_meta(state.roadmap)
     warnings = _gate(state)
     store.save_roadmap(state)
-    return _ok({"key": key, "name": name}, warnings)
+    return _ok({"key": key, "project": _project_summary(key, state.roadmap)}, warnings)
 
 
-def list_projects() -> dict:
+def _project_summary(key: str, roadmap: dict) -> dict:
+    return {"key": key, "name": roadmap.get("name"),
+            "description": roadmap.get("description"), "repo": roadmap.get("repo"),
+            "status": roadmap.get("status") or "active", "meta": roadmap.get("meta")}
+
+
+def list_projects(include_archived: bool = False) -> dict:
     root = store.projects_dir()
     projects = []
     if root.is_dir():
         for entry in sorted(root.iterdir()):
             if entry.is_dir() and (entry / "roadmap.yaml").exists():
                 roadmap = store.load_yaml(entry / "roadmap.yaml") or {}
-                projects.append({"key": entry.name, "name": roadmap.get("name")})
-    return {"projects": projects, "data_root": str(store.data_root())}
+                summary = _project_summary(entry.name, roadmap)
+                if include_archived or summary["status"] != "archived":
+                    projects.append(summary)
+    return _jsonable({"projects": projects, "data_root": str(store.data_root())})
 
 
 def get_roadmap(key: str) -> dict:

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import {
   MilestoneChip,
+  ProjectStatusChip,
+  RepoIcon,
   StatusChip,
   TASK_ST,
   countBy,
@@ -54,10 +56,16 @@ function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) =>
               <span className="project-card-head">
                 <span className="id-chip">{p.key}</span>
                 <span className="project-card-name lg">{status.name ?? p.key}</span>
+                <ProjectStatusChip status={p.status} />
                 <span className="project-card-period">{period ?? "—"}</span>
               </span>
-              <span className="project-card-goal">
-                {(period && status.periods[period]?.goal) ?? "열린 기간 없음"}
+              <span className="project-card-goal">{p.description ?? "설명이 아직 없어요."}</span>
+              <span className={`project-card-repo ${p.repo ? "" : "none"}`}>
+                <RepoIcon />
+                <span className="repo-name">{p.repo ?? "—"}</span>
+                {p.meta && (
+                  <span className="since">since {fmtServerTime(p.meta.created_at, data.server.timezone).slice(0, 10)}</span>
+                )}
               </span>
               <span>
                 <span className="project-card-meta">
@@ -98,6 +106,7 @@ function ProjectDetail({
 }) {
   const [filter, setFilter] = useState<TaskFilter>({ status: [], month: [], cancelled: false, open: null });
   const status = data.statuses[projectKey];
+  const ref = data.projects.find((p) => p.key === projectKey);
   const allTasks = data.tasks[projectKey] ?? [];
 
   const current = currentPeriodName(status);
@@ -115,16 +124,47 @@ function ProjectDetail({
       </button>
 
       <div className="card summary-card">
-        <span className="id-chip">{projectKey}</span>
-        <span className="summary-name">{status.name ?? projectKey}</span>
-        <span className="summary-goal">{currentInfo?.goal ?? "열린 기간 없음"}</span>
-        <span className="summary-period">{current ?? "—"}</span>
-        <span className="summary-ratio">
-          {currentRatio.done}/{currentRatio.total} · {currentRatio.pct}%
+        <div className="summary-head">
+          <span className="id-chip">{projectKey}</span>
+          <span className="summary-name">{status.name ?? projectKey}</span>
+          <ProjectStatusChip status={ref?.status} />
+          <span className="spacer" />
+          <span className="summary-period">{current ?? "—"}</span>
+          <span className="summary-ratio">
+            {currentRatio.done}/{currentRatio.total} · {currentRatio.pct}%
+          </span>
+          <span className="bar summary-bar">
+            <span className="bar-fill" style={{ width: `${currentRatio.pct}%` }} />
+          </span>
+        </div>
+        <span className="summary-desc">
+          {ref?.description ?? "설명이 아직 없어요 — update_project로 추가할 수 있어요."}
         </span>
-        <span className="bar summary-bar">
-          <span className="bar-fill" style={{ width: `${currentRatio.pct}%` }} />
-        </span>
+        <div className="summary-facts">
+          <span className="fact">
+            <span className="fact-label">repo</span>
+            <span className={`fact-value mono repo ${ref?.repo ? "" : "none"}`}>
+              <RepoIcon />
+              <span className="ellipsis">{ref?.repo ?? "—"}</span>
+            </span>
+          </span>
+          <span className="fact">
+            <span className="fact-label">created_at</span>
+            <span className="fact-value mono">
+              {ref?.meta ? fmtServerTime(ref.meta.created_at, data.server.timezone) : "—"}
+            </span>
+          </span>
+          <span className="fact">
+            <span className="fact-label">periods</span>
+            <span className="fact-value mono">
+              {periodNames.length}개 분기 · {[...new Set(periodNames.map((n) => n.slice(0, 4)))].sort().join(", ") || "—"}
+            </span>
+          </span>
+          <span className="fact">
+            <span className="fact-label">분기 목표</span>
+            <span className="fact-value muted">{currentInfo?.goal ?? "열린 기간 없음"}</span>
+          </span>
+        </div>
       </div>
 
       <RoadmapCard

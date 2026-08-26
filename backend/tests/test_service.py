@@ -214,3 +214,41 @@ def test_get_retrospective_and_rewrite():
     assert second["rewritten"] is True
     assert service.get_retrospective(key, "2026Q3")["result"] == "# v2 — revised"
     assert service.validate(key)["ok"]
+
+
+def test_project_meta_fields_and_archive():
+    key = bootstrap()
+    service.update_project(key, description="a diary app", repo="me/dailying")
+    p = service.list_projects()["projects"][0]
+    assert (p["description"], p["repo"], p["status"]) == ("a diary app", "me/dailying", "active")
+    assert p["meta"]["created_at"] <= p["meta"]["updated_at"]
+    with pytest.raises(service.AiraError, match="at least one"):
+        service.update_project(key)
+    with pytest.raises(service.AiraError, match="status must be one of"):
+        service.update_project(key, status="deleted")
+
+    service.create_task(key, "2026Q3", "first", "M1")
+    service.update_project(key, status="paused")
+    service.update_task(key, f"{key}-001", title="still editable while paused")
+
+    service.update_project(key, status="archived")
+    assert service.list_projects()["projects"] == []
+    assert service.list_projects(include_archived=True)["projects"][0]["status"] == "archived"
+    with pytest.raises(service.AiraError, match="archived"):
+        service.update_task(key, f"{key}-001", title="nope")
+    service.update_project(key, status="active")
+    service.update_task(key, f"{key}-001", title="back")
+
+
+def test_create_project_stamps_meta_and_legacy_roadmap_still_valid():
+    service.create_project("AIR", name="FronyBoard", description="tracker", repo="x/aira")
+    p = service.list_projects()["projects"][0]
+    assert p["status"] == "active" and p["meta"]["created_at"]
+    # a pre-v0.6 roadmap has neither status nor meta — must read as active, no meta
+    key = bootstrap("OLD")
+    state = store.load_state(key)
+    state.roadmap.pop("status"); state.roadmap.pop("meta")
+    store.save_roadmap(state)
+    old = [x for x in service.list_projects()["projects"] if x["key"] == key][0]
+    assert old["status"] == "active" and old["meta"] is None
+    assert service.validate(key)["errors"] == []

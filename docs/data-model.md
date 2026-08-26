@@ -47,7 +47,11 @@ The server stamps them; agents never write them.
 
 ```yaml
 key: AIR            # must match the folder name
-name: FronyBoard    # optional display name (update_project changes it later)
+name: FronyBoard    # optional display name
+description: ...    # optional one line — what the project is
+repo: owner/name    # optional — where the code lives
+status: active      # active | paused | archived (missing = active)
+meta: {...}         # stamped by the server (missing on projects created before v0.6)
 years:
   "2026":           # 'YYYY' string keys
     overview:       # required per year

@@ -198,6 +198,25 @@ export function StatusChip({ status }: { status: string }) {
   return <span className={`chip st-${status}`}>{TASK_ST[status]?.label ?? status}</span>;
 }
 
+export const PROJECT_ST: Record<string, string> = { active: "운영 중", paused: "보류", archived: "보관" };
+
+export function ProjectStatusChip({ status }: { status: string | undefined }) {
+  const s = status ?? "active";
+  return <span className={`chip pst-${s}`}>{PROJECT_ST[s] ?? s}</span>;
+}
+
+/** Small "where the code lives" glyph used next to a repo name. */
+export function RepoIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="5.5" cy="4.5" r="2" />
+      <circle cx="5.5" cy="15.5" r="2" />
+      <circle cx="14.5" cy="7" r="2" />
+      <path d="M5.5 6.5v7M14.5 9c0 3.5-9 2-9 4.5" />
+    </svg>
+  );
+}
+
 export function MilestoneChip({ status }: { status: string | null }) {
   const s = status ?? "planned";
   return <span className={`chip mst-${s}`}>{MILESTONE_ST[s] ?? s}</span>;

@@ -1,6 +1,12 @@
+export type ProjectStatus = "active" | "paused" | "archived";
+
 export interface ProjectRef {
   key: string;
   name: string | null;
+  description?: string | null;
+  repo?: string | null;
+  status?: ProjectStatus;
+  meta?: { created_at: string; updated_at: string } | null;
 }
 
 export interface Overview {

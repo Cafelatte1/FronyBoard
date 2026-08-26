@@ -58,7 +58,7 @@ export default function TaskPanel({
               )}
 
               <div className="panel-section">
-                <span className="panel-cap">content · markdown</span>
+                <span className="panel-cap">content</span>
                 <Markdown
                   src={
                     task.content ??
