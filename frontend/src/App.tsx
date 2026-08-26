@@ -126,7 +126,9 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           <div className="content">
             {error && <p className="error">{error}</p>}
             {!data && !error && <p className="muted">불러오는 중…</p>}
-            {data && page === "dashboard" && <Dashboard data={data} onOpenProject={openDetail} />}
+            {data && page === "dashboard" && (
+              <Dashboard data={data} onOpenProject={openDetail} onOpenTask={(key, task) => setOpenTask({ key, task })} />
+            )}
             {data && page === "projects" && (
               <Projects
                 data={data}

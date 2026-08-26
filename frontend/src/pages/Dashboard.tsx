@@ -4,9 +4,11 @@ import type { BoardData, Task } from "../types";
 export default function Dashboard({
   data,
   onOpenProject,
+  onOpenTask,
 }: {
   data: BoardData;
   onOpenProject: (key: string) => void;
+  onOpenTask: (key: string, task: Task) => void;
 }) {
   if (data.projects.length === 0)
     return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
@@ -41,9 +43,7 @@ export default function Dashboard({
   }
 
   const wip = perProject.flatMap((p) =>
-    p.tasks
-      .filter((t) => t.status === "in_progress")
-      .map((t) => ({ id: t.id, title: t.title, branch: t.branch ?? "—" })),
+    p.tasks.filter((t) => t.status === "in_progress").map((t) => ({ key: p.ref.key, task: t })),
   );
 
   const mainPeriod = perProject.find((p) => p.period)?.period ?? null;
@@ -168,12 +168,12 @@ export default function Dashboard({
         </div>
         <div className="rows">
           {wip.length === 0 && <p className="muted">진행 중인 태스크가 없어요.</p>}
-          {wip.map((t) => (
-            <div key={t.id} className="row">
-              <span className="t-id">{t.id}</span>
-              <span className="t-title">{t.title}</span>
-              <span className="t-branch">{t.branch}</span>
-            </div>
+          {wip.map(({ key, task }) => (
+            <button key={task.id} className="row row-btn" onClick={() => onOpenTask(key, task)}>
+              <span className="t-id">{task.id}</span>
+              <span className="t-title">{task.title}</span>
+              <span className="t-branch">{task.branch ?? "—"}</span>
+            </button>
           ))}
         </div>
       </div>
