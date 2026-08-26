@@ -164,10 +164,10 @@ from GitHub, never by editing in place.
    too — the dashboard shows timestamps in the server's zone, and Windows cannot
    name its own zone otherwise.
 4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
-   then on the server **stop the task first** (`uv sync` cannot replace a
-   running `aira.exe`), `git fetch --tags`, `git checkout vX.Y.Z`, `uv sync`
-   (in `backend/`), and start the task again — see
-   [docs/operations.md](docs/operations.md) for the exact sequence.
+   then on the server run `powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z`
+   — it stops the task (`uv sync` cannot replace a running `aira.exe`), checks
+   out the tag, syncs, and starts the task again. Without `-Tag` it only
+   restarts the server. See [docs/operations.md](docs/operations.md).
 
 Clients then connect with the server's Tailscale name (see "Remote" above).
 
