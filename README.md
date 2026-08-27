@@ -265,6 +265,7 @@ served by the backend.
 
 More docs under [docs/](docs/):
 
+- [docs/auth.md](docs/auth.md) — access channels (CLI agents, desktop, dashboard, hosted apps) and how each authenticates
 - [docs/http-api.md](docs/http-api.md) — the FronyBoard JSON API
 - [docs/data-model.md](docs/data-model.md) — field-level schema and validation rules
 - [docs/operations.md](docs/operations.md) — home server runbook
