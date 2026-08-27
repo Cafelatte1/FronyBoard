@@ -11,7 +11,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from aira import auth, oauth
+from aira import auth, oauth, store
 
 PUBLIC = "https://board.example.ts.net"
 REDIRECT = "https://app.example/cb"
@@ -75,10 +75,10 @@ def _register(app, name="Claude"):
     return _json(body)["client_id"]
 
 
-def _login_url(app, client_id, challenge, state="xyz"):
+def _login_url(app, client_id, challenge, state="xyz", **extra):
     status, headers, body = _request(app, "GET", "/authorize", query=urlencode({
         "client_id": client_id, "redirect_uri": REDIRECT, "response_type": "code",
-        "code_challenge": challenge, "code_challenge_method": "S256", "state": state}))
+        "code_challenge": challenge, "code_challenge_method": "S256", "state": state, **extra}))
     assert status == 302, body
     return headers["location"]
 
@@ -187,12 +187,54 @@ def test_full_flow_login_token_refresh_revoke(data_root):
         "client_id": client_id})
     assert status == 400
 
-    # only hashes reach disk
-    text = (data_root / "oauth.yaml").read_text(encoding="utf-8")
+    # only hashes reach disk — in the Frony-wide store, not FronyBoard's data root
+    text = (data_root / "frony" / "oauth.yaml").read_text(encoding="utf-8")
     for secret in (tokens["access_token"], tokens["refresh_token"],
                    fresh["access_token"], fresh["refresh_token"]):
         assert secret not in text
     assert "Claude" in text
+    assert not (data_root / "oauth.yaml").exists()
+
+
+def _approve(app, client_id, verifier, challenge, **extra):
+    """Run the browser leg for a registered client and return the token response."""
+    txn = parse_qs(urlparse(_login_url(app, client_id, challenge, **extra)).query)["txn"][0]
+    status, headers, _ = _request(app, "POST", "/oauth/login",
+                                  form={"txn": txn, "username": "admin", "password": "pw"})
+    assert status == 302
+    code = parse_qs(urlparse(headers["location"]).query)["code"][0]
+    return _tokens(app, client_id, code, verifier)
+
+
+def test_tokens_are_issued_for_other_frony_services_too(data_root):
+    """An app connecting to a sibling service (its own Funnel path, this issuer)
+    sends that service as the RFC 8707 resource; the token must still be minted
+    and land in the shared store, where the sibling verifies it by hash."""
+    auth.set_admin("admin", "pw")
+    auth.generate_key("pc1")
+    app = _app(oauth.Provider(PUBLIC))
+    client_id = _register(app, name="ChatGPT")
+    verifier, challenge = _pkce()
+    tokens = _approve(app, client_id, verifier, challenge, resource=PUBLIC + "/cache/mcp")
+    assert tokens["access_token"].startswith("fbat_")
+    digest = hashlib.sha256(tokens["access_token"].encode()).hexdigest()
+    grants = store.load_yaml(data_root / "frony" / "oauth.yaml")["grants"]
+    assert [g["access_sha256"] for g in grants] == [digest]
+    assert grants[0]["subject"] == "admin"
+
+
+def test_legacy_store_moves_to_the_shared_location(data_root):
+    auth.set_admin("admin", "pw")
+    auth.generate_key("pc1")
+    legacy = data_root / "oauth.yaml"
+    store.save_yaml(legacy, {"clients": {"c1": {"client_id": "c1", "client_name": "Old", "redirect_uris": [REDIRECT],
+                                                "token_endpoint_auth_method": "none"}}, "grants": []})
+    app = _app(oauth.Provider(PUBLIC))
+    verifier, challenge = _pkce()
+    tokens = _approve(app, "c1", verifier, challenge)
+    assert not legacy.exists()
+    assert "Old" in (data_root / "frony" / "oauth.yaml").read_text(encoding="utf-8")
+    assert _request(app, "POST", "/mcp", headers=_bearer(tokens["access_token"]))[0] == 200
 
 
 def test_api_keys_still_work_next_to_oauth():

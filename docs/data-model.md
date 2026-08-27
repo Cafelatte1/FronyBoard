@@ -154,9 +154,14 @@ keys:
     created_at: 2026-08-18 05:49:35
 ```
 
+OAuth clients and token hashes for hosted apps sit next to it in
+`%LOCALAPPDATA%\Frony\oauth.yaml` (`FRONY_OAUTH_FILE` overrides), also shared:
+FronyBoard issues the tokens, any Frony service may verify them (see
+[auth.md](auth.md#other-frony-services-behind-the-same-login)).
+
 FronyBoard's own `<data root>/auth.yaml` keeps only the dashboard admin
-(`aira admin`). Keys found there from before the registry existed are moved to
-the registry the first time the server reads them.
+(`aira admin`). Keys or an `oauth.yaml` found in the data root from before the
+shared location existed are moved over the first time the server reads them.
 
 ```yaml
 admin:

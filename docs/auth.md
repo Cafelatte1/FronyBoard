@@ -123,7 +123,8 @@ What to know:
   sees nothing but `fbat_…` tokens.
 - PKCE (④ `code_challenge` ↔ ⑧ `code_verifier`) means a stolen code cannot be
   turned into tokens by anyone but the app that started the flow.
-- Tokens are stored as SHA-256 hashes in `<data root>/oauth.yaml`, like API
+- Tokens are stored as SHA-256 hashes in the Frony-wide
+  `%LOCALAPPDATA%\Frony\oauth.yaml` (`FRONY_OAUTH_FILE` overrides), like API
   keys. To sign one app out, disconnect it in the app or delete its `grants`
   entry; the next request fails and the app asks you to log in again.
 - The approval page shares the login lockout with channel 3 (5 failures / 15
@@ -133,6 +134,40 @@ What to know:
   `aira serve --public-url`), Funnel exposing `/mcp`, `/.well-known`,
   `/register`, `/authorize`, `/token`, `/revoke`, `/oauth`. In the app, add
   `https://<funnel-name>/mcp` as a custom connector.
+
+### Other Frony services behind the same login
+
+FronyBoard is the only authorization server; a sibling service (FronyCache,
+…) that wants to be a connector too does not run OAuth itself. It gets its own
+Funnel path and verifies FronyBoard's tokens — the same idea as the shared key
+registry, with `oauth.yaml` instead of `auth.yaml`.
+
+```
+tailscale funnel --bg --set-path /cache http://127.0.0.1:9412     # https://<funnel-name>/cache/* -> the service
+```
+
+The service then needs three things, all on the public prefix it was given
+(`PUBLIC_URL=https://<funnel-name>/cache`):
+
+1. `401` on `/mcp` without a valid bearer, carrying
+   `WWW-Authenticate: Bearer resource_metadata="<PUBLIC_URL>/.well-known/oauth-protected-resource/mcp"`.
+2. That metadata document, pointing at FronyBoard as the issuer:
+   ```json
+   {"resource": "<PUBLIC_URL>/mcp", "authorization_servers": ["https://<funnel-name>"],
+    "bearer_methods_supported": ["header"], "resource_name": "FronyCache"}
+   ```
+3. For a bearer starting with `fbat_`: `sha256(bearer)` equals some
+   `grants[].access_sha256` in `%LOCALAPPDATA%\Frony\oauth.yaml` and
+   `access_expires_at` is in the future → accepted; the caller is
+   `oauth:<clients[client_id].client_name>:<subject>`. Anything else → `401`
+   with the header from step 1. API keys keep working next to this.
+
+The app follows the header to the metadata, finds FronyBoard, registers and
+logs in there exactly as in the diagram above, and comes back with a token the
+service recognises. One login per app, every Frony service — the token is a
+device-style credential like the key, not a per-service one. The
+`resource` the app names during authorization is recorded with the code but
+not enforced.
 
 ## 5. Local stdio
 

@@ -83,7 +83,10 @@ uv run aira serve
 Add `https://<machine>.<tailnet>.ts.net/mcp` as a custom connector in the app;
 the approval page asks for the dashboard login (`aira admin`). Access tokens
 last 24 hours and refresh silently for 90 days; API keys keep working unchanged.
-See [docs/operations.md](docs/operations.md) for the Funnel paths.
+See [docs/operations.md](docs/operations.md) for the Funnel paths. Tokens live in
+the Frony-wide `%LOCALAPPDATA%\Frony\oauth.yaml`, so other Frony services on
+the same machine can accept them on their own Funnel path without running OAuth
+themselves — [docs/auth.md](docs/auth.md#other-frony-services-behind-the-same-login).
 
 ### Local (stdio)
 
