@@ -51,8 +51,13 @@ uv run aira serve             # binds 0.0.0.0:8642, requires a valid key on ever
 Register on each client (any project, or `--scope user` for everywhere):
 
 ```powershell
-claude mcp add --transport http fronyboard http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
+claude mcp add --transport http FronyBoard http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
 ```
+
+Or let `scripts\configure-mcp-settings.ps1 -ApiKey <api key>` register the server as
+`FronyBoard` in every client installed on that PC — Claude Code, Codex CLI and
+Claude Desktop — and re-run it later to rotate the key (no argument reuses the
+configured one).
 
 Keys are stored hash-only in the Frony-wide registry
 `%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE` overrides) — one key per
@@ -83,7 +88,7 @@ See [docs/operations.md](docs/operations.md) for the Funnel paths.
 ### Local (stdio)
 
 ```powershell
-claude mcp add fronyboard -- uv run --directory <path-to-project-aira>\backend aira
+claude mcp add FronyBoard -- uv run --directory <path-to-project-aira>\backend aira
 ```
 
 ## FronyBoard — the dashboard
