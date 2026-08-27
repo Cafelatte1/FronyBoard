@@ -107,7 +107,9 @@ the server:
 uv run aira keygen <machine-name>    # prints the key once
 ```
 
-Revoking a key cuts that machine off immediately. A key cannot be shown again —
+Keys sit in the Frony-wide registry `C:\Users\<user>\AppData\Local\Frony\auth.yaml`,
+one level above the FronyBoard data root, so the same key opens every Frony
+service on this machine. Revoking a key cuts that machine off immediately. A key cannot be shown again —
 if one is lost, revoke it and issue a new one. Note `aira serve` refuses to
 start with zero keys, so the first key always comes from the CLI.
 
@@ -124,9 +126,10 @@ There is one credential; setting it replaces the previous one.
 ## Backup
 
 Everything lives in the data root (`C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`,
-as set via `AIRA_DATA_DIR` in the launcher script): `projects/` (all plan data) and `auth.yaml`
-(key/admin hashes). Copy that directory and the backup is complete — the repo
-checkout is reproducible from git and holds no state.
+as set via `AIRA_DATA_DIR` in the launcher script): `projects/` (all plan data), `auth.yaml`
+(admin hash) and `oauth.yaml` (hosted-app clients/tokens) — plus the API key registry one level
+up, `Frony\auth.yaml`. Copy `Frony\` and the backup is complete — the repo checkout is
+reproducible from git and holds no state.
 
 ## Known failure modes
 

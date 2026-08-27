@@ -14,7 +14,7 @@ per opened period.
 
 ```
 <data root>/
-├── auth.yaml               API keys + dashboard admin (hashes only — see below)
+├── auth.yaml               dashboard admin (hash only — API keys live one level up, see below)
 └── projects/
     └── {KEY}/              project folder, named by its key
         ├── roadmap.yaml    yearly overview + quarterly milestones
@@ -140,16 +140,25 @@ Status invariants:
 Carry-over: a task that outlives its period is not moved — recreate it in the
 next period under a new id and note the mapping in the closing `result`.
 
-## auth.yaml
+## Credentials (not plan data, not validated by the gate)
 
-Not plan data and not validated by the gate; managed by `aira keygen` /
-`aira admin` and the `/api/keys` endpoints. Stores only hashes:
+API keys are per device and shared by every Frony service on the machine, so
+they live **outside** the FronyBoard data root, in the Frony-wide registry
+`%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE` overrides). Managed by
+`aira keygen` and the `/api/keys` endpoints; other services only read it:
 
 ```yaml
 keys:
   - name: pc1
     sha256: <hex digest of the key>
     created_at: 2026-08-18 05:49:35
+```
+
+FronyBoard's own `<data root>/auth.yaml` keeps only the dashboard admin
+(`aira admin`). Keys found there from before the registry existed are moved to
+the registry the first time the server reads them.
+
+```yaml
 admin:
   username: admin
   salt: <hex>

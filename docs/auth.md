@@ -7,8 +7,8 @@ Every request that reaches plan data — MCP or the JSON API — carries one
 
 | # | channel | reaches the server via | token | how it is obtained | lifetime |
 |---|---|---|---|---|---|
-| 1 | Agent CLIs — Claude Code, Codex, any MCP client that can set a header | tailnet, `http://<server>:8642/mcp` | API key `aira_…` | `aira keygen <machine>` on the server, pasted into the client config once | until revoked |
-| 2 | Claude Desktop (local MCP config) | tailnet, through the `mcp-remote` bridge | API key `aira_…` | same key as 1 | until revoked |
+| 1 | Agent CLIs — Claude Code, Codex, any MCP client that can set a header | tailnet, `http://<server>:8642/mcp` | API key `frony_…` | `aira keygen <machine>` on the server, pasted into the client config once | until revoked |
+| 2 | Claude Desktop (local MCP config) | tailnet, through the `mcp-remote` bridge | API key `frony_…` | same key as 1 | until revoked |
 | 3 | Dashboard in a browser | tailnet, `http://<server>:8642/` | session `fbsession_…` | `POST /api/login` with the admin id/password | until the server restarts |
 | 4 | Hosted apps — Claude app (mobile/web connector), ChatGPT connector | public internet, `https://<funnel-name>/mcp` | OAuth access `fbat_…` (+ refresh `fbrt_…`) | one browser login on the approval page; the app manages the tokens afterwards | 24 h, refreshed silently for 90 days |
 | 5 | Local `aira` (stdio) | none — same machine, process pipe | — | — | — |
@@ -29,7 +29,7 @@ you, on the server          client machine                 server
 ─────────────────           ──────────────                 ──────
 aira keygen macbook ──key──▶ stored in the MCP config
                              every request:
-                             Authorization: Bearer aira_… ──▶ sha256(key) ∈ auth.yaml? → ok, caller=key:macbook
+                             Authorization: Bearer frony_… ──▶ sha256(key) ∈ Frony\auth.yaml? → ok, caller=key:macbook
 ```
 
 - Claude Code: `claude mcp add --transport http --scope user fronyboard http://<server>:8642/mcp --header "Authorization: Bearer <key>"`
@@ -37,11 +37,30 @@ aira keygen macbook ──key──▶ stored in the MCP config
   ```toml
   [mcp_servers.fronyboard]
   url = "http://<server>:8642/mcp"
-  bearer_token_env_var = "FRONYBOARD_KEY"     # export FRONYBOARD_KEY=aira_…
+  bearer_token_env_var = "FRONY_KEY"          # export FRONY_KEY=frony_…
   ```
 - Anything else that speaks MCP streamable HTTP and can add a header works the
   same way. One key per machine; revoke from the dashboard Settings screen or
   `DELETE /api/keys/<name>` — it stops working on the next request.
+
+### The shared key registry
+
+A key is a **device** credential, not a FronyBoard one: it is stored in the
+Frony-wide file `%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE`
+overrides) and any Frony service on the same machine accepts it by doing the
+same check. To add a service, read the file per request and compare
+`sha256(bearer)` against the list — no shared code needed:
+
+```yaml
+keys:
+- name: frony-pc            # label = the device
+  sha256: <hex digest>      # of the full "frony_…" string
+  created_at: 2026-08-18 05:49:35
+```
+
+Issue and revoke through FronyBoard (`aira keygen`, dashboard Settings); the
+change is visible to every service on the next request. Older `aira_…` keys
+keep working — only the hash is compared.
 
 ## 2. Claude Desktop (API key through a bridge)
 
@@ -53,7 +72,7 @@ remote server and adds the header:
 { "mcpServers": { "fronyboard": {
   "command": "npx",
   "args": ["-y", "mcp-remote", "http://<server>:8642/mcp",
-           "--header", "Authorization: Bearer aira_…"]
+           "--header", "Authorization: Bearer frony_…"]
 } } }
 ```
 

@@ -54,7 +54,9 @@ Register on each client (any project, or `--scope user` for everywhere):
 claude mcp add --transport http fronyboard http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
 ```
 
-Keys are stored hash-only in `<data root>/auth.yaml`; revoke one by deleting its
+Keys are stored hash-only in the Frony-wide registry
+`%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE` overrides) — one key per
+device, shared by every Frony service on that machine; revoke one by deleting its
 entry. For access across networks (e.g. a laptop at a cafe), put the server and
 clients on a [Tailscale](https://tailscale.com/) tailnet and use the server's
 Tailscale name as `<server>` — only your enrolled devices can reach it, from
