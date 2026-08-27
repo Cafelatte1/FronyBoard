@@ -8,7 +8,7 @@ Commands:
 
 Register a remote server in Claude Code:
 
-    claude mcp add --transport http fronyboard http://<server>:8642/mcp \
+    claude mcp add --transport http --scope user FronyBoard http://<server>:8642/mcp \
         --header "Authorization: Bearer <api key>"
 """
 
@@ -306,7 +306,7 @@ def main() -> None:
             raise SystemExit(str(e))
         print(f"API key for '{args.name}' (shown once — store it now):\n\n  {token}\n")
         print("Register in Claude Code:\n"
-              f'  claude mcp add --transport http fronyboard http://<server>:8642/mcp '
+              f'  claude mcp add --transport http --scope user FronyBoard http://<server>:8642/mcp '
               f'--header "Authorization: Bearer {token}"')
     elif args.command == "admin":
         password = args.password

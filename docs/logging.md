@@ -64,6 +64,8 @@ Fixed head `ts level scope event`, then per-event fields:
 | `auth` | `oauth_client_registered` | `client`, `client_id` |
 | `auth` | `key_rejected` | `ip`, `path`, `prefix` |
 | `auth` | `key_created` / `key_revoked` | `name`, `ip` |
+| `auth` | `keys_migrated` | `to` — one-time move of `<data root>/auth.yaml` keys into the shared registry |
+| `auth` | `oauth_migrated` | `to` — one-time move of `<data root>/oauth.yaml` into the shared store |
 | `http` | `response` | `status` (≥ 400 only — 2xx/3xx, i.e. the dashboard's minute polling, is not recorded; `GET /mcp` 404/405, a client opening the optional SSE stream, is dropped too), `method`, `path`, `ip` |
 | `tool` | `rejected` | `req`, `tool`, `msg` |
 | `tool` | `exception` | `req`, `tool`, `error`, `msg`, `trace` |
