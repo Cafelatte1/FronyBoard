@@ -7,6 +7,11 @@ surface is API key management, which is restricted to the dashboard login.
 
 ## Authentication
 
+`/mcp` answers browser CORS (`Access-Control-Allow-Origin: *`, preflight without
+a credential, `Mcp-Session-Id` and `WWW-Authenticate` exposed) so claude.ai's
+web app can probe a connector from the browser; the OAuth endpoints carry the
+SDK's own CORS. `/api` does not — it is the dashboard's, same origin.
+
 Every `/api/*` route requires `Authorization: Bearer <token>`, where the token
 is an **API key** (`frony_…`, issued per client machine), a **dashboard session
 token** (`fbsession_…`, issued by `/api/login`) or — when the server runs with a

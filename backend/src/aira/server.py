@@ -263,8 +263,9 @@ def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: 
     _boot("http", host=f"{host}:{port}", public_url=public_url,
           public_mcp=provider.urls.resource_server_url if provider else None)
     try:
-        uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
-                                              open_paths=("/api/login",), oauth=provider),
+        uvicorn.run(auth.with_mcp_cors(
+                        auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
+                                                  open_paths=("/api/login",), oauth=provider)),
                     host=host, port=port, log_config=None)
     finally:
         log.event("INFO", "boot", "shutdown", mode="http")
