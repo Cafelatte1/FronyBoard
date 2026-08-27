@@ -179,7 +179,10 @@ class LoginThrottle:
         return recent
 
     def blocked(self, ip: str | None) -> bool:
-        return len(self._recent(ip)) >= self.limit
+        return self.count(ip) >= self.limit
+
+    def count(self, ip: str | None) -> int:
+        return len(self._recent(ip))
 
     def fail(self, ip: str | None) -> None:
         self._recent(ip).append(time.time())

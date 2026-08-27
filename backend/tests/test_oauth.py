@@ -2,7 +2,9 @@
 
 import base64
 import hashlib
+import html
 import json
+import re
 import secrets
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -52,6 +54,13 @@ def _request(app, method, path, query="", headers=None, json_body=None, form=Non
     out_headers = {k.decode().lower(): v.decode() for k, v in start["headers"]}
     body = b"".join(e.get("body", b"") for e in events if e["type"] == "http.response.body")
     return start["status"], out_headers, body
+
+
+def _handoff(body):
+    """The URL a result page sends the browser to (meta refresh; the link says the same)."""
+    m = re.search(r"content='1;url=([^']+)'", body.decode())
+    assert m, "no hand-off on the page"
+    return html.unescape(m.group(1))
 
 
 def _json(body):
@@ -168,25 +177,36 @@ def test_full_flow_login_token_refresh_revoke(data_root):
     login_url = _login_url(app, client_id, challenge)
     assert login_url.startswith(PUBLIC + "/oauth/login?txn=")
     txn = parse_qs(urlparse(login_url).query)["txn"][0]
-    status, _, body = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
-    assert status == 200 and "Claude" in body.decode()
+    status, headers, body = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
+    text = body.decode()
+    assert status == 200 and "Claude가<br>Frony 연결을 요청합니다" in text
+    assert f"txn_{txn[:6]} · client {client_id[:6]} · Claude" in text
+    assert headers["cache-control"] == "no-store"
 
-    # wrong password re-renders the form; right one redirects back with a code
+    # wrong password re-renders the form with the attempt count; the right one
+    # shows the "connected" screen and hands the browser back with a code
     status, _, body = _request(app, "POST", "/oauth/login",
                                form={"txn": txn, "username": "admin", "password": "nope"})
-    assert status == 200 and "맞지 않아요" in body.decode()
-    status, headers, _ = _request(app, "POST", "/oauth/login",
+    assert status == 200 and "아이디 또는 비밀번호가 맞지 않아요. (1/5)" in body.decode()
+    status, _, body = _request(app, "POST", "/oauth/login",
                                   form={"txn": txn, "username": "admin", "password": "pw"})
-    assert status == 302
-    back = urlparse(headers["location"])
+    assert status == 200
+    text = body.decode()
+    assert "연결 완료" in text and "Claude로 돌아가는 중입니다" in text
+    assert "→ app.example/cb?code=…" in text          # the code itself is not on the page
+    assert "Claude로 돌아가기" in text
+    back = urlparse(_handoff(body))
     assert f"{back.scheme}://{back.netloc}{back.path}" == REDIRECT
     q = parse_qs(back.query)
     assert q["state"] == ["xyz"]
     code = q["code"][0]
 
+    assert q["code"][0] not in text.replace(html.escape(_handoff(body)), "")
+
     # the txn is single-use
-    status, _, _ = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
-    assert status == 400
+    status, _, body = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
+    assert status == 400 and "요청이 만료됐어요" in body.decode()
+    assert f"txn_{txn[:6]} · expired" in body.decode()
 
     # code -> tokens (PKCE checked by the SDK)
     tokens = _tokens(app, client_id, code, verifier)
@@ -240,10 +260,10 @@ def test_full_flow_login_token_refresh_revoke(data_root):
 def _approve(app, client_id, verifier, challenge, **extra):
     """Run the browser leg for a registered client and return the token response."""
     txn = parse_qs(urlparse(_login_url(app, client_id, challenge, **extra)).query)["txn"][0]
-    status, headers, _ = _request(app, "POST", "/oauth/login",
-                                  form={"txn": txn, "username": "admin", "password": "pw"})
-    assert status == 302
-    code = parse_qs(urlparse(headers["location"]).query)["code"][0]
+    status, _, body = _request(app, "POST", "/oauth/login",
+                               form={"txn": txn, "username": "admin", "password": "pw"})
+    assert status == 200
+    code = parse_qs(urlparse(_handoff(body)).query)["code"][0]
     return _tokens(app, client_id, code, verifier)
 
 
@@ -285,6 +305,25 @@ def test_api_keys_still_work_next_to_oauth():
     assert status == 200 and _json(body)["caller"] == "key:pc1"
 
 
+def test_denying_sends_the_app_access_denied(data_root):
+    auth.set_admin("admin", "pw")
+    provider = oauth.Provider(PUBLIC)
+    app = _app(provider)
+    client_id = _register(app)
+    _, challenge = _pkce()
+    txn = parse_qs(urlparse(_login_url(app, client_id, challenge)).query)["txn"][0]
+    status, _, body = _request(app, "POST", "/oauth/deny", form={"txn": txn})
+    assert status == 200 and "연결을 거부했습니다" in body.decode()
+    back = urlparse(_handoff(body))
+    assert f"{back.scheme}://{back.netloc}{back.path}" == REDIRECT
+    assert parse_qs(back.query) == {"error": ["access_denied"], "state": ["xyz"]}
+    # the request is gone: no login, no second deny
+    assert _request(app, "GET", "/oauth/login", query=f"txn={txn}")[0] == 400
+    assert _request(app, "POST", "/oauth/deny", form={"txn": txn})[0] == 400
+    assert not (data_root / "frony" / "oauth.yaml").exists() or \
+        store.load_yaml(data_root / "frony" / "oauth.yaml").get("grants", []) == []
+
+
 def test_login_locks_after_repeated_failures():
     auth.set_admin("admin", "pw")
     provider = oauth.Provider(PUBLIC)
@@ -292,14 +331,18 @@ def test_login_locks_after_repeated_failures():
     client_id = _register(app)
     _, challenge = _pkce()
     txn = parse_qs(urlparse(_login_url(app, client_id, challenge)).query)["txn"][0]
-    for _ in range(auth.login_throttle.limit):
-        status, _, _ = _request(app, "POST", "/oauth/login",
-                                form={"txn": txn, "username": "admin", "password": "nope"})
-        assert status == 200
-    # even the right password is refused once locked
-    status, _, _ = _request(app, "POST", "/oauth/login",
-                            form={"txn": txn, "username": "admin", "password": "pw"})
-    assert status == 429
+    limit = auth.login_throttle.limit
+    for n in range(1, limit):
+        status, _, body = _request(app, "POST", "/oauth/login",
+                                   form={"txn": txn, "username": "admin", "password": "nope"})
+        assert status == 200 and f"({n}/{limit})" in body.decode()
+    # the last strike locks right away, and even the right password is refused after that
+    status, _, body = _request(app, "POST", "/oauth/login",
+                               form={"txn": txn, "username": "admin", "password": "nope"})
+    assert status == 429 and f"로그인 실패가 {limit}회에 도달했습니다" in body.decode()
+    status, _, body = _request(app, "POST", "/oauth/login",
+                               form={"txn": txn, "username": "admin", "password": "pw"})
+    assert status == 429 and f"HTTP 429 · 15분 / {limit}회 제한" in body.decode()
 
 
 def test_public_url_must_be_https():
