@@ -72,7 +72,6 @@ box-shadow:0 4px 14px rgba(161,140,209,.35);margin-top:4px}
 .locked .icon{background:var(--danger-subtle);color:var(--on-danger-subtle)}
 .mono{font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .detail{width:100%;padding:9px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--border);color:var(--text-muted)}
-footer{margin-top:auto;padding-top:14px;border-top:1px solid var(--border);color:var(--text-disabled)}
 @media(max-width:720px){body{padding:16px 12px;align-items:flex-start}main{grid-template-columns:1fr}
 aside{border-right:0;border-bottom:1px solid var(--border);padding:20px}section{padding:20px}}
 """
@@ -112,7 +111,7 @@ def ro(name: str) -> str:
     return "으로" if _jong(name) not in (None, 0, 8) else "로"
 
 
-def _shell(client_name: str, footer: str, body: str, status: int, head: str = "") -> HTMLResponse:
+def _shell(client_name: str, body: str, status: int, head: str = "") -> HTMLResponse:
     name = html.escape(client_name)
     return HTMLResponse(
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
@@ -121,20 +120,11 @@ def _shell(client_name: str, footer: str, body: str, status: int, head: str = ""
         f"<aside><div class='brand'><i></i>FRONY</div><div><h1>{name}{_ga(client_name)}<br>Frony 연결을 요청합니다</h1>"
         "<p>승인하면 이 앱에 전용 토큰이 발급됩니다.</p></div>"
         f"<div class='note'>{_SHIELD}<span>비밀번호는 Frony 서버에서만 입력됩니다. 앱은 토큰만 받습니다.</span></div></aside>"
-        f"<section>{body}<footer class='mono'>{html.escape(footer)}</footer></section>"
+        f"<section>{body}</section>"
         "</main></body></html>", status_code=status, headers={"Cache-Control": "no-store"})
 
 
-def _footer(txn: str, client_id: str | None, client_name: str | None) -> str:
-    parts = [f"txn_{txn[:6]}"]
-    if client_id:
-        parts.append(f"client {client_id[:6]}")
-    if client_name:
-        parts.append(client_name)
-    return " · ".join(parts)
-
-
-def form_page(txn: str, client_id: str, client_name: str, error: str | None = None) -> HTMLResponse:
+def form_page(txn: str, client_name: str, error: str | None = None) -> HTMLResponse:
     err = f"<div class='err'>{_ALERT}<span>{html.escape(error)}</span></div>" if error else ""
     body = (
         "<h2>Frony 계정으로 로그인</h2>"
@@ -146,25 +136,20 @@ def form_page(txn: str, client_id: str, client_name: str, error: str | None = No
         f"<form method='post' action='/oauth/deny'><input type='hidden' name='txn' value='{html.escape(txn)}'>"
         "<button type='submit' class='btn deny'>거부</button></form>"
         f"<script>{_JS}</script>")
-    return _shell(client_name, _footer(txn, client_id, client_name), body, 200)
+    return _shell(client_name, body, 200)
 
 
-def result_page(kind: str, txn: str, client_id: str | None, client_name: str | None,
-                title: str, text: str, detail: str, status: int = 200,
-                redirect: str | None = None) -> HTMLResponse:
-    """A terminal screen: done / denied (both hand the browser back to the app),
-    expired, locked."""
-    action = head = ""
-    if redirect:
-        href = html.escape(redirect, quote=True)
-        head = f"<meta http-equiv='refresh' content='1;url={href}'>"
-        action = f"<a class='btn' href='{href}'>{html.escape(client_name or '앱')}{ro(client_name or '앱')} 돌아가기</a>"
+def result_page(kind: str, client_name: str | None, title: str, text: str, detail: str,
+                status: int = 200, redirect: str | None = None) -> HTMLResponse:
+    """A terminal screen: done / denied (both hand the browser back to the app
+    after a second), expired, locked."""
+    head = f"<meta http-equiv='refresh' content='1;url={html.escape(redirect, quote=True)}'>" if redirect else ""
     body = (
         f"<div class='result {kind}'><span class='icon'><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' "
         f"stroke-width='1.8'><path d='{_ICONS[kind]}' stroke-linecap='round' stroke-linejoin='round'/></svg></span>"
         f"<div><h2>{html.escape(title)}</h2><p>{html.escape(text)}</p></div>"
-        f"<span class='detail mono'>{html.escape(detail)}</span>{action}</div>")
-    return _shell(client_name or "앱", _footer(txn, client_id, client_name), body, status, head)
+        f"<span class='detail mono'>{html.escape(detail)}</span></div>")
+    return _shell(client_name or "앱", body, status, head)
 
 
 def redirect_detail(url: str) -> str:

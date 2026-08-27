@@ -133,8 +133,8 @@ What to know:
   (`(2/5)`), and the fifth strike shows the lockout screen at once.
 - 거부 (`POST /oauth/deny`) drops the request and sends the app
   `error=access_denied`; nothing is issued. After approve or deny the page shows
-  a result screen for a second, then hands the browser back (a link is there in
-  case it does not). The page is server-rendered from `oauth_pages.py` with no
+  a result screen for a second, then hands the browser back on its own. The
+  page is server-rendered from `oauth_pages.py` with no
   external assets — it is public and must render in any in-app browser.
 - Setup: `AIRA_PUBLIC_URL=https://<funnel-name>` and
   `AIRA_PUBLIC_MCP_PATH=/board/mcp` on the server (or `aira serve --public-url

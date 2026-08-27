@@ -180,7 +180,6 @@ def test_full_flow_login_token_refresh_revoke(data_root):
     status, headers, body = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
     text = body.decode()
     assert status == 200 and "Claude가<br>Frony 연결을 요청합니다" in text
-    assert f"txn_{txn[:6]} · client {client_id[:6]} · Claude" in text
     assert headers["cache-control"] == "no-store"
 
     # wrong password re-renders the form with the attempt count; the right one
@@ -194,7 +193,6 @@ def test_full_flow_login_token_refresh_revoke(data_root):
     text = body.decode()
     assert "연결 완료" in text and "Claude로 돌아가는 중입니다" in text
     assert "→ app.example/cb?code=…" in text          # the code itself is not on the page
-    assert "Claude로 돌아가기" in text
     back = urlparse(_handoff(body))
     assert f"{back.scheme}://{back.netloc}{back.path}" == REDIRECT
     q = parse_qs(back.query)
