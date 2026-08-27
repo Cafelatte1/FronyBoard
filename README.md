@@ -54,7 +54,7 @@ Register on each client (any project, or `--scope user` for everywhere):
 claude mcp add --transport http FronyBoard http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
 ```
 
-Or let `scripts\configure-mcp-settings.ps1 -ApiKey <api key>` register the server as
+Or let `scripts\configure_mcp_settings.ps1 -ApiKey <api key>` register the server as
 `FronyBoard` in every client installed on that PC — Claude Code, Codex CLI and
 Claude Desktop — and re-run it later to rotate the key (no argument reuses the
 configured one).

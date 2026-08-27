@@ -14,8 +14,8 @@
   app, ChatGPT) are account-level OAuth and are set up in the app, not here.
 
 .EXAMPLE
-  powershell -NoProfile -File scripts\configure-mcp-settings.ps1 -ApiKey frony_...
-  powershell -NoProfile -File scripts\configure-mcp-settings.ps1              # reuse the key already configured
+  powershell -NoProfile -File scripts\configure_mcp_settings.ps1 -ApiKey frony_...
+  powershell -NoProfile -File scripts\configure_mcp_settings.ps1              # reuse the key already configured
 #>
 param(
     [string]$Server = "http://100.108.65.117:8642",
