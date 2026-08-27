@@ -22,7 +22,7 @@ def _app(provider):
         return JSONResponse({"caller": request.scope["state"]["caller"]})
 
     inner = Starlette(routes=[*oauth.routes(provider), Route("/mcp", mcp_stub, methods=["POST"])])
-    return auth.BearerAuthMiddleware(inner, protected=("/mcp",), oauth=provider)
+    return auth.with_mcp_cors(auth.BearerAuthMiddleware(inner, protected=("/mcp",), oauth=provider))
 
 
 def _request(app, method, path, query="", headers=None, json_body=None, form=None):
@@ -124,6 +124,27 @@ def test_mcp_can_sit_under_a_service_prefix():
     assert status == 200 and _json(body)["resource"] == PUBLIC + "/mcp"
     status, _, body = _request(app, "GET", "/.well-known/oauth-authorization-server")
     assert status == 200 and _json(body)["issuer"] == PUBLIC
+
+
+def test_browser_clients_can_probe_mcp():
+    """claude.ai's web app probes the connector from the browser: the preflight
+    must pass with no credential, and the 401 must expose its WWW-Authenticate."""
+    app = _app(oauth.Provider(PUBLIC))
+    auth.generate_key("pc1")
+    status, headers, _ = _request(app, "OPTIONS", "/mcp", headers=[
+        (b"origin", b"https://claude.ai"), (b"access-control-request-method", b"POST"),
+        (b"access-control-request-headers", b"authorization,content-type,mcp-protocol-version")])
+    assert status == 200
+    assert headers["access-control-allow-origin"] == "*"
+    assert "authorization" in headers["access-control-allow-headers"].lower()
+    status, headers, _ = _request(app, "POST", "/mcp", headers=[(b"origin", b"https://claude.ai")])
+    assert status == 401
+    assert headers["access-control-allow-origin"] == "*"
+    assert "www-authenticate" in headers["access-control-expose-headers"].lower()
+    # the SDK's own CORS on the OAuth routes is left alone — one header, not two
+    status, headers, _ = _request(app, "OPTIONS", "/register", headers=[
+        (b"origin", b"https://claude.ai"), (b"access-control-request-method", b"POST")])
+    assert status == 200 and headers["access-control-allow-origin"] == "*"
 
 
 def test_unauthenticated_mcp_advertises_resource_metadata():

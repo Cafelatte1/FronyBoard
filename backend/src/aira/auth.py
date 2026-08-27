@@ -28,6 +28,8 @@ import secrets
 import time
 from pathlib import Path
 
+from starlette.middleware.cors import CORSMiddleware
+
 from . import log, store
 
 
@@ -198,6 +200,23 @@ def verify_key(token: str | None) -> str | None:
         if secrets.compare_digest(digest, str(k.get("sha256", ""))):
             return k.get("name")
     return None
+
+
+def with_mcp_cors(app):
+    """Answer browser CORS on /mcp only. claude.ai's web app probes a connector
+    from the browser itself, so the preflight must pass without a credential and
+    the 401 must be readable (it carries the WWW-Authenticate pointer). The SDK's
+    OAuth routes already wrap themselves in CORS — wrapping the whole app would
+    double their headers, which browsers reject."""
+    cors = CORSMiddleware(app, allow_origins=["*"], allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+                          allow_headers=["*"], expose_headers=["Mcp-Session-Id", "WWW-Authenticate"])
+
+    async def wrapped(scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").startswith("/mcp"):
+            await cors(scope, receive, send)
+        else:
+            await app(scope, receive, send)
+    return wrapped
 
 
 class BearerAuthMiddleware:
