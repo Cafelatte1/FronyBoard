@@ -32,10 +32,10 @@ aira keygen macbook ──key──▶ stored in the MCP config
                              Authorization: Bearer frony_… ──▶ sha256(key) ∈ Frony\auth.yaml? → ok, caller=key:macbook
 ```
 
-- Claude Code: `claude mcp add --transport http --scope user fronyboard http://<server>:8642/mcp --header "Authorization: Bearer <key>"`
+- Claude Code: `claude mcp add --transport http --scope user FronyBoard http://<server>:8642/mcp --header "Authorization: Bearer <key>"`
 - Codex CLI: in `~/.codex/config.toml`
   ```toml
-  [mcp_servers.fronyboard]
+  [mcp_servers.FronyBoard]
   url = "http://<server>:8642/mcp"
   bearer_token_env_var = "FRONY_KEY"          # export FRONY_KEY=frony_…
   ```
@@ -69,7 +69,7 @@ use the tailnet address instead, register a local MCP entry that bridges to the
 remote server and adds the header:
 
 ```json
-{ "mcpServers": { "fronyboard": {
+{ "mcpServers": { "FronyBoard": {
   "command": "npx",
   "args": ["-y", "mcp-remote", "http://<server>:8642/mcp",
            "--header", "Authorization: Bearer frony_…"]
@@ -136,7 +136,7 @@ What to know:
 
 ## 5. Local stdio
 
-`claude mcp add fronyboard -- uv run --directory <repo>\backend aira` runs the
+`claude mcp add FronyBoard -- uv run --directory <repo>\backend aira` runs the
 server as a child process on the same machine. There is no network and no
 token; the log records `caller: stdio`.
 
