@@ -57,6 +57,26 @@ powershell -NoProfile -File scripts\deploy.ps1   # restart it if not (no -Tag = 
 A restart (reboot or task restart) clears all dashboard sessions — everyone
 signs in again. API keys are unaffected.
 
+## Public MCP endpoint (Tailscale Funnel)
+
+`/mcp` is also reachable from the public internet so that hosted MCP clients
+(Claude / ChatGPT connectors, which connect from the vendor's servers rather
+than from your device) can use it once OAuth exists (AIR-036):
+
+    https://laptop.tailab9579.ts.net/mcp   -> proxy http://127.0.0.1:8642/mcp
+
+Only that path is exposed — the dashboard and `/api` stay tailnet-only. Every
+request still needs a bearer key (no key -> 401), and Tailscale terminates TLS.
+The Funnel config is stored by tailscaled and survives reboots. Prerequisites
+on the admin console (done 2026-08-27): `nodeAttrs` grants `funnel` to
+`autogroup:member`, and DNS -> HTTPS Certificates is enabled.
+
+```powershell
+& "C:\Program Files\Tailscale	ailscale.exe" funnel status
+& "C:\Program Files\Tailscale	ailscale.exe" funnel --bg --set-path /mcp http://127.0.0.1:8642/mcp   # re-enable
+& "C:\Program Files\Tailscale	ailscale.exe" funnel --https=443 off                                 # close it
+```
+
 ## API keys
 
 Preferred: the dashboard **Settings** screen (list, issue, revoke) — requires
