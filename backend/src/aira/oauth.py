@@ -241,23 +241,23 @@ def routes(provider: Provider) -> list[Route]:
 
     def who(txn):
         client = provider.pending_client(txn)
-        return (client.client_id, client.client_name or client.client_id[:8]) if client else (None, None)
+        return (client.client_name or client.client_id[:8]) if client else None
 
     def expired(txn):
         return oauth_pages.result_page(
-            "expired", txn, None, None, "요청이 만료됐어요",
+            "expired", None, "요청이 만료됐어요",
             "앱에서 연결을 다시 시도하면 새 요청이 만들어집니다.", f"txn_{txn[:6]} · expired", 400)
 
     def locked(txn):
         return oauth_pages.result_page(
-            "locked", txn, *who(txn), "잠시 후 다시 시도하세요",
+            "locked", who(txn), "잠시 후 다시 시도하세요",
             f"로그인 실패가 {throttle.limit}회에 도달했습니다. {throttle.window // 60}분 뒤에 다시 승인할 수 있습니다.",
             f"HTTP 429 · {throttle.window // 60}분 / {throttle.limit}회 제한", 429)
 
     async def login_get(request):
         txn = request.query_params.get("txn", "")
-        client_id, name = who(txn)
-        return oauth_pages.form_page(txn, client_id, name) if client_id else expired(txn)
+        name = who(txn)
+        return oauth_pages.form_page(txn, name) if name else expired(txn)
 
     async def login_post(request):
         form = await request.form()
@@ -266,7 +266,7 @@ def routes(provider: Provider) -> list[Route]:
         ip = request.client.host if request.client else None
         if throttle.blocked(ip):
             return locked(txn)
-        client_id, name = who(txn)
+        name = who(txn)
         try:
             target = provider.complete_login(txn, username, str(form.get("password", "")))
         except LookupError:
@@ -277,26 +277,25 @@ def routes(provider: Provider) -> list[Route]:
             if throttle.blocked(ip):
                 return locked(txn)
             return oauth_pages.form_page(
-                txn, client_id, name,
-                f"아이디 또는 비밀번호가 맞지 않아요. ({throttle.count(ip)}/{throttle.limit})")
+                txn, name, f"아이디 또는 비밀번호가 맞지 않아요. ({throttle.count(ip)}/{throttle.limit})")
         throttle.clear(ip)
         log.event("INFO", "auth", "oauth_login_ok", user=username, ip=ip)
         return oauth_pages.result_page(
-            "done", txn, client_id, name, "연결 완료",
+            "done", name, "연결 완료",
             f"{name}{oauth_pages.ro(name)} 돌아가는 중입니다. 이 창은 닫아도 됩니다.",
             oauth_pages.redirect_detail(target), redirect=target)
 
     async def deny_post(request):
         form = await request.form()
         txn = str(form.get("txn", ""))
-        client_id, name = who(txn)
+        name = who(txn)
         try:
             target = provider.deny_login(txn)
         except LookupError:
             return expired(txn)
         log.event("INFO", "auth", "oauth_login_denied", client=name)
         return oauth_pages.result_page(
-            "denied", txn, client_id, name, "연결을 거부했습니다", "앱에는 아무 권한도 발급되지 않았습니다.",
+            "denied", name, "연결을 거부했습니다", "앱에는 아무 권한도 발급되지 않았습니다.",
             "error=access_denied", redirect=target)
 
     issuer = provider.urls.issuer_url
