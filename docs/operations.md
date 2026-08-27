@@ -16,7 +16,11 @@ git push origin main vX.Y.Z
 ```
 
 On the server, `scripts/deploy.ps1` does the whole sequence (from a dev PC:
-`ssh <user>@<server> "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`):
+`ssh -i ~/.ssh/aira_homeserver flash@100.108.65.117 "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
+Run it as its own ssh command, not combined with anything that also mentions
+`aira-server.cmd`: the process cleanup below matches command lines containing
+both `aira` and `serve`, so a combined command naming the launcher would match
+its own ssh session and kill it mid-deploy.
 
 ```powershell
 powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z
