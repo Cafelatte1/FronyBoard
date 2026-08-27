@@ -32,7 +32,7 @@ session tokens, and the planning prose (`content`, `prd`, `goal`, `now`, `next`,
 | `ts` | yes | call time, ISO 8601 with offset |
 | `req` | yes | 6-hex correlation id; `server.jsonl` follow-ups carry the same value |
 | `tool` | yes | MCP tool name |
-| `caller` | yes | `key:<api key name>` · `session:<dashboard user>` · `stdio` (local `aira` run) |
+| `caller` | yes | `key:<api key name>` · `session:<dashboard user>` · `oauth:<client name>:<user>` (hosted app) · `stdio` (local `aira` run) |
 | `project` | when known | from `key`, or the prefix of `task_id` |
 | `period` | when passed | `2026Q3` |
 | `task` | when passed | `AIR-031` |
@@ -60,6 +60,8 @@ Fixed head `ts level scope event`, then per-event fields:
 | `boot` | `start` | `mode` (`http`/`stdio`), `version`, `data`, `logs`, `tz`, `host` (http) |
 | `boot` | `shutdown` | `mode` |
 | `auth` | `login_ok` / `login_failed` | `user`, `ip` |
+| `auth` | `oauth_login_ok` / `oauth_login_failed` | `user`, `ip` — the approval page for hosted clients |
+| `auth` | `oauth_client_registered` | `client`, `client_id` |
 | `auth` | `key_rejected` | `ip`, `path`, `prefix` |
 | `auth` | `key_created` / `key_revoked` | `name`, `ip` |
 | `http` | `response` | `status` (≥ 400 only — 2xx/3xx, i.e. the dashboard's minute polling, is not recorded; `GET /mcp` 404/405, a client opening the optional SSE stream, is dropped too), `method`, `path`, `ip` |

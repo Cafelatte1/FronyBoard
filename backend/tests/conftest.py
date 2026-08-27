@@ -2,12 +2,13 @@
 
 import pytest
 
-from aira import service
+from aira import auth, service
 
 
 @pytest.fixture(autouse=True)
 def data_root(tmp_path, monkeypatch):
     monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(auth, "login_throttle", auth.LoginThrottle())  # lockouts must not leak across tests
     return tmp_path
 
 

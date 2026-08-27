@@ -60,6 +60,24 @@ clients on a [Tailscale](https://tailscale.com/) tailnet and use the server's
 Tailscale name as `<server>` — only your enrolled devices can reach it, from
 anywhere.
 
+### Hosted clients (Claude / ChatGPT apps)
+
+The Claude and ChatGPT apps connect from the vendor's servers, not from your
+device, so they need a public HTTPS address and log in with OAuth instead of a
+static key. Expose `/mcp` (and the OAuth paths) with
+[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) and start the server
+with that address:
+
+```powershell
+$env:AIRA_PUBLIC_URL = "https://<machine>.<tailnet>.ts.net"   # or: aira serve --public-url …
+uv run aira serve
+```
+
+Add `https://<machine>.<tailnet>.ts.net/mcp` as a custom connector in the app;
+the approval page asks for the dashboard login (`aira admin`). Access tokens
+last 24 hours and refresh silently for 90 days; API keys keep working unchanged.
+See [docs/operations.md](docs/operations.md) for the Funnel paths.
+
 ### Local (stdio)
 
 ```powershell

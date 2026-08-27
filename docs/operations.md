@@ -57,24 +57,44 @@ powershell -NoProfile -File scripts\deploy.ps1   # restart it if not (no -Tag = 
 A restart (reboot or task restart) clears all dashboard sessions — everyone
 signs in again. API keys are unaffected.
 
-## Public MCP endpoint (Tailscale Funnel)
+## Hosted MCP clients (Tailscale Funnel + OAuth)
 
-`/mcp` is also reachable from the public internet so that hosted MCP clients
-(Claude / ChatGPT connectors, which connect from the vendor's servers rather
-than from your device) can use it once OAuth exists (AIR-036):
+The Claude / ChatGPT apps connect from the vendor's servers, so `/mcp` is also
+reachable from the public internet through Tailscale Funnel, and the server
+runs an OAuth authorization server for them (`AIRA_PUBLIC_URL` in
+`aira-server.cmd`; `aira serve --public-url` is the CLI form):
 
     https://laptop.tailab9579.ts.net/mcp   -> proxy http://127.0.0.1:8642/mcp
 
-Only that path is exposed — the dashboard and `/api` stay tailnet-only. Every
-request still needs a bearer key (no key -> 401), and Tailscale terminates TLS.
+Funnel exposes only these path prefixes — the dashboard and `/api` stay
+tailnet-only:
+
+| path | purpose |
+|---|---|
+| `/mcp` | the MCP endpoint (bearer: API key or OAuth access token) |
+| `/.well-known` | OAuth discovery (`oauth-authorization-server`, `oauth-protected-resource/mcp`) |
+| `/register`, `/authorize`, `/token`, `/revoke` | OAuth endpoints (MCP SDK) |
+| `/oauth` | the approval page — asks for the dashboard login |
+
+Flow: the app finds the metadata, registers itself, sends the browser to
+`/oauth/login`, and exchanges the code for tokens. Access tokens last 24 h and
+refresh silently for 90 days; after that the app asks for the login again.
+Clients and token hashes live in `<data root>/oauth.yaml` — delete a `grants`
+entry to sign one app out, or disconnect the connector in the app. Five failed
+logins from one address (all Funnel traffic counts as one address) lock the
+login for 15 minutes; the same limit guards `/api/login`.
+
 The Funnel config is stored by tailscaled and survives reboots. Prerequisites
 on the admin console (done 2026-08-27): `nodeAttrs` grants `funnel` to
 `autogroup:member`, and DNS -> HTTPS Certificates is enabled.
 
 ```powershell
-& "C:\Program Files\Tailscale	ailscale.exe" funnel status
-& "C:\Program Files\Tailscale	ailscale.exe" funnel --bg --set-path /mcp http://127.0.0.1:8642/mcp   # re-enable
-& "C:\Program Files\Tailscale	ailscale.exe" funnel --https=443 off                                 # close it
+$ts = "C:\Program Files\Tailscale\tailscale.exe"
+& $ts funnel status
+foreach ($p in "/mcp", "/.well-known", "/register", "/authorize", "/token", "/revoke", "/oauth") {
+    & $ts funnel --bg --set-path $p "http://127.0.0.1:8642$p"     # (re-)enable
+}
+& $ts funnel --https=443 off                                      # close everything
 ```
 
 ## API keys

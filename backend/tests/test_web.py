@@ -5,7 +5,7 @@ import json
 import anyio
 from starlette.applications import Starlette
 
-from aira import service, web
+from aira import auth, service, web
 from conftest import bootstrap
 
 
@@ -169,3 +169,12 @@ def test_unknown_project_is_404():
     status, body = _get("/api/projects/NOPE/status")
     assert status == 404
     assert "error" in body
+
+
+def test_login_locks_after_repeated_failures():
+    auth.set_admin("admin", "pw")
+    for _ in range(auth.login_throttle.limit):
+        status, _ = _request("POST", "/api/login", body={"username": "admin", "password": "nope"})
+        assert status == 401
+    status, body = _request("POST", "/api/login", body={"username": "admin", "password": "pw"})
+    assert status == 429 and "too many" in body["error"]

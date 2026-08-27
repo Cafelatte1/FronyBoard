@@ -161,10 +161,15 @@ async def _login(request):
     except Exception:
         return JSONResponse({"error": "invalid JSON body"}, status_code=400)
     username = str(body.get("username", ""))
+    ip = _ip(request)
+    if auth.login_throttle.blocked(ip):
+        return JSONResponse({"error": "too many failed logins — try again later"}, status_code=429)
     if not auth.verify_admin(username, str(body.get("password", ""))):
-        log.event("WARNING", "auth", "login_failed", user=username, ip=_ip(request))
+        auth.login_throttle.fail(ip)
+        log.event("WARNING", "auth", "login_failed", user=username, ip=ip)
         return JSONResponse({"error": "invalid credentials"}, status_code=401)
-    log.event("INFO", "auth", "login_ok", user=username, ip=_ip(request))
+    auth.login_throttle.clear(ip)
+    log.event("INFO", "auth", "login_ok", user=username, ip=ip)
     return JSONResponse({"token": auth.create_session(username), "username": username})
 
 

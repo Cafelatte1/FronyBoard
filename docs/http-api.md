@@ -8,8 +8,10 @@ surface is API key management, which is restricted to the dashboard login.
 ## Authentication
 
 Every `/api/*` route requires `Authorization: Bearer <token>`, where the token
-is either an **API key** (`aira_…`, issued per client machine) or a **dashboard
-session token** (`fbsession_…`, issued by `/api/login`). Exceptions:
+is an **API key** (`aira_…`, issued per client machine), a **dashboard session
+token** (`fbsession_…`, issued by `/api/login`) or — when the server runs with a
+public URL — an **OAuth access token** (`fbat_…`, issued to a hosted MCP client
+through `/authorize` + `/token`; see [operations.md](operations.md)). Exceptions:
 
 - `POST /api/login` is open (it is how you get a session token).
 - `/api/keys` routes accept **only a session token** — requests with an API key
@@ -17,7 +19,9 @@ session token** (`fbsession_…`, issued by `/api/login`). Exceptions:
 
 Session tokens live in server memory: a server restart invalidates all of them.
 
-Requests without a valid token get `401` with a JSON body.
+Requests without a valid token get `401` with a JSON body (on `/mcp` the
+response also carries a `WWW-Authenticate` header pointing at the OAuth
+resource metadata, which is how the hosted clients discover the login).
 
 ## Errors
 
@@ -34,7 +38,8 @@ All timestamps in responses are **naive UTC** strings (e.g.
 
 Body: `{"username": "...", "password": "..."}` — the credential set with
 `aira admin <username>`. Returns `{"token": "fbsession_…", "username": "..."}`,
-or `401` on a bad credential.
+or `401` on a bad credential. Five failures from one address within 15 minutes
+lock that address out with `429` until the window passes.
 
 ### POST /api/logout
 
