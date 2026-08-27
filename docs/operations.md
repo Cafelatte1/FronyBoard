@@ -79,8 +79,13 @@ tailnet-only:
 Flow: the app finds the metadata, registers itself, sends the browser to
 `/oauth/login`, and exchanges the code for tokens. Access tokens last 24 h and
 refresh silently for 90 days; after that the app asks for the login again.
-Clients and token hashes live in `<data root>/oauth.yaml` — delete a `grants`
-entry to sign one app out, or disconnect the connector in the app. Five failed
+Clients and token hashes live in the Frony-wide `Frony\oauth.yaml` (next to the key
+registry; `FRONY_OAUTH_FILE` overrides, and the launcher pins it for the SYSTEM
+account like `FRONY_AUTH_FILE`) — delete a `grants` entry to sign one app out, or
+disconnect the connector in the app. Other Frony services exposed on their own
+Funnel path (`--set-path /cache http://127.0.0.1:9412`) verify the same tokens
+from that file instead of running OAuth themselves — see
+[auth.md](auth.md#other-frony-services-behind-the-same-login). Five failed
 logins from one address (all Funnel traffic counts as one address) lock the
 login for 15 minutes; the same limit guards `/api/login`.
 
@@ -130,10 +135,10 @@ There is one credential; setting it replaces the previous one.
 ## Backup
 
 Everything lives in the data root (`C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`,
-as set via `AIRA_DATA_DIR` in the launcher script): `projects/` (all plan data), `auth.yaml`
-(admin hash) and `oauth.yaml` (hosted-app clients/tokens) — plus the API key registry one level
-up, `Frony\auth.yaml`. Copy `Frony\` and the backup is complete — the repo checkout is
-reproducible from git and holds no state.
+as set via `AIRA_DATA_DIR` in the launcher script): `projects/` (all plan data) and `auth.yaml`
+(admin hash) — plus the Frony-wide files one level up, `Frony\auth.yaml` (API keys) and
+`Frony\oauth.yaml` (hosted-app clients/tokens). Copy `Frony\` and the backup is complete — the
+repo checkout is reproducible from git and holds no state.
 
 ## Known failure modes
 

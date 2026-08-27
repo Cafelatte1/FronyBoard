@@ -8,7 +8,14 @@ are the MCP SDK's; this module supplies the provider behind them — storage,
 the login page, token minting — and is only mounted when `aira serve` has a
 public URL.
 
-State lives in `oauth.yaml` at the data root:
+State lives in the Frony-wide `<Frony root>/oauth.yaml` (override with
+FRONY_OAUTH_FILE) rather than FronyBoard's data root, because the tokens are
+not FronyBoard-only: this is the authorization server for every Frony service
+on the machine. Another service exposed through Funnel needs no OAuth code of
+its own — it points its protected-resource metadata at this issuer and checks
+sha256(bearer) against the `grants` below, the same way API keys are shared
+through auth.yaml. A file from before the shared location existed is moved over
+on first read.
 
     clients: {client_id: <RFC 7591 client record; the secret stays in clear
                           because the SDK compares it on /token>}
@@ -24,8 +31,10 @@ from __future__ import annotations
 
 import hashlib
 import html
+import os
 import secrets
 import time
+from pathlib import Path
 from urllib.parse import urlencode
 
 from mcp.server.auth.provider import (
@@ -52,6 +61,12 @@ def _sha(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def oauth_path() -> Path:
+    """The Frony-wide token store, readable by every service that accepts fbat_ tokens."""
+    env = os.environ.get("FRONY_OAUTH_FILE")
+    return Path(env) if env else store.frony_root() / "oauth.yaml"
+
+
 class Provider:
     """The MCP SDK's OAuthAuthorizationServerProvider, backed by oauth.yaml."""
 
@@ -68,7 +83,14 @@ class Provider:
     # -- storage -----------------------------------------------------------------
 
     def _path(self):
-        return store.data_root() / "oauth.yaml"
+        path = oauth_path()
+        legacy = store.data_root() / "oauth.yaml"
+        if not path.exists() and legacy.exists():
+            # One-time move of the store from before it was shared across services.
+            path.parent.mkdir(parents=True, exist_ok=True)
+            legacy.replace(path)
+            log.event("INFO", "auth", "oauth_migrated", to=str(path))
+        return path
 
     def _load(self) -> dict:
         path = self._path()
