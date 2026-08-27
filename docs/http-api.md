@@ -8,7 +8,7 @@ surface is API key management, which is restricted to the dashboard login.
 ## Authentication
 
 Every `/api/*` route requires `Authorization: Bearer <token>`, where the token
-is an **API key** (`aira_…`, issued per client machine), a **dashboard session
+is an **API key** (`frony_…`, issued per client machine), a **dashboard session
 token** (`fbsession_…`, issued by `/api/login`) or — when the server runs with a
 public URL — an **OAuth access token** (`fbat_…`, issued to a hosted MCP client
 through `/authorize` + `/token`; see [operations.md](operations.md)). Exceptions:
@@ -137,7 +137,7 @@ time — the key itself is never retrievable after issuance.
 
 ### POST /api/keys
 
-Body: `{"name": "<machine name>"}`. Returns `{"name": "...", "key": "aira_…"}` —
+Body: `{"name": "<machine name>"}`. Returns `{"name": "...", "key": "frony_…"}` —
 **the only time the key is shown**. `400` if the name is empty or taken.
 
 ### DELETE /api/keys/{name}

@@ -1,15 +1,17 @@
 """API key management and bearer-auth middleware tests."""
 
+import hashlib
+
 import anyio
 import pytest
 
-from aira import auth
+from aira import auth, store
 
 
 def test_keygen_and_verify_roundtrip():
     assert not auth.has_keys()
     token = auth.generate_key("pc1")
-    assert token.startswith("aira_")
+    assert token.startswith("frony_")
     assert auth.has_keys()
     assert auth.verify_key(token) == "pc1"
     assert auth.verify_key("aira_wrong") is None
@@ -21,7 +23,28 @@ def test_keygen_rejects_duplicates_and_stores_only_hash(data_root):
     token = auth.generate_key("pc1")
     with pytest.raises(ValueError, match="already exists"):
         auth.generate_key("pc1")
-    assert token not in (data_root / "auth.yaml").read_text(encoding="utf-8")
+    registry = data_root / "frony" / "auth.yaml"
+    assert registry.read_text(encoding="utf-8").count("pc1") == 1
+    assert token not in registry.read_text(encoding="utf-8")
+    assert not (data_root / "auth.yaml").exists()  # keys never touch FronyBoard's own file
+
+
+def test_legacy_keys_move_to_the_shared_registry(data_root):
+    """Keys issued before the registry existed sit in <data root>/auth.yaml — one
+    read moves them over, leaves the admin entry behind, and the key still works."""
+    token = "aira_" + "ab" * 24
+    store.save_yaml(data_root / "auth.yaml", {
+        "keys": [{"name": "old-pc", "sha256": hashlib.sha256(token.encode()).hexdigest(),
+                  "created_at": "2026-08-01 00:00:00"}],
+        "admin": {"username": "admin", "salt": "00", "sha256": "x", "created_at": "2026-08-01 00:00:00"},
+    })
+    assert auth.verify_key(token) == "old-pc"
+    assert "keys" not in store.load_yaml(data_root / "auth.yaml")
+    assert store.load_yaml(data_root / "auth.yaml")["admin"]["username"] == "admin"
+    assert [k["name"] for k in store.load_yaml(data_root / "frony" / "auth.yaml")["keys"]] == ["old-pc"]
+    assert auth.verify_key(token) == "old-pc"  # second read comes from the registry
+    auth.revoke_key("old-pc")
+    assert auth.verify_key(token) is None
 
 
 def _run_middleware(headers: list, path: str = "/mcp",

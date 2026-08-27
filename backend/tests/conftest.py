@@ -8,6 +8,7 @@ from aira import auth, service
 @pytest.fixture(autouse=True)
 def data_root(tmp_path, monkeypatch):
     monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("FRONY_AUTH_FILE", str(tmp_path / "frony" / "auth.yaml"))
     monkeypatch.setattr(auth, "login_throttle", auth.LoginThrottle())  # lockouts must not leak across tests
     return tmp_path
 

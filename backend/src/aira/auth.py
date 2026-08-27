@@ -1,6 +1,8 @@
 """API key management and HTTP bearer auth for the AIRA server.
 
-Keys live in `auth.yaml` at the data root:
+API keys are issued per device and shared by every Frony service on the home
+server, so they live in the Frony-wide registry `<Frony root>/auth.yaml`
+(override with FRONY_AUTH_FILE), not in FronyBoard's own data root:
 
     keys:
     - name: pc1
@@ -9,32 +11,64 @@ Keys live in `auth.yaml` at the data root:
 
 Only the SHA-256 digest is stored — the key itself is shown once at generation
 (`aira keygen <name>`) and sent by clients as `Authorization: Bearer <key>`.
-Revoke a key by deleting its entry from auth.yaml.
+Revoke a key by deleting its entry. Any other service verifies the same way:
+sha256(bearer) against this list.
+
+FronyBoard-only credentials (the dashboard admin) stay in `<data root>/auth.yaml`.
+Keys found there from before the shared registry existed are moved over on
+first use.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import time
+from pathlib import Path
 
 from . import log, store
 
 
 def _auth_path():
+    """FronyBoard's own credential file (dashboard admin)."""
     return store.data_root() / "auth.yaml"
 
 
-def _load_auth() -> dict:
-    path = _auth_path()
+def keys_path():
+    """The Frony-wide API key registry."""
+    env = os.environ.get("FRONY_AUTH_FILE")
+    return Path(env) if env else store.frony_root() / "auth.yaml"
+
+
+def _read(path) -> dict:
     if not path.exists():
         return {}
     return store.load_yaml(path) or {}
 
 
+def _load_auth() -> dict:
+    return _read(_auth_path())
+
+
 def _load_keys() -> list[dict]:
-    return _load_auth().get("keys") or []
+    registry = _read(keys_path())
+    if "keys" not in registry:
+        legacy = _load_auth()
+        if legacy.get("keys"):
+            # One-time move of keys issued before the shared registry existed.
+            _save_keys(legacy.pop("keys"))
+            store.save_yaml(_auth_path(), legacy)
+            log.event("INFO", "auth", "keys_migrated", to=str(keys_path()))
+            return _read(keys_path()).get("keys") or []
+    return registry.get("keys") or []
+
+
+def _save_keys(keys: list[dict]) -> None:
+    data = _read(keys_path())
+    data["keys"] = keys
+    store.save_yaml(keys_path(), data)
 
 
 def has_keys() -> bool:
@@ -47,16 +81,14 @@ def generate_key(name: str) -> str:
     name = name.strip()
     keys = _load_keys()
     if any(k.get("name") == name for k in keys):
-        raise ValueError(f"a key named '{name}' already exists — revoke it in auth.yaml first")
-    token = "aira_" + secrets.token_hex(24)
+        raise ValueError(f"a key named '{name}' already exists — revoke it first")
+    token = "frony_" + secrets.token_hex(24)
     keys.append({
         "name": name,
         "sha256": hashlib.sha256(token.encode()).hexdigest(),
         "created_at": store.now(),
     })
-    data = _load_auth()
-    data["keys"] = keys
-    store.save_yaml(_auth_path(), data)
+    _save_keys(keys)
     return token
 
 
@@ -74,13 +106,11 @@ def key_info() -> list[dict]:
 
 
 def revoke_key(name: str) -> None:
-    data = _load_auth()
-    keys = data.get("keys") or []
+    keys = _load_keys()
     kept = [k for k in keys if k.get("name") != name]
     if len(kept) == len(keys):
         raise FileNotFoundError(f"no key named '{name}'")
-    data["keys"] = kept
-    store.save_yaml(_auth_path(), data)
+    _save_keys(kept)
 
 
 def set_admin(username: str, password: str) -> None:

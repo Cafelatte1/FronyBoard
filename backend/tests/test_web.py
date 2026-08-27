@@ -120,7 +120,7 @@ def test_key_management_requires_dashboard_session():
 
     status, body = _request("POST", "/api/keys", body={"name": "pc2"}, token=session)
     assert status == 200
-    assert body["key"].startswith("aira_")
+    assert body["key"].startswith("frony_")
     assert auth.verify_key(body["key"]) == "pc2"
 
     status, body = _request("POST", "/api/keys", body={"name": "pc2"}, token=session)

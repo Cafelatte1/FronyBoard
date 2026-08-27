@@ -21,13 +21,18 @@ from pathlib import Path
 import yaml
 
 
+def frony_root() -> Path:
+    """The folder every Frony service on this machine shares (%LOCALAPPDATA%/Frony,
+    or ~/.Frony where LOCALAPPDATA is unset) — the API key registry lives here."""
+    local = os.environ.get("LOCALAPPDATA")
+    return Path(local) / "Frony" if local else Path.home() / ".Frony"
+
+
 def data_root() -> Path:
     root = os.environ.get("AIRA_DATA_DIR")
     if root:
         return Path(root)
-    local = os.environ.get("LOCALAPPDATA")
-    base = Path(local) / "Frony" if local else Path.home() / ".Frony"
-    return base / "FronyBoard" / "data"
+    return frony_root() / "FronyBoard" / "data"
 
 
 def projects_dir() -> Path:
