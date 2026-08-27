@@ -77,10 +77,11 @@ with that address:
 
 ```powershell
 $env:AIRA_PUBLIC_URL = "https://<machine>.<tailnet>.ts.net"   # or: aira serve --public-url …
+$env:AIRA_PUBLIC_MCP_PATH = "/board/mcp"                       # the Funnel path that proxies to /mcp
 uv run aira serve
 ```
 
-Add `https://<machine>.<tailnet>.ts.net/mcp` as a custom connector in the app;
+Add `https://<machine>.<tailnet>.ts.net/board/mcp` as a custom connector in the app;
 the approval page asks for the dashboard login (`aira admin`). Access tokens
 last 24 hours and refresh silently for 90 days; API keys keep working unchanged.
 See [docs/operations.md](docs/operations.md) for the Funnel paths. Tokens live in

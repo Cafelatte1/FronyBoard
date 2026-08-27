@@ -10,7 +10,7 @@ Every request that reaches plan data — MCP or the JSON API — carries one
 | 1 | Agent CLIs — Claude Code, Codex, any MCP client that can set a header | tailnet, `http://<server>:8642/mcp` | API key `frony_…` | `aira keygen <machine>` on the server, pasted into the client config once | until revoked |
 | 2 | Claude Desktop (local MCP config) | tailnet, through the `mcp-remote` bridge | API key `frony_…` | same key as 1 | until revoked |
 | 3 | Dashboard in a browser | tailnet, `http://<server>:8642/` | session `fbsession_…` | `POST /api/login` with the admin id/password | until the server restarts |
-| 4 | Hosted apps — Claude app (mobile/web connector), ChatGPT connector | public internet, `https://<funnel-name>/mcp` | OAuth access `fbat_…` (+ refresh `fbrt_…`) | one browser login on the approval page; the app manages the tokens afterwards | 24 h, refreshed silently for 90 days |
+| 4 | Hosted apps — Claude app (mobile/web connector), ChatGPT connector | public internet, `https://<funnel-name>/board/mcp` | OAuth access `fbat_…` (+ refresh `fbrt_…`) | one browser login on the approval page; the app manages the tokens afterwards | 24 h, refreshed silently for 90 days |
 | 5 | Local `aira` (stdio) | none — same machine, process pipe | — | — | — |
 
 The tailnet itself is the first gate for 1–3: a device that is not enrolled in
@@ -130,10 +130,12 @@ What to know:
 - The approval page shares the login lockout with channel 3 (5 failures / 15
   min per address; all Funnel traffic counts as one address, so an attack locks
   the public page, never the tailnet).
-- Setup: `AIRA_PUBLIC_URL=https://<funnel-name>` on the server (or
-  `aira serve --public-url`), Funnel exposing `/mcp`, `/.well-known`,
+- Setup: `AIRA_PUBLIC_URL=https://<funnel-name>` and
+  `AIRA_PUBLIC_MCP_PATH=/board/mcp` on the server (or `aira serve --public-url
+  --public-mcp-path`), Funnel exposing `/board/mcp`, `/.well-known`,
   `/register`, `/authorize`, `/token`, `/revoke`, `/oauth`. In the app, add
-  `https://<funnel-name>/mcp` as a custom connector.
+  `https://<funnel-name>/board/mcp` as a custom connector. The issuer is the
+  root; every service, FronyBoard included, sits under its own prefix.
 
 ### Other Frony services behind the same login
 

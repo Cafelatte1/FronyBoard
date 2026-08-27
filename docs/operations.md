@@ -63,20 +63,25 @@ signs in again. API keys are unaffected.
 
 ## Hosted MCP clients (Tailscale Funnel + OAuth)
 
-The Claude / ChatGPT apps connect from the vendor's servers, so `/mcp` is also
-reachable from the public internet through Tailscale Funnel, and the server
-runs an OAuth authorization server for them (`AIRA_PUBLIC_URL` in
-`aira-server.cmd`; `aira serve --public-url` is the CLI form):
+The Claude / ChatGPT apps connect from the vendor's servers, so the MCP
+endpoint is also reachable from the public internet through Tailscale Funnel,
+and the server runs an OAuth authorization server for them (`AIRA_PUBLIC_URL` +
+`AIRA_PUBLIC_MCP_PATH` in `aira-server.cmd`; `aira serve --public-url
+--public-mcp-path` is the CLI form). The public layout is *root = auth, one
+prefix per service*:
 
-    https://laptop.tailab9579.ts.net/mcp   -> proxy http://127.0.0.1:8642/mcp
+    https://laptop.tailab9579.ts.net/board/mcp   -> proxy http://127.0.0.1:8642/mcp   (FronyBoard)
+    https://laptop.tailab9579.ts.net/cache/*     -> proxy http://127.0.0.1:9412/*     (FronyCache, when enabled)
+    https://laptop.tailab9579.ts.net/{.well-known,register,authorize,token,revoke,oauth}  -> FronyBoard (auth for all)
 
 Funnel exposes only these path prefixes — the dashboard and `/api` stay
 tailnet-only:
 
 | path | purpose |
 |---|---|
-| `/mcp` | the MCP endpoint (bearer: API key or OAuth access token) |
-| `/.well-known` | OAuth discovery (`oauth-authorization-server`, `oauth-protected-resource/mcp`) |
+| `/board/mcp` | the MCP endpoint (bearer: API key or OAuth access token) |
+| `/mcp` | the same endpoint at its pre-prefix address — kept for connectors registered before 2026-08-27 |
+| `/.well-known` | OAuth discovery (`oauth-authorization-server`, `oauth-protected-resource/board/mcp`) |
 | `/register`, `/authorize`, `/token`, `/revoke` | OAuth endpoints (MCP SDK) |
 | `/oauth` | the approval page — asks for the dashboard login |
 
@@ -103,6 +108,7 @@ $ts = "C:\Program Files\Tailscale\tailscale.exe"
 foreach ($p in "/mcp", "/.well-known", "/register", "/authorize", "/token", "/revoke", "/oauth") {
     & $ts funnel --bg --set-path $p "http://127.0.0.1:8642$p"     # (re-)enable
 }
+& $ts funnel --bg --set-path /board/mcp http://127.0.0.1:8642/mcp   # the prefixed address
 & $ts funnel --https=443 off                                      # close everything
 ```
 

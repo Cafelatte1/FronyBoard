@@ -106,6 +106,26 @@ def test_metadata_points_at_public_url():
     assert _json(body)["authorization_servers"] == [PUBLIC]
 
 
+def test_mcp_can_sit_under_a_service_prefix():
+    """Public layout: the issuer stays at the root, FronyBoard's endpoint moves to
+    /board/mcp like any other service's /<name>/mcp. The old /mcp metadata is
+    still served for connectors registered before the move."""
+    app = _app(oauth.Provider(PUBLIC, "/board/mcp"))
+    auth.generate_key("pc1")
+    status, headers, _ = _request(app, "POST", "/mcp")
+    assert status == 401
+    assert headers["www-authenticate"] == \
+        f'Bearer resource_metadata="{PUBLIC}/.well-known/oauth-protected-resource/board/mcp"'
+    status, _, body = _request(app, "GET", "/.well-known/oauth-protected-resource/board/mcp")
+    assert status == 200
+    assert _json(body)["resource"] == PUBLIC + "/board/mcp"
+    assert _json(body)["authorization_servers"] == [PUBLIC]
+    status, _, body = _request(app, "GET", "/.well-known/oauth-protected-resource/mcp")
+    assert status == 200 and _json(body)["resource"] == PUBLIC + "/mcp"
+    status, _, body = _request(app, "GET", "/.well-known/oauth-authorization-server")
+    assert status == 200 and _json(body)["issuer"] == PUBLIC
+
+
 def test_unauthenticated_mcp_advertises_resource_metadata():
     app = _app(oauth.Provider(PUBLIC))
     auth.generate_key("pc1")
