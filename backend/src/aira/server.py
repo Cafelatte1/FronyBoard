@@ -4,6 +4,7 @@ Commands:
     aira                                 stdio transport (local development)
     aira serve [--host H] [--port P]     streamable HTTP transport (home server)
                [--public-url URL]        also serve OAuth for hosted MCP clients
+               [--public-mcp-path P]     where /mcp sits under that URL (default /mcp)
     aira keygen <name>                   issue an API key for a client machine
 
 Register a remote server in Claude Code:
@@ -233,7 +234,7 @@ def validate(key: str) -> dict:
     return service.validate(key)
 
 
-def serve(host: str, port: int, public_url: str | None = None) -> None:
+def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: str = "/mcp") -> None:
     """Run the streamable HTTP server behind bearer-key auth.
 
     With `public_url` (the HTTPS address hosted MCP clients reach us at, e.g. a
@@ -248,7 +249,7 @@ def serve(host: str, port: int, public_url: str | None = None) -> None:
     provider = None
     if public_url:
         try:
-            provider = oauth.Provider(public_url)
+            provider = oauth.Provider(public_url, public_mcp_path)
         except ValueError as e:
             raise SystemExit(f"--public-url: {e}")
     # Host-header (DNS rebinding) checks are disabled: clients reach the server
@@ -259,7 +260,8 @@ def serve(host: str, port: int, public_url: str | None = None) -> None:
     if provider is not None:
         app.router.routes.extend(oauth.routes(provider))  # before the dashboard's catch-all
     web.attach(app)
-    _boot("http", host=f"{host}:{port}", public_url=public_url)
+    _boot("http", host=f"{host}:{port}", public_url=public_url,
+          public_mcp=provider.urls.resource_server_url if provider else None)
     try:
         uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
                                               open_paths=("/api/login",), oauth=provider),
@@ -288,6 +290,9 @@ def main() -> None:
     serve_p.add_argument("--public-url", default=os.environ.get("AIRA_PUBLIC_URL") or None,
                          help="HTTPS URL hosted MCP clients use (enables OAuth); "
                               "default: AIRA_PUBLIC_URL")
+    serve_p.add_argument("--public-mcp-path", default=os.environ.get("AIRA_PUBLIC_MCP_PATH") or "/mcp",
+                         help="path of the MCP endpoint under --public-url, e.g. /board/mcp; "
+                              "default: AIRA_PUBLIC_MCP_PATH or /mcp")
     keygen_p = sub.add_parser("keygen", help="issue an API key for a client machine")
     keygen_p.add_argument("name", help="key label, e.g. the machine name")
     admin_p = sub.add_parser("admin", help="set the FronyBoard dashboard login (id/password)")
@@ -298,7 +303,7 @@ def main() -> None:
 
     if args.command == "serve":
         log.setup()
-        serve(args.host, args.port, args.public_url)
+        serve(args.host, args.port, args.public_url, args.public_mcp_path)
     elif args.command == "keygen":
         try:
             token = auth.generate_key(args.name)

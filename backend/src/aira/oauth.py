@@ -70,11 +70,16 @@ def oauth_path() -> Path:
 class Provider:
     """The MCP SDK's OAuthAuthorizationServerProvider, backed by oauth.yaml."""
 
-    def __init__(self, public_url: str):
+    def __init__(self, public_url: str, mcp_path: str = "/mcp"):
+        """`public_url` is the issuer — the root every Frony service points its
+        clients at. `mcp_path` is where FronyBoard's own MCP endpoint sits under
+        it on the Funnel (`/board/mcp`; services get sibling prefixes)."""
         self.public_url = public_url.rstrip("/")
+        self.mcp_path = "/" + mcp_path.strip("/")
         # AuthSettings keeps a path-less URL slash-free; RFC 8414 clients compare the
         # issuer string exactly, so a bare AnyHttpUrl (which appends "/") would not do.
-        self.urls = AuthSettings(issuer_url=self.public_url, resource_server_url=self.public_url + "/mcp")
+        self.urls = AuthSettings(issuer_url=self.public_url,
+                                 resource_server_url=self.public_url + self.mcp_path)
         validate_issuer_url(self.urls.issuer_url)
         self.resource_metadata_url = str(build_resource_metadata_url(self.urls.resource_server_url))
         self._logins: dict[str, tuple[OAuthClientInformationFull, AuthorizationParams, float]] = {}
@@ -293,10 +298,11 @@ def routes(provider: Provider) -> list[Route]:
             client_registration_options=ClientRegistrationOptions(enabled=True),
             revocation_options=RevocationOptions(enabled=True),
         ),
-        *create_protected_resource_routes(
-            resource_url=provider.urls.resource_server_url, authorization_servers=[issuer],
-            resource_name="FronyBoard",
-        ),
+        *[route
+          for path in {provider.mcp_path, "/mcp"}  # "/mcp" stays discoverable for connectors added before the prefix
+          for route in create_protected_resource_routes(
+              resource_url=AuthSettings(issuer_url=issuer, resource_server_url=provider.public_url + path).resource_server_url,
+              authorization_servers=[issuer], resource_name="FronyBoard")],
         Route("/oauth/login", login_get, methods=["GET"]),
         Route("/oauth/login", login_post, methods=["POST"]),
     ]
