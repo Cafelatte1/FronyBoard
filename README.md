@@ -270,7 +270,8 @@ uv run --directory backend pytest
 
 Layout: `backend/src/aira/` — `store.py` (file IO, data root), `validation.py`
 (schema gate), `service.py` (operations), `auth.py` (API keys, sessions, bearer
-middleware), `web.py` (JSON API + static serving), `server.py` (MCP tool
+middleware), `oauth.py` + `oauth_pages.py` (OAuth for hosted apps, approval
+page), `web.py` (JSON API + static serving), `server.py` (MCP tool
 surface + CLI); `frontend/` — the FronyBoard dashboard, built to static files
 served by the backend.
 

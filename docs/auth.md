@@ -109,8 +109,8 @@ app / vendor server                              home server (Funnel)           
 ② GET /.well-known/oauth-authorization-server ──▶ where /authorize, /token, /register are
 ③ POST /register  "I am Claude, send me back to <redirect_uri>" ──▶ client_id (+ secret) stored in oauth.yaml
 ④ open browser at /authorize?client_id&code_challenge&state ─────────────────────────────────────────▶
-                                                 ⑤ /oauth/login approval page ──────────────────────▶ id/password, approve
-                                                 ⑥ one-time code, redirect to the app's redirect_uri ─▶
+                                                 ⑤ /oauth/login approval page ──────────────────────▶ id/password, approve (or deny)
+                                                 ⑥ one-time code, hand the browser back to the app's redirect_uri ─▶
 ◀─ ⑦ code ──────────────────────────────────────────────────────────────────────────────────────────
 ⑧ POST /token  code + code_verifier          ──▶ PKCE check → access fbat_ (24 h) + refresh fbrt_ (90 d)
 ⑨ POST /mcp  Bearer fbat_…                   ──▶ sha256 ∈ oauth.yaml grants, not expired → ok, caller=oauth:Claude:admin
@@ -129,7 +129,13 @@ What to know:
   entry; the next request fails and the app asks you to log in again.
 - The approval page shares the login lockout with channel 3 (5 failures / 15
   min per address; all Funnel traffic counts as one address, so an attack locks
-  the public page, never the tailnet).
+  the public page, never the tailnet). It counts attempts on the form
+  (`(2/5)`), and the fifth strike shows the lockout screen at once.
+- 거부 (`POST /oauth/deny`) drops the request and sends the app
+  `error=access_denied`; nothing is issued. After approve or deny the page shows
+  a result screen for a second, then hands the browser back (a link is there in
+  case it does not). The page is server-rendered from `oauth_pages.py` with no
+  external assets — it is public and must render in any in-app browser.
 - Setup: `AIRA_PUBLIC_URL=https://<funnel-name>` and
   `AIRA_PUBLIC_MCP_PATH=/board/mcp` on the server (or `aira serve --public-url
   --public-mcp-path`), Funnel exposing `/board/mcp`, `/.well-known`,

@@ -30,7 +30,6 @@ restarts the login.
 from __future__ import annotations
 
 import hashlib
-import html
 import os
 import secrets
 import time
@@ -46,10 +45,9 @@ from mcp.server.auth.routes import (
 )
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.routing import Route
 
-from . import auth, log, store
+from . import auth, log, oauth_pages, store
 
 ACCESS_TTL = 24 * 3600          # access token lifetime (s)
 REFRESH_TTL = 90 * 24 * 3600    # refresh token lifetime (s) — the app re-logs in after that
@@ -166,6 +164,13 @@ class Provider:
         )
         return construct_redirect_uri(str(params.redirect_uri), code=code, state=params.state)
 
+    def deny_login(self, txn: str) -> str:
+        """Drop a pending login; return the app's redirect URL carrying access_denied."""
+        if self.pending_client(txn) is None:
+            raise LookupError("login request expired")
+        _, params, _ = self._logins.pop(txn)
+        return construct_redirect_uri(str(params.redirect_uri), error="access_denied", state=params.state)
+
     async def load_authorization_code(self, client, authorization_code: str) -> AuthorizationCode | None:
         code = self._codes.get(authorization_code)
         return code if code and code.expires_at > time.time() else None
@@ -230,66 +235,69 @@ class Provider:
         return f"oauth:{self._client_label(g['client_id'])}:{g.get('subject')}"
 
 
-# -- login page ------------------------------------------------------------------
-
-def _page(body: str, status: int = 200) -> HTMLResponse:
-    return HTMLResponse(
-        "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<title>FronyBoard 로그인</title><style>"
-        "body{font-family:system-ui,sans-serif;background:#f4f4f5;color:#18181b;margin:0;"
-        "display:flex;min-height:100vh;align-items:center;justify-content:center}"
-        "main{background:#fff;border-radius:12px;padding:28px;width:min(360px,90vw);"
-        "box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:18px;margin:0 0 4px}"
-        "p{margin:8px 0;font-size:14px;color:#52525b}label{display:block;font-size:13px;margin:14px 0 4px}"
-        "input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #d4d4d8;border-radius:8px;font-size:15px}"
-        "button{margin-top:18px;width:100%;padding:10px;border:0;border-radius:8px;background:#18181b;"
-        "color:#fff;font-size:15px}.err{color:#b91c1c}</style></head><body><main>"
-        f"{body}</main></body></html>", status_code=status)
-
-
-def _form(txn: str, client_name: str, error: str | None = None) -> HTMLResponse:
-    err = f"<p class='err'>{html.escape(error)}</p>" if error else ""
-    return _page(
-        "<h1>FronyBoard</h1>"
-        f"<p><b>{html.escape(client_name)}</b>이(가) FronyBoard 접근 권한을 요청합니다. "
-        "대시보드 계정으로 로그인해 승인하세요.</p>"
-        f"<form method='post' action='/oauth/login'><input type='hidden' name='txn' value='{html.escape(txn)}'>"
-        "<label>아이디</label><input name='username' autocomplete='username' required>"
-        "<label>비밀번호</label><input name='password' type='password' autocomplete='current-password' required>"
-        f"{err}<button type='submit'>승인</button></form>")
-
-
 def routes(provider: Provider) -> list[Route]:
     """The SDK's OAuth endpoints plus the login page."""
+    throttle = auth.login_throttle
+
+    def who(txn):
+        client = provider.pending_client(txn)
+        return (client.client_id, client.client_name or client.client_id[:8]) if client else (None, None)
+
+    def expired(txn):
+        return oauth_pages.result_page(
+            "expired", txn, None, None, "요청이 만료됐어요",
+            "앱에서 연결을 다시 시도하면 새 요청이 만들어집니다.", f"txn_{txn[:6]} · expired", 400)
+
+    def locked(txn):
+        return oauth_pages.result_page(
+            "locked", txn, *who(txn), "잠시 후 다시 시도하세요",
+            f"로그인 실패가 {throttle.limit}회에 도달했습니다. {throttle.window // 60}분 뒤에 다시 승인할 수 있습니다.",
+            f"HTTP 429 · {throttle.window // 60}분 / {throttle.limit}회 제한", 429)
 
     async def login_get(request):
         txn = request.query_params.get("txn", "")
-        client = provider.pending_client(txn)
-        if client is None:
-            return _page("<h1>요청이 만료됐어요</h1><p>앱에서 연결을 다시 시도하세요.</p>", 400)
-        return _form(txn, client.client_name or client.client_id)
+        client_id, name = who(txn)
+        return oauth_pages.form_page(txn, client_id, name) if client_id else expired(txn)
 
     async def login_post(request):
         form = await request.form()
         txn = str(form.get("txn", ""))
         username = str(form.get("username", ""))
         ip = request.client.host if request.client else None
-        if auth.login_throttle.blocked(ip):
-            return _page("<h1>잠시 후 다시 시도하세요</h1><p>로그인 실패가 너무 많습니다.</p>", 429)
+        if throttle.blocked(ip):
+            return locked(txn)
+        client_id, name = who(txn)
         try:
             target = provider.complete_login(txn, username, str(form.get("password", "")))
         except LookupError:
-            return _page("<h1>요청이 만료됐어요</h1><p>앱에서 연결을 다시 시도하세요.</p>", 400)
-        client = provider.pending_client(txn)
+            return expired(txn)
         if target is None:
-            auth.login_throttle.fail(ip)
+            throttle.fail(ip)
             log.event("WARNING", "auth", "oauth_login_failed", user=username, ip=ip)
-            return _form(txn, (client.client_name if client else None) or "앱",
-                         "아이디 또는 비밀번호가 맞지 않아요.")
-        auth.login_throttle.clear(ip)
+            if throttle.blocked(ip):
+                return locked(txn)
+            return oauth_pages.form_page(
+                txn, client_id, name,
+                f"아이디 또는 비밀번호가 맞지 않아요. ({throttle.count(ip)}/{throttle.limit})")
+        throttle.clear(ip)
         log.event("INFO", "auth", "oauth_login_ok", user=username, ip=ip)
-        return RedirectResponse(target, status_code=302, headers={"Cache-Control": "no-store"})
+        return oauth_pages.result_page(
+            "done", txn, client_id, name, "연결 완료",
+            f"{name}{oauth_pages.ro(name)} 돌아가는 중입니다. 이 창은 닫아도 됩니다.",
+            oauth_pages.redirect_detail(target), redirect=target)
+
+    async def deny_post(request):
+        form = await request.form()
+        txn = str(form.get("txn", ""))
+        client_id, name = who(txn)
+        try:
+            target = provider.deny_login(txn)
+        except LookupError:
+            return expired(txn)
+        log.event("INFO", "auth", "oauth_login_denied", client=name)
+        return oauth_pages.result_page(
+            "denied", txn, client_id, name, "연결을 거부했습니다", "앱에는 아무 권한도 발급되지 않았습니다.",
+            "error=access_denied", redirect=target)
 
     issuer = provider.urls.issuer_url
     return [
@@ -305,4 +313,5 @@ def routes(provider: Provider) -> list[Route]:
               authorization_servers=[issuer], resource_name="FronyBoard")],
         Route("/oauth/login", login_get, methods=["GET"]),
         Route("/oauth/login", login_post, methods=["POST"]),
+        Route("/oauth/deny", deny_post, methods=["POST"]),
     ]

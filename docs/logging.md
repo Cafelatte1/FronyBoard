@@ -61,6 +61,7 @@ Fixed head `ts level scope event`, then per-event fields:
 | `boot` | `shutdown` | `mode` |
 | `auth` | `login_ok` / `login_failed` | `user`, `ip` |
 | `auth` | `oauth_login_ok` / `oauth_login_failed` | `user`, `ip` — the approval page for hosted clients |
+| `auth` | `oauth_login_denied` | `client` — the user pressed 거부 on the approval page |
 | `auth` | `oauth_client_registered` | `client`, `client_id` |
 | `auth` | `key_rejected` | `ip`, `path`, `prefix` |
 | `auth` | `key_created` / `key_revoked` | `name`, `ip` |

@@ -83,7 +83,7 @@ tailnet-only:
 | `/mcp` | the same endpoint at its pre-prefix address — kept for connectors registered before 2026-08-27 |
 | `/.well-known` | OAuth discovery (`oauth-authorization-server`, `oauth-protected-resource/board/mcp`) |
 | `/register`, `/authorize`, `/token`, `/revoke` | OAuth endpoints (MCP SDK) |
-| `/oauth` | the approval page — asks for the dashboard login |
+| `/oauth` | the approval page (`/oauth/login`, `/oauth/deny`) — asks for the dashboard login |
 
 Flow: the app finds the metadata, registers itself, sends the browser to
 `/oauth/login`, and exchanges the code for tokens. Access tokens last 24 h and
