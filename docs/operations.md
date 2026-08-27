@@ -109,7 +109,11 @@ uv run aira keygen <machine-name>    # prints the key once
 
 Keys sit in the Frony-wide registry `C:\Users\<user>\AppData\Local\Frony\auth.yaml`,
 one level above the FronyBoard data root, so the same key opens every Frony
-service on this machine. Revoking a key cuts that machine off immediately. A key cannot be shown again —
+service on this machine. The scheduled task runs as SYSTEM, whose
+`LOCALAPPDATA` is the system profile, so the launcher (`aira-server.cmd`) pins
+both `AIRA_DATA_DIR` and `FRONY_AUTH_FILE` explicitly — any other Frony service
+started the same way must point at the same file. Revoking a key cuts that
+machine off immediately. A key cannot be shown again —
 if one is lost, revoke it and issue a new one. Note `aira serve` refuses to
 start with zero keys, so the first key always comes from the CLI.
 
