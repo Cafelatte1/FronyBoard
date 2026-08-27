@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+import time
 
 from . import log, store
 
@@ -127,6 +128,37 @@ def drop_session(token: str | None) -> None:
     _sessions.pop(token or "", None)
 
 
+class LoginThrottle:
+    """Lock an address out of password login after repeated failures.
+
+    Counted per client address; behind a proxy (Tailscale Funnel) all public
+    traffic shares one address and so one lock — that fails closed, which is
+    the intent."""
+
+    def __init__(self, limit: int = 5, window: int = 15 * 60):
+        self.limit = limit
+        self.window = window
+        self._fails: dict[str, list[float]] = {}
+
+    def _recent(self, ip: str | None) -> list[float]:
+        cutoff = time.time() - self.window
+        recent = [t for t in self._fails.get(ip or "?", []) if t > cutoff]
+        self._fails[ip or "?"] = recent
+        return recent
+
+    def blocked(self, ip: str | None) -> bool:
+        return len(self._recent(ip)) >= self.limit
+
+    def fail(self, ip: str | None) -> None:
+        self._recent(ip).append(time.time())
+
+    def clear(self, ip: str | None) -> None:
+        self._fails.pop(ip or "?", None)
+
+
+login_throttle = LoginThrottle()
+
+
 def verify_key(token: str | None) -> str | None:
     """Return the key's name if the token is valid, else None."""
     if not token:
@@ -144,14 +176,16 @@ class BearerAuthMiddleware:
     Only paths starting with one of `protected` require a credential (default:
     all) — the FronyBoard static files stay open while /mcp and /api stay keyed.
     `open_paths` are exact-match exceptions inside protected space (the login
-    endpoint). A bearer token may be an API key or a dashboard session token.
+    endpoint). A bearer token may be an API key, a dashboard session token or —
+    when an `oauth` provider is given — an OAuth access token it issued.
     """
 
     def __init__(self, app, protected: tuple[str, ...] = ("/",),
-                 open_paths: tuple[str, ...] = ()):
+                 open_paths: tuple[str, ...] = (), oauth=None):
         self.app = app
         self.protected = protected
         self.open_paths = open_paths
+        self.oauth = oauth
 
     async def __call__(self, scope, receive, send):
         path = scope.get("path", "")
@@ -165,21 +199,29 @@ class BearerAuthMiddleware:
                 auth_header = value.decode("latin-1")
                 break
         token = auth_header[7:] if auth_header.lower().startswith("bearer ") else None
-        key_name = verify_key(token)
-        if key_name is None and not verify_session(token):
+        caller = self._caller(token)
+        if caller is None:
             client = scope.get("client") or ("?", 0)
             log.event("WARNING", "auth", "key_rejected", ip=str(client[0]), path=path,
                       prefix=(token or "")[:9] or None)
             body = json.dumps({"error": "unauthorized — send 'Authorization: Bearer <api key>'"}).encode()
-            await send({
-                "type": "http.response.start",
-                "status": 401,
-                "headers": [(b"content-type", b"application/json"),
-                            (b"content-length", str(len(body)).encode())],
-            })
+            headers = [(b"content-type", b"application/json"),
+                       (b"content-length", str(len(body)).encode())]
+            if self.oauth is not None and path.startswith("/mcp"):
+                # RFC 9728 discovery: tells an OAuth-capable client where to start.
+                headers.append((b"www-authenticate",
+                                f'Bearer resource_metadata="{self.oauth.resource_metadata_url}"'.encode()))
+            await send({"type": "http.response.start", "status": 401, "headers": headers})
             await send({"type": "http.response.body", "body": body})
             return
         # Tag the request so the MCP tool log can name its caller.
-        scope.setdefault("state", {})["caller"] = (
-            f"key:{key_name}" if key_name else f"session:{session_user(token)}")
+        scope.setdefault("state", {})["caller"] = caller
         await self.app(scope, receive, send)
+
+    def _caller(self, token: str | None) -> str | None:
+        key_name = verify_key(token)
+        if key_name is not None:
+            return f"key:{key_name}"
+        if verify_session(token):
+            return f"session:{session_user(token)}"
+        return self.oauth.caller(token) if self.oauth is not None else None

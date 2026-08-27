@@ -3,6 +3,7 @@
 Commands:
     aira                                 stdio transport (local development)
     aira serve [--host H] [--port P]     streamable HTTP transport (home server)
+               [--public-url URL]        also serve OAuth for hosted MCP clients
     aira keygen <name>                   issue an API key for a client machine
 
 Register a remote server in Claude Code:
@@ -18,7 +19,7 @@ import os
 
 from mcp.server.mcpserver import MCPServer
 
-from . import auth, log, service, store, web
+from . import auth, log, oauth, service, store, web
 
 mcp = MCPServer(
     "fronyboard",
@@ -232,23 +233,36 @@ def validate(key: str) -> dict:
     return service.validate(key)
 
 
-def serve(host: str, port: int) -> None:
-    """Run the streamable HTTP server behind bearer-key auth."""
+def serve(host: str, port: int, public_url: str | None = None) -> None:
+    """Run the streamable HTTP server behind bearer-key auth.
+
+    With `public_url` (the HTTPS address hosted MCP clients reach us at, e.g. a
+    Tailscale Funnel name) the OAuth endpoints are mounted too and /mcp accepts
+    the access tokens they issue alongside API keys.
+    """
     import uvicorn
     from mcp.server.transport_security import TransportSecuritySettings
 
     if not auth.has_keys():
         raise SystemExit("no API keys yet — run `aira keygen <name>` first")
+    provider = None
+    if public_url:
+        try:
+            provider = oauth.Provider(public_url)
+        except ValueError as e:
+            raise SystemExit(f"--public-url: {e}")
     # Host-header (DNS rebinding) checks are disabled: clients reach the server
     # under varying names (Tailscale name, LAN IP), and every request already
     # requires a bearer key that a rebound browser page cannot attach.
     app = mcp.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+    if provider is not None:
+        app.router.routes.extend(oauth.routes(provider))  # before the dashboard's catch-all
     web.attach(app)
-    _boot("http", host=f"{host}:{port}")
+    _boot("http", host=f"{host}:{port}", public_url=public_url)
     try:
         uvicorn.run(auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
-                                              open_paths=("/api/login",)),
+                                              open_paths=("/api/login",), oauth=provider),
                     host=host, port=port, log_config=None)
     finally:
         log.event("INFO", "boot", "shutdown", mode="http")
@@ -271,6 +285,9 @@ def main() -> None:
     serve_p = sub.add_parser("serve", help="run the HTTP server (home server mode)")
     serve_p.add_argument("--host", default="0.0.0.0")
     serve_p.add_argument("--port", type=int, default=8642)
+    serve_p.add_argument("--public-url", default=os.environ.get("AIRA_PUBLIC_URL") or None,
+                         help="HTTPS URL hosted MCP clients use (enables OAuth); "
+                              "default: AIRA_PUBLIC_URL")
     keygen_p = sub.add_parser("keygen", help="issue an API key for a client machine")
     keygen_p.add_argument("name", help="key label, e.g. the machine name")
     admin_p = sub.add_parser("admin", help="set the FronyBoard dashboard login (id/password)")
@@ -281,7 +298,7 @@ def main() -> None:
 
     if args.command == "serve":
         log.setup()
-        serve(args.host, args.port)
+        serve(args.host, args.port, args.public_url)
     elif args.command == "keygen":
         try:
             token = auth.generate_key(args.name)
