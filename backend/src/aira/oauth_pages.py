@@ -1,8 +1,10 @@
 """The pages of the OAuth browser leg (/oauth/login, /oauth/deny).
 
-Server-rendered and self-contained — no external assets, no build step: this is
-a public page behind the Funnel and must work from any in-app browser. Styling
-follows the dashboard's dark design tokens (frontend/src/styles.css).
+Server-rendered, no build step: this is a public page behind the Funnel and must
+work from any in-app browser. Styling follows the dashboard's dark design tokens
+(frontend/src/styles.css). The only outside references are the two webfonts the
+dashboard already uses — JetBrains Mono from our own /fonts, Pretendard from the
+same CDN — and the page falls back to system fonts if either is unreachable.
 """
 
 from __future__ import annotations
@@ -13,12 +15,17 @@ from urllib.parse import urlsplit
 from starlette.responses import HTMLResponse
 
 _CSS = """
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;
+src:url('/fonts/JetBrainsMono-Regular.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;
+src:url('/fonts/JetBrainsMono-SemiBold.woff2') format('woff2')}
 :root{--bg:#1b1b22;--surface:#23232b;--surface-raised:#2c2c36;--border:#34343f;--border-strong:#43424f;
 --text:#f2f0f7;--text-muted:#b4b4be;--text-disabled:#8a8a94;--accent:#a18cd1;--on-accent-subtle:#b9a6e4;
 --gradient:linear-gradient(90deg,#a18cd1,#fbc2eb);--gradient-diag:linear-gradient(135deg,#a18cd1,#fbc2eb);
+--gradient-cta:linear-gradient(90deg,#a18cd1,#e9a8d4);--on-gradient:#2a2530;
 --success:#6fbf8b;--success-subtle:#24402f;--on-success-subtle:#8fd6a6;--warning-subtle:#453820;--on-warning-subtle:#e5b87e;
---danger:#c46b76;--danger-subtle:#4e2f3a;--on-danger-subtle:#de9099;--neutral-subtle:#383843;--on-neutral-subtle:#b4b4be;
---font:'Pretendard',-apple-system,'Segoe UI','Noto Sans KR',sans-serif;--mono:Consolas,ui-monospace,'SF Mono',Menlo,monospace}
+--danger:#b0505c;--danger-subtle:#4e2f3a;--on-danger-subtle:#de9099;--neutral-subtle:#383843;--on-neutral-subtle:#b4b4be;
+--font:'Pretendard',-apple-system,'Segoe UI','Noto Sans KR',sans-serif;--mono:'JetBrains Mono',ui-monospace,'SF Mono',Consolas,Menlo,monospace}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 24px;
 background:#15151a;color:var(--text);font-family:var(--font);font-size:15px;line-height:1.55;position:relative;overflow-x:hidden}
@@ -30,12 +37,10 @@ background:radial-gradient(closest-side,rgba(251,194,235,.09),rgba(251,194,235,0
 main{position:relative;z-index:1;width:760px;max-width:100%;display:grid;grid-template-columns:330px minmax(0,1fr);
 background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.55);overflow:hidden}
 aside{background:var(--bg);border-right:1px solid var(--border);padding:26px 24px;display:flex;flex-direction:column;gap:20px}
-.brand{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;letter-spacing:.06em}
-.brand i{width:20px;height:20px;border-radius:6px;background:var(--gradient-diag)}
+.brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;letter-spacing:.08em}
+.brand img{width:22px;height:22px;flex:none;display:block}
 h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.35}
 aside p{margin:6px 0 0;font-size:13px;color:var(--text-muted)}
-.note{margin-top:auto;display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-disabled)}
-.note svg{width:14px;height:14px;flex:none;margin-top:2px}
 section{padding:26px 28px;display:flex;flex-direction:column;gap:16px}
 h2{margin:0;font-size:16px;font-weight:600}
 form{display:flex;flex-direction:column;gap:14px}
@@ -54,7 +59,7 @@ border:1px solid var(--border-strong);background:transparent;color:var(--text);f
 .btn:hover{border-color:var(--accent);color:var(--on-accent-subtle)}
 .btn.deny{color:var(--text-muted);margin-top:-5px}
 .btn.deny:hover{border-color:var(--danger);color:var(--on-danger-subtle)}
-.btn.primary{height:42px;border:0;background:var(--gradient);color:#241c33;font-size:15px;font-weight:700;
+.btn.primary{height:42px;border:0;background:var(--gradient-cta);color:var(--on-gradient);font-size:15px;font-weight:700;
 box-shadow:0 4px 14px rgba(161,140,209,.35);margin-top:4px}
 .btn.primary:hover{filter:brightness(1.06)}
 .btn.primary:disabled{opacity:.75;cursor:default}
@@ -76,8 +81,6 @@ box-shadow:0 4px 14px rgba(161,140,209,.35);margin-top:4px}
 aside{border-right:0;border-bottom:1px solid var(--border);padding:20px}section{padding:20px}}
 """
 
-_SHIELD = ("<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.4'>"
-           "<path d='M8 1.8 13.2 4v4.2c0 3-2.2 5-5.2 6-3-1-5.2-3-5.2-6V4L8 1.8Z' stroke-linejoin='round'/></svg>")
 _ALERT = ("<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.5'>"
           "<circle cx='8' cy='8' r='6.2'/><path d='M8 5v4.2M8 11.2v.2' stroke-linecap='round'/></svg>")
 _SPINNER = ("<svg viewBox='0 0 20 20' fill='none' stroke='currentColor' stroke-width='2'>"
@@ -116,10 +119,11 @@ def _shell(client_name: str, body: str, status: int, head: str = "") -> HTMLResp
     return HTMLResponse(
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/orioncactus/pretendard"
+        "@v1.3.9/dist/web/static/pretendard.min.css'>"
         f"<title>Frony 연결 승인</title>{head}<style>{_CSS}</style></head><body><main>"
-        f"<aside><div class='brand'><i></i>FRONY</div><div><h1>{name}{_ga(client_name)}<br>Frony 연결을 요청합니다</h1>"
-        "<p>승인하면 이 앱에 전용 토큰이 발급됩니다.</p></div>"
-        f"<div class='note'>{_SHIELD}<span>비밀번호는 Frony 서버에서만 입력됩니다. 앱은 토큰만 받습니다.</span></div></aside>"
+        f"<aside><div class='brand'><img src='/favicon.ico' alt=''>FRONY</div><div><h1>{name}{_ga(client_name)}<br>Frony 연결을 요청합니다</h1>"
+        "<p>승인하면 이 앱에 전용 토큰이 발급됩니다.</p></div></aside>"
         f"<section>{body}</section>"
         "</main></body></html>", status_code=status, headers={"Cache-Control": "no-store"})
 
