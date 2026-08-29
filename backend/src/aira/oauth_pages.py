@@ -15,11 +15,11 @@ from starlette.responses import HTMLResponse
 
 _CSS = """
 @font-face{font-family:'Pretendard';font-style:normal;font-weight:400;font-display:swap;
-src:url('/fonts/Pretendard-Regular.woff2') format('woff2')}
+src:url('/fonts/Pretendard-Regular.subset.woff2') format('woff2')}
 @font-face{font-family:'Pretendard';font-style:normal;font-weight:600;font-display:swap;
-src:url('/fonts/Pretendard-SemiBold.woff2') format('woff2')}
+src:url('/fonts/Pretendard-SemiBold.subset.woff2') format('woff2')}
 @font-face{font-family:'Pretendard';font-style:normal;font-weight:700;font-display:swap;
-src:url('/fonts/Pretendard-Bold.woff2') format('woff2')}
+src:url('/fonts/Pretendard-Bold.subset.woff2') format('woff2')}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;
 src:url('/fonts/JetBrainsMono-Regular.woff2') format('woff2')}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;
