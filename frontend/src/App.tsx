@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { clearSession, getToken, getUsername, login } from "./api";
+import { clearSession, getToken, login } from "./api";
 import { currentPeriodName, fmtAgo, useBoardData } from "./shared";
 import TaskPanel from "./TaskPanel";
 import Dashboard from "./pages/Dashboard";
@@ -168,10 +168,25 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
         <div className="backdrop" onClick={() => setMenuOpen(false)} />
         <aside className="sidebar" aria-hidden={!menuOpen}>
           <div className="drawer-head">
-            <span className="logo-mark">F</span>
+            <svg className="logo-mark" viewBox="18 10 22 22" aria-hidden="true">
+              <defs>
+                <linearGradient id="fronyMark" x1="19.09" y1="20.95" x2="39" y2="20.95" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="var(--brand-1)" />
+                  <stop offset="1" stopColor="var(--brand-2)" />
+                </linearGradient>
+              </defs>
+              <path
+                fill="url(#fronyMark)"
+                d="M26.107 14.448C26.705 12.698 29.123 12.645 29.832 14.289L29.892 14.449L30.699 16.809C30.8839 17.3502 31.1828 17.8455 31.5754 18.2614C31.968 18.6773 32.4453 19.0042 32.975 19.22L33.192 19.301L35.552 20.107C37.302 20.705 37.355 23.123 35.712 23.832L35.552 23.892L33.192 24.699C32.6506 24.8838 32.1551 25.1826 31.739 25.5753C31.3229 25.9679 30.9959 26.4452 30.78 26.975L30.699 27.191L29.893 29.552C29.295 31.302 26.877 31.355 26.169 29.712L26.107 29.552L25.301 27.192C25.1162 26.6506 24.8174 26.1551 24.4247 25.739C24.0321 25.3229 23.5548 24.9959 23.025 24.78L22.809 24.699L20.449 23.893C18.698 23.295 18.645 20.877 20.289 20.169L20.449 20.107L22.809 19.301C23.3502 19.1161 23.8455 18.8172 24.2614 18.4246C24.6773 18.0319 25.0042 17.5547 25.22 17.025L25.301 16.809L26.107 14.448Z"
+              />
+              <path
+                fill="url(#fronyMark)"
+                d="M36 11C36.1871 11 36.3704 11.0525 36.5291 11.1515C36.6879 11.2505 36.8157 11.392 36.898 11.56L36.946 11.677L37.296 12.703L38.323 13.053C38.5105 13.1167 38.6748 13.2346 38.7952 13.3918C38.9156 13.549 38.9866 13.7384 38.9993 13.936C39.0119 14.1336 38.9656 14.3305 38.8662 14.5018C38.7668 14.673 38.6188 14.8109 38.441 14.898L38.323 14.946L37.297 15.296L36.947 16.323C36.8832 16.5104 36.7652 16.6747 36.6079 16.795C36.4506 16.9153 36.2612 16.9862 36.0636 16.9987C35.866 17.0113 35.6692 16.9648 35.498 16.8654C35.3268 16.7659 35.189 16.6179 35.102 16.44L35.054 16.323L34.704 15.297L33.677 14.947C33.4895 14.8833 33.3251 14.7654 33.2048 14.6082C33.0844 14.451 33.0133 14.2616 33.0007 14.064C32.9881 13.8664 33.0344 13.6695 33.1338 13.4982C33.2332 13.327 33.3811 13.1891 33.559 13.102L33.677 13.054L34.703 12.704L35.053 11.677C35.1204 11.4794 35.248 11.3079 35.4178 11.1865C35.5876 11.0651 35.7912 10.9999 36 11Z"
+              />
+            </svg>
             <div className="logo-text">
-              <div className="logo-name">FronyBoard</div>
-              <div className="logo-sub">v{version}</div>
+              <div className="logo-frony">FRONY</div>
+              <div className="logo-name">Board</div>
             </div>
             <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
               <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -192,10 +207,10 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           <NavItem label="설정" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
 
           <div className="side-foot">
-            <span className="foot-state">
-              <span className={`dot ${error ? "off" : ""}`} />
-              {error ? "서버 연결 안 됨" : "서버 연결됨"} · {getUsername() ?? "?"}
-            </span>
+            <span
+              className={`dot ${error ? "off" : ""}`}
+              title={error ? "서버 연결 안 됨" : "서버 연결됨"}
+            />
             <span className="foot-ver">
               v{version} · {window.location.host}
             </span>

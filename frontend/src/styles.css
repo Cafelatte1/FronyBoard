@@ -1,3 +1,25 @@
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+}
+
 /* FronyBoard — Frony design system.
    Tokens mirror the design system's tokens.css (role-based naming, compact density);
    layout follows the approved Claude Design mockup (project-aira / FronyBoard.dc.html).
@@ -9,6 +31,13 @@
   --brand-2: #fbc2eb;
   --gradient: linear-gradient(90deg, var(--brand-1), var(--brand-2));
   --gradient-diag: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  /* --gradient's right end is too light to carry words (white lands at 1.5:1).
+     Anything with TEXT on it uses --gradient-cta + --on-gradient; --gradient is decoration. */
+  --brand-2-deep: #e9a8d4;
+  --gradient-cta: linear-gradient(90deg, var(--brand-1), var(--brand-2-deep));
+  --on-gradient: #2a2530;
+  --on-accent-fill: #2a2530;
+  --on-danger-fill: #ffffff;
 
   /* surfaces — opaque only */
   --page-bg: #15151a;
@@ -41,7 +70,7 @@
   --warning: #d9a05b;
   --warning-subtle: #453820;
   --on-warning-subtle: #e5b87e;
-  --danger: #c46b76;
+  --danger: #b0505c;
   --danger-subtle: #4e2f3a;
   --on-danger-subtle: #de9099;
   --neutral-subtle: #383843;
@@ -63,6 +92,7 @@
   --r-pill: 999px;
 
   /* elevation */
+  --e-0: none;
   --e-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --e-2: 0 4px 14px rgba(0, 0, 0, 0.45);
   --e-3: 0 18px 44px rgba(0, 0, 0, 0.5);
@@ -77,10 +107,12 @@
   --s-5: 20px;
   --s-6: 24px;
   --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
 
   /* type */
   --font: "Pretendard", -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
-  --font-mono: Consolas, ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, Menlo, monospace;
 
   /* motion */
   --dur-fast: 120ms;
@@ -94,6 +126,29 @@
   --stage-pad: 40px;
   --side-w: 212px;
   --panel-w: 520px;
+
+  /* comfortable density — the design system default. The console overrides it
+     with [data-density="compact"] below. */
+  --t-display: 20px;
+  --t-title: 17px;
+  --t-subtitle: 16px;
+  --t-body: 15px;
+  --t-label: 14px;
+  --t-caption: 13px;
+  --t-meta: 12px;
+  --t-badge: 11px;
+  --lh-body: 1.55;
+  --lh-long: 1.6;
+  --control-h: 48px;
+  --hit-min: 44px;
+  --control-pad-x: 22px;
+  --control-pad-y: 13px;
+  --field-pad-x: 14px;
+  --field-pad-y: 12px;
+  --row-h: 52px;
+  --card-pad: 16px;
+  --gap: 12px;
+  --icon: 20px;
 }
 
 /* compact density — the B2B desktop scale (DS "App shell (desktop)") */
@@ -107,8 +162,11 @@
   --t-meta: 11.5px;
   --t-badge: 11px;
   --lh-body: 1.5;
+  --lh-long: 1.65;
   --control-h: 34px;
   --hit-min: 28px;
+  --control-pad-x: 15px;
+  --control-pad-y: 8px;
   --field-pad-x: 12px;
   --field-pad-y: 7px;
   --row-h: 34px;
@@ -443,18 +501,24 @@ input::placeholder {
   padding: 0 4px 14px;
 }
 
-.logo-mark {
-  width: 30px;
-  height: 30px;
+svg.logo-mark {
+  width: 26px;
+  height: 26px;
   flex: none;
-  border-radius: var(--r-md);
+}
+
+.login-card .logo-mark {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: var(--r-lg);
   background: var(--gradient-diag);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--on-accent);
+  color: var(--on-gradient);
 }
 
 .logo-text {
@@ -462,18 +526,26 @@ input::placeholder {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  line-height: 1.25;
+  gap: 2px;
+}
+
+.logo-frony {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  padding-right: 0.16em;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .logo-name {
-  font-size: var(--t-subtitle);
+  font-size: 18px;
   font-weight: 600;
-}
-
-.logo-sub {
-  font-size: var(--t-meta);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
+  line-height: 1;
+  letter-spacing: -0.01em;
 }
 
 .side-close {
@@ -566,17 +638,10 @@ input::placeholder {
   border-top: 1px solid var(--border);
   padding: var(--s-3) var(--s-2) 0;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.foot-state {
-  display: flex;
   align-items: center;
   gap: 7px;
-  font-size: var(--t-caption);
-  color: var(--text-muted);
 }
+
 
 .dot {
   width: 7px;
@@ -594,6 +659,9 @@ input::placeholder {
   font-size: var(--t-meta);
   color: var(--text-muted);
   font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------ cards */
@@ -2227,7 +2295,7 @@ button.task-grid:hover {
   justify-content: center;
   font-size: 17px;
   font-weight: 700;
-  color: var(--on-accent);
+  color: var(--on-gradient);
 }
 
 .account-name {
@@ -2267,8 +2335,8 @@ button.task-grid:hover {
   height: var(--control-h);
   font-size: var(--t-label);
   font-weight: 600;
-  color: var(--on-accent);
-  background: var(--gradient);
+  color: var(--on-gradient);
+  background: var(--gradient-cta);
   box-shadow: var(--e-accent);
 }
 
@@ -2456,12 +2524,6 @@ button.task-grid:hover {
   gap: 10px;
 }
 
-.login-card .logo-mark {
-  width: 42px;
-  height: 42px;
-  font-size: 20px;
-  border-radius: var(--r-lg);
-}
 
 .login-title {
   font-size: 20px;

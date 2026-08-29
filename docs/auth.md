@@ -134,8 +134,9 @@ What to know:
 - 거부 (`POST /oauth/deny`) drops the request and sends the app
   `error=access_denied`; nothing is issued. After approve or deny the page shows
   a result screen for a second, then hands the browser back on its own. The
-  page is server-rendered from `oauth_pages.py` with no
-  external assets — it is public and must render in any in-app browser.
+  page is server-rendered from `oauth_pages.py`. Its only outside references are
+  the dashboard's two webfonts (JetBrains Mono from `/fonts`, Pretendard from a
+  CDN); it falls back to system fonts, so it still renders in any in-app browser.
 - Setup: `AIRA_PUBLIC_URL=https://<funnel-name>` and
   `AIRA_PUBLIC_MCP_PATH=/board/mcp` on the server (or `aira serve --public-url
   --public-mcp-path`), Funnel exposing `/board/mcp`, `/.well-known`,
