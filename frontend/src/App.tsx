@@ -31,7 +31,6 @@ export default function App() {
 function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const [page, setPage] = useState<Page>("dashboard");
   const [openProject, setOpenProject] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -62,26 +61,6 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const openDetail = (key: string) => {
     setPage("projects");
     setOpenProject(key);
-  };
-
-  const onSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = search.trim().toUpperCase();
-    if (!q || !data) return;
-    for (const [key, list] of Object.entries(data.tasks)) {
-      const hit = list.find((t) => t.id.toUpperCase() === q);
-      if (hit) {
-        openDetail(key);
-        setOpenTask({ key, task: hit });
-        setSearch("");
-        return;
-      }
-      if (list.some((t) => t.id.toUpperCase().startsWith(q))) {
-        openDetail(key);
-        setSearch("");
-        return;
-      }
-    }
   };
 
   const detailName =
@@ -123,13 +102,6 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               {crumb && <div className="crumb">{crumb}</div>}
               <h1>{title}</h1>
             </div>
-            <form className="search" onSubmit={onSearch}>
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="9" cy="9" r="5.5" />
-                <path d="M13.2 13.2 17 17" strokeLinecap="round" />
-              </svg>
-              <input placeholder="태스크 ID 검색" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </form>
             <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
               <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
@@ -167,6 +139,9 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
 
         <div className="backdrop" onClick={() => setMenuOpen(false)} />
         <aside className="sidebar" aria-hidden={!menuOpen}>
+          <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
+            <span className="side-close-grip" />
+          </button>
           <div className="drawer-head">
             <svg className="logo-mark" viewBox="18 10 22 22" aria-hidden="true">
               <defs>
@@ -185,14 +160,10 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               />
             </svg>
             <div className="logo-text">
-              <div className="logo-frony">FRONY</div>
-              <div className="logo-name">Board</div>
+              <span className="logo-frony">FRONY</span>
+              <span className="logo-sep" />
+              <span className="logo-name">Board</span>
             </div>
-            <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
-              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M5 5l10 10M15 5 5 15" />
-              </svg>
-            </button>
           </div>
 
           <div className="nav-label">메뉴</div>
