@@ -1,10 +1,9 @@
 """The pages of the OAuth browser leg (/oauth/login, /oauth/deny).
 
-Server-rendered, no build step: this is a public page behind the Funnel and must
-work from any in-app browser. Styling follows the dashboard's dark design tokens
-(frontend/src/styles.css). The only outside references are the two webfonts the
-dashboard already uses — JetBrains Mono from our own /fonts, Pretendard from the
-same CDN — and the page falls back to system fonts if either is unreachable.
+Server-rendered and self-contained — no build step, nothing from a third party:
+this is a public page behind the Funnel and must work from any in-app browser.
+Styling follows the dashboard's dark design tokens (frontend/src/styles.css) and
+the same two webfonts it serves from /fonts.
 """
 
 from __future__ import annotations
@@ -15,6 +14,12 @@ from urllib.parse import urlsplit
 from starlette.responses import HTMLResponse
 
 _CSS = """
+@font-face{font-family:'Pretendard';font-style:normal;font-weight:400;font-display:swap;
+src:url('/fonts/Pretendard-Regular.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-style:normal;font-weight:600;font-display:swap;
+src:url('/fonts/Pretendard-SemiBold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-style:normal;font-weight:700;font-display:swap;
+src:url('/fonts/Pretendard-Bold.woff2') format('woff2')}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;
 src:url('/fonts/JetBrainsMono-Regular.woff2') format('woff2')}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;
@@ -119,8 +124,6 @@ def _shell(client_name: str, body: str, status: int, head: str = "") -> HTMLResp
     return HTMLResponse(
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/orioncactus/pretendard"
-        "@v1.3.9/dist/web/static/pretendard.min.css'>"
         f"<title>Frony 연결 승인</title>{head}<style>{_CSS}</style></head><body><main>"
         f"<aside><div class='brand'><img src='/favicon.ico' alt=''>FRONY</div><div><h1>{name}{_ga(client_name)}<br>Frony 연결을 요청합니다</h1>"
         "<p>승인하면 이 앱에 전용 토큰이 발급됩니다.</p></div></aside>"
