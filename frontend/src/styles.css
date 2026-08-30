@@ -436,6 +436,34 @@ input::placeholder {
   line-height: 1.3;
 }
 
+/* phone only: the detail title doubles as the way into the project's own sheet */
+.head-title-btn {
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.head-title-btn h1 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.head-title-btn svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+}
+
 .synced {
   flex: none;
   display: flex;
@@ -2081,6 +2109,18 @@ svg.logo-mark {
   font-variant-numeric: tabular-nums;
 }
 
+/* the phone pager replaces the strip of numbers with "2 / 6" */
+.pg-count {
+  display: none;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 56px;
+  text-align: center;
+}
+
 .pg {
   min-width: 28px;
   height: 28px;
@@ -3058,14 +3098,14 @@ button.task-grid:hover {
     background: transparent;
   }
 
-  /* the mockup pins summary + filter/sort right under the header, so it stays put
-     while the list scrolls. Sticky inside .content (the scroller); the negative
-     margins let the bar bleed to the screen edges the way the header does. */
+  /* the detail screen *is* the task list, so this bar is the first thing in the
+     scroller: the negative top margin pulls it flush against the header, and the
+     side margins let it bleed to the screen edges the way the header does. */
   .table-top {
     position: sticky;
     top: 0;
     z-index: 5;
-    margin: 0 calc(-1 * var(--s-4));
+    margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-4)) 0;
     padding: var(--s-2) var(--s-4) var(--s-3);
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -3074,6 +3114,13 @@ button.task-grid:hover {
   /* "태스크" is already the screen title — the bar keeps only the count */
   .table-top .card-title {
     display: none;
+  }
+
+  /* the bar has to stay one line: the pills beside it are 44px tall already */
+  .table-summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .task-grid.thead,
@@ -3191,10 +3238,179 @@ button.task-grid:hover {
     font-size: 16px;
   }
 
+  /* ---- pager: "‹ 2 / 6 ›" — the number strip does not fit a thumb or the width ---- */
+  .pager {
+    justify-content: center;
+    gap: var(--s-3);
+    border-top: 0;
+    padding: var(--s-3) var(--card-pad) var(--s-2);
+  }
+
+  .pager .range,
+  .pg.num {
+    display: none;
+  }
+
+  .pg-count {
+    display: block;
+  }
+
+  .pager .pg {
+    min-width: var(--hit-min);
+    height: var(--hit-min);
+    border-radius: var(--r-md);
+  }
+
+  /* ---- three rows built for 1024px: let them wrap instead of running off ---- */
+  .summary-head {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  /* a zero-height full-width item — forces the ratio and bar onto their own line */
+  .summary-head .spacer {
+    flex: 0 0 100%;
+    height: 0;
+  }
+
+  /* nowrap + no shrink would push a long project name off the edge */
+  .summary-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .summary-bar {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .pstep {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .pstep-goal {
+    flex: 0 0 100%;
+    overflow: visible;
+    white-space: normal;
+    text-wrap: pretty;
+  }
+
+  .pstep-bar {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  /* order pulls the goal below the id/chip/ratio line and the bar below that */
+  .rollup-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    min-height: 0;
+    padding: 10px 0;
+  }
+
+  .r-goal {
+    order: 3;
+    flex: 0 0 100%;
+    overflow: visible;
+    white-space: normal;
+    text-wrap: pretty;
+  }
+
+  .r-ratio {
+    margin-left: auto;
+  }
+
+  .r-bar {
+    order: 4;
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  /* ---- project detail sheet: what the header title opens ---- */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    background: var(--backdrop);
+    backdrop-filter: blur(2px);
+  }
+
+  .detail-sheet {
+    position: fixed;
+    top: 44px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+    animation: sheetUp var(--dur-slow) var(--ease);
+  }
+
+  /* the grabber, same as the filter/sort sheet */
+  .detail-sheet::before {
+    content: "";
+    flex: none;
+    align-self: center;
+    width: 38px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+    margin: 8px 0 2px;
+  }
+
+  .sheet-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: 10px var(--s-4) 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sheet-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--s-4) var(--s-4) calc(var(--s-6) + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
   /* ---- task panel: full screen ---- */
   .task-panel {
     width: 100%;
     max-width: none;
     border-left: 0;
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
   }
 }

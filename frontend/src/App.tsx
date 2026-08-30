@@ -69,6 +69,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const closingInApp = useRef(false);
   const isPhone = useIsPhone();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [detailSheet, setDetailSheet] = useState(false);
   const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
@@ -128,6 +129,11 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   useEffect(() => {
     if (data && openProject !== null && !data.statuses[openProject]) closeDetail();
   }, [data, openProject]);
+
+  // The sheet belongs to one project; leaving the detail closes it.
+  useEffect(() => {
+    setDetailSheet(false);
+  }, [openProject]);
 
   const go = (p: Page) => {
     setPage(p);
@@ -203,7 +209,18 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                   )}
                   {crumb && <div className="crumb">{crumb}</div>}
                 </div>
-                <h1>{title}</h1>
+                {/* On a phone the title is the way into the project's own detail —
+                    the summary, roadmap and period chrome live behind it. */}
+                {phoneDetail ? (
+                  <button className="head-title-btn" onClick={() => setDetailSheet(true)}>
+                    <h1>{title}</h1>
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7.5 4.5 13 10l-5.5 5.5" />
+                    </svg>
+                  </button>
+                ) : (
+                  <h1>{title}</h1>
+                )}
               </div>
             ) : (
               <span className="head-spacer" />
@@ -233,6 +250,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 openKey={openProject}
                 setOpenKey={(key) => (key === null ? closeDetail() : openDetail(key))}
                 onOpenTask={(key, task) => setOpenTask({ key, task })}
+                sheetOpen={detailSheet}
+                onCloseSheet={() => setDetailSheet(false)}
               />
             )}
             {data && page === "settings" && <Settings data={data} onAuthFail={onAuthFail} />}

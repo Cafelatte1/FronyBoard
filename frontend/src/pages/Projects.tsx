@@ -23,11 +23,15 @@ export default function Projects({
   openKey,
   setOpenKey,
   onOpenTask,
+  sheetOpen,
+  onCloseSheet,
 }: {
   data: BoardData;
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onOpenTask: (key: string, task: Task) => void;
+  sheetOpen: boolean;
+  onCloseSheet: () => void;
 }) {
   if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
   return (
@@ -37,6 +41,8 @@ export default function Projects({
       projectKey={openKey}
       onBack={() => setOpenKey(null)}
       onOpenTask={(t) => onOpenTask(openKey, t)}
+      sheetOpen={sheetOpen}
+      onCloseSheet={onCloseSheet}
     />
   );
 }
@@ -137,18 +143,27 @@ function landingPeriod(year: string, status: StatusResp): string | null {
 }
 
 /** The detail screen shows one period at a time: the roadmap picks the year, the
-    quarter dots / stepper pick the period, the table below belongs to that period. */
+    quarter dots / stepper pick the period, the table below belongs to that period.
+
+    On a phone the screen *is* the task list: the project summary, the roadmap and
+    the period chrome move into a sheet behind the header title, so the tasks are
+    the first thing on screen instead of the fifth. */
 function ProjectDetail({
   data,
   projectKey,
   onBack,
   onOpenTask,
+  sheetOpen,
+  onCloseSheet,
 }: {
   data: BoardData;
   projectKey: string;
   onBack: () => void;
   onOpenTask: (t: Task) => void;
+  sheetOpen: boolean;
+  onCloseSheet: () => void;
 }) {
+  const isPhone = useIsPhone();
   const status = data.statuses[projectKey];
   const ref = data.projects.find((p) => p.key === projectKey);
   const roadmap = data.roadmaps[projectKey];
@@ -175,15 +190,10 @@ function ProjectDetail({
   const currentInfo = current ? status.periods[current] : null;
   const currentRatio = doneRatio(countBy(allTasks.filter((t) => t.period === current)));
 
-  return (
+  // Everything that is *about* the project rather than its tasks. Rendered inline on a
+  // desktop, inside the sheet on a phone — never both, so the JSX is built once.
+  const about = (
     <>
-      <button className="back-btn" onClick={onBack}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12.5 4.5 7 10l5.5 5.5" />
-        </svg>
-        프로젝트 목록
-      </button>
-
       {/* Always the active period — the summary does not follow the stepper. */}
       <div className="card summary-card">
         <div className="summary-head">
@@ -241,16 +251,150 @@ function ProjectDetail({
       />
 
       {periodId && status.periods[periodId] && (
-        <PeriodView
-          key={periodId}
+        <PeriodChrome
           name={periodId}
           names={periodNames}
           period={status.periods[periodId]}
           tasks={allTasks.filter((t) => t.period === periodId)}
-          tz={data.server.timezone}
           onPeriod={selectPeriod}
+        />
+      )}
+    </>
+  );
+
+  return (
+    <>
+      <button className="back-btn" onClick={onBack}>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12.5 4.5 7 10l5.5 5.5" />
+        </svg>
+        프로젝트 목록
+      </button>
+
+      {!isPhone && about}
+
+      {periodId && status.periods[periodId] ? (
+        <TaskTable
+          key={periodId}
+          name={periodId}
+          period={status.periods[periodId]}
+          tasks={allTasks.filter((t) => t.period === periodId)}
+          tz={data.server.timezone}
           onOpenTask={onOpenTask}
         />
+      ) : (
+        // Without a period the phone screen would be blank — the rest is in the sheet.
+        isPhone && <p className="muted">열린 분기가 없어요 — 제목을 눌러 프로젝트 정보를 볼 수 있어요.</p>
+      )}
+
+      {isPhone && sheetOpen && (
+        <DetailSheet title={`${status.name ?? projectKey} 상세`} onClose={onCloseSheet}>
+          {about}
+        </DetailSheet>
+      )}
+    </>
+  );
+}
+
+/** The project's own detail on a phone, over the task list. Rendered only while open —
+    there is no close transition to wait for, so nothing needs to stay mounted. */
+function DetailSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="detail-sheet" role="dialog" aria-label={title}>
+        <div className="sheet-head">
+          <span className="sheet-title">{title}</span>
+          <button className="panel-close" onClick={onClose} title="닫기" aria-label="닫기">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+            </svg>
+          </button>
+        </div>
+        <div className="sheet-body">{children}</div>
+      </div>
+    </>
+  );
+}
+
+/** The period stepper and the monthly rollup — the part of a period that is not its
+    task list. Split out so a phone can move it into the detail sheet. */
+function PeriodChrome({
+  name,
+  names,
+  period,
+  tasks,
+  onPeriod,
+}: {
+  name: string;
+  names: string[];
+  period: PeriodStatus;
+  tasks: Task[];
+  onPeriod: (id: string) => void;
+}) {
+  const i = names.indexOf(name);
+  const older = i > 0 ? names[i - 1] : null;
+  const newer = i >= 0 && i < names.length - 1 ? names[i + 1] : null;
+  const ratio = doneRatio(countBy(tasks));
+
+  return (
+    <>
+      <div className="pstep">
+        <span className="ynav">
+          <button className="ynav-btn lg" disabled={!older} onClick={() => older && onPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+          </button>
+          <span className="pstep-id">{name}</span>
+          <button className="ynav-btn lg" disabled={!newer} onClick={() => newer && onPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+          </button>
+        </span>
+        <MilestoneChip status={period.milestone_status} />
+        <span className="pstep-goal">{period.goal ?? "—"}</span>
+        <span className="pstep-ratio">
+          {ratio.done}/{ratio.total} · {ratio.pct}%
+        </span>
+        <span className="bar pstep-bar">
+          <span className="bar-fill" style={{ width: `${ratio.pct}%` }} />
+        </span>
+      </div>
+
+      {period.months.length > 0 && (
+        <div className="card">
+          <span className="rollup-cap">월별 진행률</span>
+          <div className="rollup">
+            {period.months.map((m) => {
+              const r = doneRatio(m.task_counts);
+              return (
+                <div key={m.id} className="rollup-row">
+                  <span className="r-id">{m.month}</span>
+                  <span className="r-goal">{m.goal ?? "—"}</span>
+                  <MilestoneChip status={m.status} />
+                  <span className="r-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
+                  <span className="bar r-bar">
+                    {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </>
   );
@@ -354,23 +498,19 @@ const ROWS_PER_PAGE = 10;
 const FILTERS = ["all", "in_progress", "todo", "blocked", "done"] as const;
 type Filter = (typeof FILTERS)[number];
 
-/** One period: stepper bar, monthly rollup, and the task table with its own
-    filter / sort / page state (reset whenever the period changes — see key=). */
-function PeriodView({
+/** The task table of one period, with its own filter / sort / page state
+    (reset whenever the period changes — see key=). */
+function TaskTable({
   name,
-  names,
   period,
   tasks,
   tz,
-  onPeriod,
   onOpenTask,
 }: {
   name: string;
-  names: string[];
   period: PeriodStatus;
   tasks: Task[];
   tz: ServerTimezone | undefined;
-  onPeriod: (id: string) => void;
   onOpenTask: (t: Task) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
@@ -378,7 +518,6 @@ function PeriodView({
   const [sort, setSort] = useState<SortKey>("created");
   const [page, setPage] = useState(1);
   const [menu, setMenu] = useState<"filter" | "sort" | null>(null);
-  const isPhone = useIsPhone();
 
   useEffect(() => {
     if (!menu) return;
@@ -389,11 +528,6 @@ function PeriodView({
     return () => window.removeEventListener("keydown", onKey);
   }, [menu]);
 
-  const i = names.indexOf(name);
-  const older = i > 0 ? names[i - 1] : null;
-  const newer = i >= 0 && i < names.length - 1 ? names[i + 1] : null;
-  const ratio = doneRatio(countBy(tasks));
-
   const counts = countBy(tasks);
   const visible = tasks.filter(
     (t) => (cancelled || t.status !== "cancelled") && (filter === "all" || t.status === filter),
@@ -402,8 +536,7 @@ function PeriodView({
   const pageCount = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
   const pageNo = Math.min(page, pageCount);
   const from = (pageNo - 1) * ROWS_PER_PAGE;
-  // Phones scroll the whole list — a pager is a poor fit for a thumb.
-  const rows = isPhone ? sorted : sorted.slice(from, from + ROWS_PER_PAGE);
+  const rows = sorted.slice(from, from + ROWS_PER_PAGE);
   const sortDef = SORTS.find((s) => s.key === sort)!;
 
   const pick = <T,>(set: (v: T) => void) => (v: T) => {
@@ -414,48 +547,6 @@ function PeriodView({
 
   return (
     <>
-      <div className="pstep">
-        <span className="ynav">
-          <button className="ynav-btn lg" disabled={!older} onClick={() => older && onPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
-          </button>
-          <span className="pstep-id">{name}</span>
-          <button className="ynav-btn lg" disabled={!newer} onClick={() => newer && onPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
-          </button>
-        </span>
-        <MilestoneChip status={period.milestone_status} />
-        <span className="pstep-goal">{period.goal ?? "—"}</span>
-        <span className="pstep-ratio">
-          {ratio.done}/{ratio.total} · {ratio.pct}%
-        </span>
-        <span className="bar pstep-bar">
-          <span className="bar-fill" style={{ width: `${ratio.pct}%` }} />
-        </span>
-      </div>
-
-      {period.months.length > 0 && (
-        <div className="card">
-          <span className="rollup-cap">월별 진행률</span>
-          <div className="rollup">
-            {period.months.map((m) => {
-              const r = doneRatio(m.task_counts);
-              return (
-                <div key={m.id} className="rollup-row">
-                  <span className="r-id">{m.month}</span>
-                  <span className="r-goal">{m.goal ?? "—"}</span>
-                  <MilestoneChip status={m.status} />
-                  <span className="r-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
-                  <span className="bar r-bar">
-                    {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {menu && <div className="menu-overlay" onClick={() => setMenu(null)} />}
 
       <div className="task-table">
@@ -560,7 +651,7 @@ function PeriodView({
             {tasks.length === 0 ? "이 분기에는 아직 기간 파일의 태스크가 없어요." : "조건에 맞는 태스크가 없어요."}
           </span>
         )}
-        {sorted.length > 0 && !isPhone && (
+        {sorted.length > 0 && (
           <div className="pager">
             <span className="range">
               {from + 1}–{Math.min(from + ROWS_PER_PAGE, sorted.length)} / {sorted.length}
@@ -573,6 +664,10 @@ function PeriodView({
                 {n}
               </button>
             ))}
+            {/* one number buttons cannot be: a phone shows this instead of the whole strip */}
+            <span className="pg-count">
+              {pageNo} / {pageCount}
+            </span>
             <button className="pg" disabled={pageNo >= pageCount} onClick={() => setPage(pageNo + 1)} title="다음 페이지" aria-label="다음 페이지">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
             </button>
