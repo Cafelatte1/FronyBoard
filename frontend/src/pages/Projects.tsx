@@ -14,6 +14,7 @@ import {
   monthOf,
   sortTasks,
   useFavorites,
+  useIsPhone,
   weekLabel,
   type SortKey,
 } from "../shared";
@@ -379,6 +380,7 @@ function PeriodView({
   const [sort, setSort] = useState<SortKey>("created");
   const [page, setPage] = useState(1);
   const [menu, setMenu] = useState<"filter" | "sort" | null>(null);
+  const isPhone = useIsPhone();
 
   useEffect(() => {
     if (!menu) return;
@@ -402,7 +404,8 @@ function PeriodView({
   const pageCount = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
   const pageNo = Math.min(page, pageCount);
   const from = (pageNo - 1) * ROWS_PER_PAGE;
-  const rows = sorted.slice(from, from + ROWS_PER_PAGE);
+  // Phones scroll the whole list — a pager is a poor fit for a thumb.
+  const rows = isPhone ? sorted : sorted.slice(from, from + ROWS_PER_PAGE);
   const sortDef = SORTS.find((s) => s.key === sort)!;
 
   const pick = <T,>(set: (v: T) => void) => (v: T) => {
@@ -516,6 +519,7 @@ function PeriodView({
             </button>
             {menu === "sort" && (
               <div className="menu narrow">
+                <span className="menu-cap">정렬 기준</span>
                 {SORTS.map((s) => (
                   <button key={s.key} className={`menu-item ${sort === s.key ? "on" : ""}`} onClick={() => pick(setSort)(s.key)}>
                     <span className="grow">{s.label}</span>
@@ -547,12 +551,12 @@ function PeriodView({
                 <TagChip key={tag} tag={tag} />
               ))}
             </span>
-            <span>
+            <span className="c-status">
               <StatusChip status={t.status} />
             </span>
-            <span className="c-dim">{monthOf(period.months, t.month)}</span>
-            <span className="c-dim">{weekLabel(t.week)}</span>
-            <span className="c-dim">{fmtServerTime(t.meta.created_at, tz).slice(0, 10)}</span>
+            <span className="c-dim c-month">{monthOf(period.months, t.month)}</span>
+            <span className="c-dim c-week">{weekLabel(t.week)}</span>
+            <span className="c-dim c-created">{fmtServerTime(t.meta.created_at, tz).slice(0, 10)}</span>
           </button>
         ))}
         {sorted.length === 0 && (
@@ -560,7 +564,7 @@ function PeriodView({
             {tasks.length === 0 ? "이 분기에는 아직 기간 파일의 태스크가 없어요." : "조건에 맞는 태스크가 없어요."}
           </span>
         )}
-        {sorted.length > 0 && (
+        {sorted.length > 0 && !isPhone && (
           <div className="pager">
             <span className="range">
               {from + 1}–{Math.min(from + ROWS_PER_PAGE, sorted.length)} / {sorted.length}

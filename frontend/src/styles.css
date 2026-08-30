@@ -2733,12 +2733,45 @@ button.task-grid:hover {
 
 /* ------------------------------------------------------------- responsive */
 
+/* Phones get a different shell, not a squeezed one (FronyBoard_20260830 mockup):
+   the drawer becomes a bottom tab bar, the task table becomes cards, and the
+   filter/sort dropdowns become bottom sheets. Density switches to comfortable
+   from App.tsx, so the touch targets below come from the tokens themselves. */
 @media (max-width: 760px) {
+  /* edge to edge — no floating card, no ambient glow behind it */
   .stage {
-    padding: var(--s-3);
+    padding: 0;
+    height: 100dvh;
+  }
+
+  /* main above, tab bar below — the desktop shell is a row (drawer beside content) */
+  .shell {
+    flex-direction: column;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .ambient {
+    display: none;
   }
 
   .stat-grid,
+  .summary-facts,
+  .qtl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* NAME | FINGERPRINT | CREATED | 삭제 does not fit — stack it */
+  .key-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .key-grid > :nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
   .dash-mid,
   .project-grid-3,
   .project-grid-2,
@@ -2746,5 +2779,297 @@ button.task-grid:hover {
   .nnl,
   .server-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* ---- header: brand + sync, or a back button on a detail screen ---- */
+  .head {
+    gap: var(--s-3);
+    padding: 0 var(--s-3);
+    height: 52px;
+  }
+
+  .head-brand,
+  .head-back {
+    display: flex;
+    align-items: center;
+    flex: none;
+  }
+
+  .head-brand {
+    gap: var(--s-3);
+  }
+
+  .head-back {
+    width: var(--hit-min);
+    height: var(--hit-min);
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 0;
+    margin-left: -10px;
+  }
+
+  .head-back svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* the in-page back link is redundant once the header carries one */
+  .back-btn {
+    display: none;
+  }
+
+  .head-spacer {
+    flex: 1;
+  }
+
+  /* the two-line lockup: FRONY over Board */
+  .logo-text.stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .logo-text.stacked .logo-frony {
+    font-size: 7.5px;
+    letter-spacing: 0.16em;
+  }
+
+  .logo-text.stacked .logo-name {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .head h1 {
+    font-size: 17px;
+  }
+
+  /* icon only — the "N분 전 동기화" label has no room next to the brand.
+     font-size:0 drops the text node; the svg carries its own size. */
+  .synced {
+    width: var(--hit-min);
+    height: var(--hit-min);
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    font-size: 0;
+  }
+
+  /* the page title moves out of the header and into the scroll area */
+  .page-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .content {
+    padding: var(--s-4) var(--s-4) var(--s-6);
+    gap: 14px;
+    scrollbar-gutter: auto;
+  }
+
+  /* the mockup keeps comfortable type but the tighter card padding — a phone card
+     has less room to give away than a desktop one */
+  .stage {
+    --card-pad: 14px;
+  }
+
+  /* narrower bars, taller tabs: seven columns in 361px, and a tab is a touch target */
+  .burn-bars,
+  .burn-labels {
+    gap: 7px;
+  }
+
+  .burn-bars {
+    height: 132px;
+  }
+
+  .burn-tabs button {
+    height: 32px;
+  }
+
+  /* ---- bottom tab bar ---- */
+  .tabbar {
+    flex: none;
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 6px var(--s-2) calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .tab-item {
+    flex: 1;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: var(--s-2) 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-disabled);
+    font-size: var(--t-badge);
+    font-weight: 600;
+  }
+
+  .tab-item.on {
+    color: var(--on-accent-subtle);
+  }
+
+  .tab-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* ---- task table -> cards ---- */
+  .task-table {
+    border: 0;
+    background: transparent;
+  }
+
+  .table-top {
+    flex-wrap: wrap;
+    padding: 0 0 var(--s-3);
+  }
+
+  .task-grid.thead,
+  .key-grid.thead,
+  .c-created {
+    display: none;
+  }
+
+  .task-grid {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "id status"
+      "title title"
+      "tags meta";
+    gap: var(--s-2);
+    align-items: center;
+    min-height: 0;
+    padding: 12px 14px;
+    margin-bottom: var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+
+  .c-id { grid-area: id; }
+  .c-status { grid-area: status; justify-self: end; }
+  .c-tags { grid-area: tags; }
+
+  /* the title wraps instead of being cut — a phone has the room vertically */
+  .c-title {
+    grid-area: title;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    text-wrap: pretty;
+    line-height: var(--lh-body);
+  }
+
+  .c-month,
+  .c-week {
+    grid-area: meta;
+    justify-self: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* month and week share one cell, split by a hairline */
+  .c-month {
+    padding-right: 22px;
+  }
+
+  .c-week {
+    border-left: 1px solid var(--border-strong);
+    padding-left: 10px;
+    line-height: 1;
+  }
+
+  /* ---- filter / sort: pills that open a bottom sheet ---- */
+  .filter-btn {
+    height: var(--hit-min);
+    border-radius: var(--r-pill);
+    padding: 0 16px;
+  }
+
+  .filter-btn svg,
+  .filter-btn .dots,
+  .filter-btn .sort-label {
+    display: none;
+  }
+
+  .menu-overlay {
+    background: var(--backdrop);
+    backdrop-filter: blur(2px);
+    z-index: 40;
+  }
+
+  .menu,
+  .menu.narrow {
+    position: fixed;
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    z-index: 41;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+    background: var(--surface);
+    padding: 10px 0 calc(22px + env(safe-area-inset-bottom));
+    gap: 0;
+  }
+
+  /* the grabber */
+  .menu::before {
+    content: "";
+    align-self: center;
+    width: 38px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+    margin-bottom: 12px;
+  }
+
+  .menu-cap {
+    padding: 0 20px 10px;
+    font-size: var(--t-subtitle);
+    font-weight: 600;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .menu-item {
+    min-height: 52px;
+    padding: 0 20px;
+    gap: 12px;
+    border-radius: 0;
+    border-top: 1px solid var(--border);
+    font-size: var(--t-body);
+  }
+
+  .menu-sep {
+    display: none;
+  }
+
+  /* iOS zooms the whole page when a focused field is under 16px */
+  input {
+    font-size: 16px;
+  }
+
+  /* ---- task panel: full screen ---- */
+  .task-panel {
+    width: 100%;
+    max-width: none;
+    border-left: 0;
   }
 }
