@@ -2874,6 +2874,26 @@ button.task-grid:hover {
     scrollbar-gutter: auto;
   }
 
+  /* the mockup keeps comfortable type but the tighter card padding — a phone card
+     has less room to give away than a desktop one */
+  .stage {
+    --card-pad: 14px;
+  }
+
+  /* narrower bars, taller tabs: seven columns in 361px, and a tab is a touch target */
+  .burn-bars,
+  .burn-labels {
+    gap: 7px;
+  }
+
+  .burn-bars {
+    height: 132px;
+  }
+
+  .burn-tabs button {
+    height: 32px;
+  }
+
   /* ---- bottom tab bar ---- */
   .tabbar {
     flex: none;
