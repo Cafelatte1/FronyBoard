@@ -193,6 +193,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
             ) : (
               <span className="head-spacer" />
             )}
+            {/* the phone's detail header is back + title only — sync lives on the top-level screens */}
+            {!phoneDetail && (
             <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
               <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
@@ -200,6 +202,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </svg>
               {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
             </button>
+            )}
           </header>
 
           <div className="content">
