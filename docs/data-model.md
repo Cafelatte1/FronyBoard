@@ -109,6 +109,15 @@ result: |               # written by close_period; its presence marks the period
   ...                   # and reasons only.
 ```
 
+A period exists once `open_period` creates its file, and it keeps existing after
+`close_period` — closing only sets `result` and flips the milestone to `done`; the
+months and tasks are untouched and stay queryable (`list_tasks`, `get_status` both
+include closed periods). The only way a period is unknown to the tools is if it was
+never opened, or the name is wrong: any tool taking `period` other than `open_period`
+itself then raises
+`project {KEY} has no period {period} (it has: 2026Q3)`, or `(it has: none —
+open_period starts one)` when nothing has been opened yet (`service._require_period`).
+
 ### Task content
 
 `content` is free markdown, but every task should follow one template so a human can
