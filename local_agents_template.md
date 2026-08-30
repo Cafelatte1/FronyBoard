@@ -29,3 +29,6 @@
 
 This project is tracked by FronyBoard (project key: <KEY>).
 Manage tasks through the FronyBoard MCP tools, following the FronyBoard server instructions.
+Task tags: <작업이 놓이는 영역 — 예: frontend / backend / infra / docs>, plus
+<작업의 성격 — 예: design / test / bug> for what kind it is. Reuse these rather than
+coining a synonym.
