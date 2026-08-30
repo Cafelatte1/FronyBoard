@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clearSession, getToken, login } from "./api";
 import { currentPeriodName, fmtAgo, useBoardData } from "./shared";
 import TaskPanel from "./TaskPanel";
@@ -15,6 +15,15 @@ const PAGE_TITLES: Record<Page, string> = {
   settings: "설정",
 };
 
+/** The project detail is the one screen that gets its own history entry, so back
+    returns to the project list instead of leaving the dashboard. Everything else
+    stays state-only: back from a top-level menu leaves the site, as before. */
+const DETAIL_HASH = /^#\/p\/([A-Z]{2,5})$/;
+
+function detailKeyFromHash(): string | null {
+  return DETAIL_HASH.exec(window.location.hash)?.[1] ?? null;
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(getToken() !== null);
   if (!authed) return <LoginGate onDone={() => setAuthed(true)} />;
@@ -29,8 +38,10 @@ export default function App() {
 }
 
 function Board({ onAuthFail }: { onAuthFail: () => void }) {
-  const [page, setPage] = useState<Page>("dashboard");
-  const [openProject, setOpenProject] = useState<string | null>(null);
+  const [page, setPage] = useState<Page>(detailKeyFromHash() ? "projects" : "dashboard");
+  const [openProject, setOpenProject] = useState<string | null>(detailKeyFromHash);
+  const pushedDetail = useRef(false);
+  const closingInApp = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -53,14 +64,49 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen, openTask]);
 
-  const go = (p: Page) => {
-    setPage(p);
-    setOpenProject(null);
-    setMenuOpen(false);
-  };
+  // Back/forward moves in and out of the project detail; the hash is the source of truth.
+  useEffect(() => {
+    const onPop = () => {
+      const key = detailKeyFromHash();
+      pushedDetail.current = key !== null;
+      setOpenProject(key);
+      // Back out of a detail always lands on the project list.
+      if (closingInApp.current) closingInApp.current = false;   // the caller picked the screen
+      else setPage("projects");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   const openDetail = (key: string) => {
     setPage("projects");
     setOpenProject(key);
+    if (detailKeyFromHash() !== key) {
+      window.history.pushState(null, "", `#/p/${key}`);
+      pushedDetail.current = true;
+    }
+  };
+  const closeDetail = () => {
+    setOpenProject(null);
+    if (!detailKeyFromHash()) return;
+    if (pushedDetail.current) {
+      pushedDetail.current = false;
+      closingInApp.current = true;
+      window.history.back();          // drop the entry we pushed
+    } else {
+      // Opened straight from a bookmark: there is nothing of ours to go back to.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  };
+  // A hand-edited hash can name a project that does not exist — drop it once data is in.
+  useEffect(() => {
+    if (data && openProject !== null && !data.statuses[openProject]) closeDetail();
+  }, [data, openProject]);
+
+  const go = (p: Page) => {
+    setPage(p);
+    closeDetail();
+    setMenuOpen(false);
   };
 
   const detailName =
@@ -121,7 +167,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               <Projects
                 data={data}
                 openKey={openProject}
-                setOpenKey={setOpenProject}
+                setOpenKey={(key) => (key === null ? closeDetail() : openDetail(key))}
                 onOpenTask={(key, task) => setOpenTask({ key, task })}
               />
             )}
