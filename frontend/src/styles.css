@@ -409,6 +409,18 @@ input::placeholder {
   flex-direction: column;
 }
 
+.head-titles {
+  gap: 5px;
+  padding-left: 8px;
+}
+
+.head-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
 .crumb {
   font-size: var(--t-meta);
   color: var(--text-muted);
@@ -416,7 +428,8 @@ input::placeholder {
 }
 
 .head h1 {
-  margin: 2px 0 0;
+  margin: 0;
+  padding-left: 12px;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -536,21 +549,27 @@ svg.logo-mark {
   flex: none;
 }
 
+/* The lockup comes in two forms, both built from the same three parts:
+   stacked (mark over FRONY / Board) for the drawer and the phone header, and
+   inline (mark + FRONY | Board on one baseline) for the header and login card.
+   Sizes are set per context; the parts themselves never change. */
 .logo-text {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: 9px;
+  flex-direction: column;
+  gap: 2px;
   white-space: nowrap;
 }
 
+.logo-inline {
+  display: flex;
+  align-items: baseline;
+}
+
 .logo-frony {
-  font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.1em;
   line-height: 1;
-  padding-right: 0.1em;
   background: var(--gradient);
   -webkit-background-clip: text;
   background-clip: text;
@@ -559,18 +578,63 @@ svg.logo-mark {
 
 .logo-sep {
   width: 1px;
-  height: 14px;
   flex: none;
   align-self: center;
-  margin-left: -3px;
   background: var(--border-strong);
 }
 
 .logo-name {
-  font-size: var(--t-display);
-  font-weight: 500;
   line-height: 1;
   color: var(--text);
+}
+
+/* stacked: the wordmark is a small cap line above the product name */
+.logo-text .logo-frony {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  padding-right: 0.16em;
+}
+
+.logo-text .logo-name {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.drawer-head .logo-mark {
+  width: 29px;
+  height: 29px;
+}
+
+/* inline, small: sits beside the crumb in the header */
+.head-lockup {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.head-lockup .logo-mark {
+  width: 14px;
+  height: 14px;
+}
+
+.head-lockup .logo-inline {
+  gap: 3.4px;
+}
+
+.head-lockup .logo-frony {
+  font-size: 11px;
+  letter-spacing: 0.015em;
+  padding-right: 0.015em;
+}
+
+.head-lockup .logo-sep {
+  height: 9px;
+}
+
+.head-lockup .logo-name {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .side-close {
@@ -2689,33 +2753,31 @@ button.task-grid:hover {
 .login-lockup {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 9.6px;
 }
 
 .login-lockup .logo-mark {
-  width: 34px;
-  height: 34px;
+  width: 34.5px;
+  height: 34.5px;
 }
 
-.login-name {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+.login-lockup .logo-inline {
+  gap: 8.4px;
 }
 
-.login-name .logo-frony {
-  font-size: 26px;
-  letter-spacing: normal;
-  padding-right: 0;
+.login-lockup .logo-frony {
+  font-size: 27px;
+  letter-spacing: 0.015em;
+  padding-right: 0.015em;
 }
 
-.login-name .logo-sep {
-  height: 21px;
-  margin-left: 0;
+.login-lockup .logo-sep {
+  height: 22.5px;
 }
 
-.login-name .logo-name {
+.login-lockup .logo-name {
   font-size: 30px;
+  font-weight: 500;
 }
 
 .login-sub {
@@ -2883,21 +2945,25 @@ button.task-grid:hover {
     flex: 1;
   }
 
-  /* the two-line lockup: FRONY over Board */
-  .logo-text.stacked {
-    display: flex;
-    flex-direction: column;
+  /* same stacked lockup as the drawer, one step down */
+  .logo-text {
     gap: 1px;
   }
 
-  .logo-text.stacked .logo-frony {
+  .logo-text .logo-frony {
     font-size: 7.5px;
-    letter-spacing: 0.16em;
   }
 
-  .logo-text.stacked .logo-name {
+  .logo-text .logo-name {
     font-size: 15px;
-    font-weight: 600;
+  }
+
+  .head-titles {
+    padding-left: 0;
+  }
+
+  .head h1 {
+    padding-left: 0;
   }
 
   .head h1 {
