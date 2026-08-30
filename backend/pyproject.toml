@@ -1,6 +1,6 @@
 [project]
 name = "aira"
-version = "0.9.0"
+version = "0.10.0"
 description = "FronyBoard — an MCP server that gives AI agents a first-class project tracker"
 requires-python = ">=3.10"
 dependencies = [
