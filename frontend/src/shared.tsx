@@ -92,6 +92,22 @@ export function useBoardData(onAuthFail: () => void) {
 
 // ------------------------------------------------------------ status labels
 
+/** Phones get a different shell, not a squeezed one: bottom tabs instead of the drawer,
+    and the comfortable density so touch targets clear 44px. Width decides, not the
+    user agent — a narrowed desktop window is the same layout problem. */
+const PHONE = "(max-width: 760px)";
+
+export function useIsPhone(): boolean {
+  const [phone, setPhone] = useState(() => window.matchMedia(PHONE).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE);
+    const onChange = () => setPhone(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return phone;
+}
+
 export const TASK_ST: Record<string, { label: string; swatch: string }> = {
   done: { label: "완료", swatch: "var(--success)" },
   in_progress: { label: "진행중", swatch: "var(--accent)" },
