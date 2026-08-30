@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  MILESTONE_ST,
   MilestoneChip,
   ProjectStatusChip,
   RepoIcon,
@@ -23,15 +24,11 @@ export default function Projects({
   openKey,
   setOpenKey,
   onOpenTask,
-  sheetOpen,
-  onCloseSheet,
 }: {
   data: BoardData;
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onOpenTask: (key: string, task: Task) => void;
-  sheetOpen: boolean;
-  onCloseSheet: () => void;
 }) {
   if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
   return (
@@ -41,8 +38,6 @@ export default function Projects({
       projectKey={openKey}
       onBack={() => setOpenKey(null)}
       onOpenTask={(t) => onOpenTask(openKey, t)}
-      sheetOpen={sheetOpen}
-      onCloseSheet={onCloseSheet}
     />
   );
 }
@@ -153,17 +148,14 @@ function ProjectDetail({
   projectKey,
   onBack,
   onOpenTask,
-  sheetOpen,
-  onCloseSheet,
 }: {
   data: BoardData;
   projectKey: string;
   onBack: () => void;
   onOpenTask: (t: Task) => void;
-  sheetOpen: boolean;
-  onCloseSheet: () => void;
 }) {
   const isPhone = useIsPhone();
+  const [sheet, setSheet] = useState(false);
   const status = data.statuses[projectKey];
   const ref = data.projects.find((p) => p.key === projectKey);
   const roadmap = data.roadmaps[projectKey];
@@ -190,8 +182,13 @@ function ProjectDetail({
   const currentInfo = current ? status.periods[current] : null;
   const currentRatio = doneRatio(countBy(allTasks.filter((t) => t.period === current)));
 
-  // Everything that is *about* the project rather than its tasks. Rendered inline on a
-  // desktop, inside the sheet on a phone — never both, so the JSX is built once.
+  const pi = periodNames.indexOf(periodId ?? "");
+  const older = pi > 0 ? periodNames[pi - 1] : null;
+  const newer = pi >= 0 && pi < periodNames.length - 1 ? periodNames[pi + 1] : null;
+  const period = periodId ? status.periods[periodId] : null;
+  const periodRatio = doneRatio(countBy(allTasks.filter((t) => t.period === periodId)));
+
+  // The desktop keeps the project's own detail inline, above the task table.
   const about = (
     <>
       {/* Always the active period — the summary does not follow the stepper. */}
@@ -262,6 +259,124 @@ function ProjectDetail({
     </>
   );
 
+  const table =
+    periodId && period ? (
+      <TaskTable
+        key={periodId}
+        name={periodId}
+        period={period}
+        tasks={allTasks.filter((t) => t.period === periodId)}
+        tz={data.server.timezone}
+        onOpenTask={onOpenTask}
+      />
+    ) : null;
+
+  if (isPhone) {
+    return (
+      <>
+        {/* sticky, not fixed: .content is the scroller, so this rides its top edge */}
+        <div className="pdet-head">
+          <div className="pdet-top">
+            <button className="pdet-back" onClick={onBack} title="프로젝트 목록" aria-label="프로젝트 목록">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4.5 6.5 10l5.5 5.5" />
+              </svg>
+            </button>
+            <span className="pdet-ident">
+              <span className="id-chip">{projectKey}</span>
+              <span className="pdet-name">{status.name ?? projectKey}</span>
+            </span>
+            <button
+              className={`pdet-info ${sheet ? "on" : ""}`}
+              onClick={() => setSheet(true)}
+              title="프로젝트 정보"
+              aria-label="프로젝트 정보"
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <circle cx="10" cy="10" r="7.4" />
+                <path d="M10 13.7V9.3M10 6.6h.01" />
+              </svg>
+            </button>
+          </div>
+
+          {periodId && period && (
+            <div className="pdet-period">
+              <button className="pdet-nav" disabled={!older} onClick={() => older && selectPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+              </button>
+              <span className="pdet-period-mid">
+                <span className="pdet-period-id">{periodId}</span>
+                <MilestoneChip status={period.milestone_status} />
+                <span className="pdet-period-ratio">
+                  {periodRatio.done}/{periodRatio.total}
+                </span>
+              </span>
+              <button className="pdet-nav" disabled={!newer} onClick={() => newer && selectPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+              </button>
+              <span className="pdet-progress">
+                <span className="pdet-progress-fill" style={{ width: `${periodRatio.pct}%` }} />
+              </span>
+            </div>
+          )}
+        </div>
+
+        {table ?? <p className="muted">열린 분기가 없어요 — ⓘ 를 눌러 프로젝트 정보를 볼 수 있어요.</p>}
+
+        {sheet && (
+          <InfoSheet onClose={() => setSheet(false)}>
+            <span className="pdet-desc">
+              {ref?.description ?? "설명이 아직 없어요 — update_project로 추가할 수 있어요."}
+            </span>
+
+            <div className="pdet-card pdet-facts">
+              <Fact label="REPO" mono value={ref?.repo ?? "—"} />
+              <Fact label="CREATED_AT" mono value={ref?.meta ? fmtServerTime(ref.meta.created_at, data.server.timezone) : "—"} />
+              <Fact
+                label="PERIODS"
+                mono
+                value={`${periodNames.length}개 분기 · ${[...new Set(periodNames.map((n) => n.slice(0, 4)))].sort().join(", ") || "—"}`}
+              />
+              <Fact label="분기 목표" value={currentInfo?.goal ?? "열린 기간 없음"} />
+            </div>
+
+            <PhoneRoadmap
+              roadmap={roadmap}
+              status={status}
+              year={year}
+              years={years}
+              currentYear={currentYear}
+              periodId={periodId}
+              onYear={goYear}
+              onPeriod={selectPeriod}
+            />
+
+            {periodId && period && (
+              <div className="pdet-card">
+                <span className="pdet-card-title">{periodId} 월 진행</span>
+                {(period.months.length > 0 ? period.months : null)?.map((m) => {
+                  const r = doneRatio(m.task_counts);
+                  return (
+                    <span key={m.id} className="pdet-month">
+                      <span className="pdet-month-top">
+                        <span className="pdet-month-id">{m.month}</span>
+                        <span className="pdet-month-goal">{m.goal ?? "—"}</span>
+                        <span className="pdet-month-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
+                      </span>
+                      <span className="bar pdet-month-bar">
+                        {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
+                      </span>
+                    </span>
+                  );
+                }) ?? <span className="muted">월 계획이 없는 분기</span>}
+              </div>
+            )}
+          </InfoSheet>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <button className="back-btn" onClick={onBack}>
@@ -271,42 +386,23 @@ function ProjectDetail({
         프로젝트 목록
       </button>
 
-      {!isPhone && about}
-
-      {periodId && status.periods[periodId] ? (
-        <TaskTable
-          key={periodId}
-          name={periodId}
-          period={status.periods[periodId]}
-          tasks={allTasks.filter((t) => t.period === periodId)}
-          tz={data.server.timezone}
-          onOpenTask={onOpenTask}
-        />
-      ) : (
-        // Without a period the phone screen would be blank — the rest is in the sheet.
-        isPhone && <p className="muted">열린 분기가 없어요 — 제목을 눌러 프로젝트 정보를 볼 수 있어요.</p>
-      )}
-
-      {isPhone && sheetOpen && (
-        <DetailSheet title={`${status.name ?? projectKey} 상세`} onClose={onCloseSheet}>
-          {about}
-        </DetailSheet>
-      )}
+      {about}
+      {table}
     </>
   );
 }
 
-/** The project's own detail on a phone, over the task list. Rendered only while open —
-    there is no close transition to wait for, so nothing needs to stay mounted. */
-function DetailSheet({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
+function Fact({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <span className="pdet-fact">
+      <span className="pdet-fact-label">{label}</span>
+      <span className={`pdet-fact-value ${mono ? "mono" : ""}`}>{value}</span>
+    </span>
+  );
+}
+
+/** Bottom sheet behind the ⓘ button: the project's own detail, on top of the task list. */
+function InfoSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -316,20 +412,112 @@ function DetailSheet({
   }, [onClose]);
 
   return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="detail-sheet" role="dialog" aria-label={title}>
+    <div className="sheet-layer">
+      <button className="sheet-scrim" onClick={onClose} aria-label="닫기" />
+      <div className="info-sheet" role="dialog" aria-label="프로젝트 정보">
+        <span className="sheet-grip" />
         <div className="sheet-head">
-          <span className="sheet-title">{title}</span>
-          <button className="panel-close" onClick={onClose} title="닫기" aria-label="닫기">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+          <span className="sheet-title">프로젝트 정보</span>
+          <button className="sheet-close" onClick={onClose} title="닫기" aria-label="닫기">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+              <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
             </svg>
           </button>
         </div>
         <div className="sheet-body">{children}</div>
       </div>
-    </>
+    </div>
+  );
+}
+
+/** The roadmap as a phone reads it: a 2x2 grid of quarters instead of the desktop
+    timeline, which needs horizontal room for its connecting segments. */
+function PhoneRoadmap({
+  roadmap,
+  status,
+  year,
+  years,
+  currentYear,
+  periodId,
+  onYear,
+  onPeriod,
+}: {
+  roadmap: Roadmap | undefined;
+  status: StatusResp;
+  year: string | null;
+  years: string[];
+  currentYear: string | null;
+  periodId: string | null;
+  onYear: (y: string) => void;
+  onPeriod: (id: string) => void;
+}) {
+  if (!year) {
+    return (
+      <div className="pdet-card">
+        <span className="pdet-card-title">로드맵</span>
+        <span className="muted">로드맵이 아직 없어요.</span>
+      </div>
+    );
+  }
+  const yd = roadmap?.years[year];
+  const yi = years.indexOf(year);
+  const prev = yi > 0 ? years[yi - 1] : null;
+  const next = yi >= 0 && yi < years.length - 1 ? years[yi + 1] : null;
+  const ms = yd?.milestones ?? {};
+
+  return (
+    <div className="pdet-card pdet-road">
+      <div className="pdet-road-head">
+        <span className="pdet-road-title">
+          <span className="pdet-card-title">{year} 로드맵</span>
+          <span className="pdet-road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
+        </span>
+        <span className="ynav">
+          <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="이전 연도" aria-label="이전 연도">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+          </button>
+          <span className="ynav-year">{year}</span>
+          <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="다음 연도" aria-label="다음 연도">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+          </button>
+        </span>
+      </div>
+
+      <div className="pdet-q-grid">
+        {QUARTERS.map((q) => {
+          const pid = `${year}${q}`;
+          const hasFile = !!status.periods[pid];
+          const st = ms[q]?.status ?? (hasFile ? (status.periods[pid].milestone_status ?? "planned") : "none");
+          return (
+            <button
+              key={q}
+              className={`pdet-q q-${st} ${pid === periodId ? "sel" : ""}`}
+              disabled={!hasFile}
+              onClick={() => onPeriod(pid)}
+              title={hasFile ? `${pid} 보기` : `${pid} — 기간 파일 없음`}
+            >
+              <span className="pdet-q-top">
+                <span className="pdet-q-dot" />
+                <span className="pdet-q-id">{q}</span>
+                <span className="pdet-q-label">{MILESTONE_ST[st] ?? st}</span>
+              </span>
+              <span className="pdet-q-goal">{ms[q]?.goal ?? status.periods[pid]?.goal ?? "—"}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {yd && year === currentYear && (
+        <div className="pdet-nnl">
+          {NNL.map((k, i) => (
+            <span key={k} className={`pdet-nnl-item nnl-${i}`}>
+              <span className="pdet-nnl-label">{k}</span>
+              <span className="pdet-nnl-text">{yd.overview[k]}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -495,6 +683,13 @@ function RoadmapCard({
 }
 
 const ROWS_PER_PAGE = 10;
+
+/** Page numbers to draw: the whole run, or a window of `max` centred on the current page. */
+function pageNums(pageNo: number, pageCount: number, max: number): number[] {
+  if (pageCount <= max) return Array.from({ length: pageCount }, (_, k) => k + 1);
+  const start = Math.min(Math.max(1, pageNo - Math.floor(max / 2)), pageCount - max + 1);
+  return Array.from({ length: max }, (_, k) => start + k);
+}
 const FILTERS = ["all", "in_progress", "todo", "blocked", "done"] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -518,6 +713,7 @@ function TaskTable({
   const [sort, setSort] = useState<SortKey>("created");
   const [page, setPage] = useState(1);
   const [menu, setMenu] = useState<"filter" | "sort" | null>(null);
+  const isPhone = useIsPhone();
 
   useEffect(() => {
     if (!menu) return;
@@ -538,6 +734,9 @@ function TaskTable({
   const from = (pageNo - 1) * ROWS_PER_PAGE;
   const rows = sorted.slice(from, from + ROWS_PER_PAGE);
   const sortDef = SORTS.find((s) => s.key === sort)!;
+  // Beside the 이전/다음 pills a phone fits five number buttons (168 + 36x5 = 348 of
+  // the 361px it has); past that the row would push the pills off the screen.
+  const nums = pageNums(pageNo, pageCount, isPhone ? 5 : pageCount);
 
   const pick = <T,>(set: (v: T) => void) => (v: T) => {
     set(v);
@@ -656,19 +855,20 @@ function TaskTable({
             <span className="range">
               {from + 1}–{Math.min(from + ROWS_PER_PAGE, sorted.length)} / {sorted.length}
             </span>
-            <button className="pg" disabled={pageNo <= 1} onClick={() => setPage(pageNo - 1)} title="이전 페이지" aria-label="이전 페이지">
+            <button className="pg edge" disabled={pageNo <= 1} onClick={() => setPage(pageNo - 1)} title="이전 페이지" aria-label="이전 페이지">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+              {/* the phone pager spells the edges out — see the mockup */}
+              <span className="pg-word">이전</span>
             </button>
-            {Array.from({ length: pageCount }, (_, k) => k + 1).map((n) => (
-              <button key={n} className={`pg num ${n === pageNo ? "on" : ""}`} onClick={() => setPage(n)}>
-                {n}
-              </button>
-            ))}
-            {/* one number buttons cannot be: a phone shows this instead of the whole strip */}
-            <span className="pg-count">
-              {pageNo} / {pageCount}
+            <span className="pg-nums">
+              {nums.map((n) => (
+                <button key={n} className={`pg num ${n === pageNo ? "on" : ""}`} onClick={() => setPage(n)}>
+                  {n}
+                </button>
+              ))}
             </span>
-            <button className="pg" disabled={pageNo >= pageCount} onClick={() => setPage(pageNo + 1)} title="다음 페이지" aria-label="다음 페이지">
+            <button className="pg edge" disabled={pageNo >= pageCount} onClick={() => setPage(pageNo + 1)} title="다음 페이지" aria-label="다음 페이지">
+              <span className="pg-word">다음</span>
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
             </button>
           </div>

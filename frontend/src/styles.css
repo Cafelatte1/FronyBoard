@@ -436,34 +436,6 @@ input::placeholder {
   line-height: 1.3;
 }
 
-/* phone only: the detail title doubles as the way into the project's own sheet */
-.head-title-btn {
-  align-self: flex-start;
-  max-width: 100%;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 0;
-}
-
-.head-title-btn h1 {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.head-title-btn svg {
-  flex: none;
-  width: 15px;
-  height: 15px;
-  color: var(--text-muted);
-}
-
 .synced {
   flex: none;
   display: flex;
@@ -2109,16 +2081,14 @@ svg.logo-mark {
   font-variant-numeric: tabular-nums;
 }
 
-/* the phone pager replaces the strip of numbers with "2 / 6" */
-.pg-count {
+/* the phone pager spells its edges out and groups the numbers; on a desktop the
+   wrapper must not become a flex item of its own, hence display: contents */
+.pg-word {
   display: none;
-  font-size: var(--t-meta);
-  font-weight: 600;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  min-width: 56px;
-  text-align: center;
+}
+
+.pg-nums {
+  display: contents;
 }
 
 .pg {
@@ -2942,43 +2912,18 @@ button.task-grid:hover {
     grid-template-columns: 1fr;
   }
 
-  /* ---- header: brand + sync, or a back button on a detail screen ---- */
+  /* ---- header: brand + sync (the project detail draws its own) ---- */
   .head {
     gap: var(--s-3);
     padding: 0 var(--s-3);
     height: 52px;
   }
 
-  .head-brand,
-  .head-back {
+  .head-brand {
     display: flex;
     align-items: center;
     flex: none;
-  }
-
-  .head-brand {
     gap: var(--s-3);
-  }
-
-  .head-back {
-    width: var(--hit-min);
-    height: var(--hit-min);
-    justify-content: center;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    padding: 0;
-    margin-left: -10px;
-  }
-
-  .head-back svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* the in-page back link is redundant once the header carries one */
-  .back-btn {
-    display: none;
   }
 
   .head-spacer {
@@ -3035,8 +2980,14 @@ button.task-grid:hover {
 
   .content {
     padding: var(--s-4) var(--s-4) var(--s-6);
-    gap: 14px;
+    gap: var(--gap);
     scrollbar-gutter: auto;
+  }
+
+  /* the project detail packs more in, so it runs tighter gutters than the rest */
+  .content.detail {
+    padding: 12px 12px 24px;
+    gap: var(--gap);
   }
 
   /* the mockup keeps comfortable type but the tighter card padding — a phone card
@@ -3096,19 +3047,15 @@ button.task-grid:hover {
   .task-table {
     border: 0;
     background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
   }
 
-  /* the detail screen *is* the task list, so this bar is the first thing in the
-     scroller: the negative top margin pulls it flush against the header, and the
-     side margins let it bleed to the screen edges the way the header does. */
+  /* the mockup has no card around the table and no sticky bar: the toolbar is
+     simply the first line of the scrolling body, above the cards. */
   .table-top {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-4)) 0;
-    padding: var(--s-2) var(--s-4) var(--s-3);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
+    padding: 0;
   }
 
   /* "태스크" is already the screen title — the bar keeps only the count */
@@ -3138,7 +3085,6 @@ button.task-grid:hover {
     align-items: center;
     min-height: 0;
     padding: 12px 14px;
-    margin-bottom: var(--s-2);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     background: var(--surface);
@@ -3162,6 +3108,12 @@ button.task-grid:hover {
     grid-area: created;
     justify-self: end;
     font-variant-numeric: tabular-nums;
+  }
+
+  .empty-row {
+    border: 0;
+    padding: 34px 0;
+    text-align: center;
   }
 
   /* ---- filter / sort: pills that open a bottom sheet ---- */
@@ -3238,144 +3190,115 @@ button.task-grid:hover {
     font-size: 16px;
   }
 
-  /* ---- pager: "‹ 2 / 6 ›" — the number strip does not fit a thumb or the width ---- */
+  /* ---- pager: [< 이전]  1 2 3  [다음 >] ---- */
   .pager {
-    justify-content: center;
-    gap: var(--s-3);
+    justify-content: space-between;
+    gap: var(--s-2);
     border-top: 0;
-    padding: var(--s-3) var(--card-pad) var(--s-2);
+    padding: 2px 0 0;
   }
 
-  .pager .range,
-  .pg.num {
+  .pager .range {
     display: none;
   }
 
-  .pg-count {
-    display: block;
-  }
-
-  .pager .pg {
-    min-width: var(--hit-min);
-    height: var(--hit-min);
-    border-radius: var(--r-md);
-  }
-
-  /* ---- three rows built for 1024px: let them wrap instead of running off ---- */
-  .summary-head {
-    flex-wrap: wrap;
-    row-gap: 10px;
-  }
-
-  /* a zero-height full-width item — forces the ratio and bar onto their own line */
-  .summary-head .spacer {
-    flex: 0 0 100%;
-    height: 0;
-  }
-
-  /* nowrap + no shrink would push a long project name off the edge */
-  .summary-name {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .summary-bar {
-    flex: 1 1 auto;
-    width: auto;
-  }
-
-  .pstep {
-    flex-wrap: wrap;
-    row-gap: 10px;
-  }
-
-  .pstep-goal {
-    flex: 0 0 100%;
-    overflow: visible;
-    white-space: normal;
-    text-wrap: pretty;
-  }
-
-  .pstep-bar {
-    flex: 1 1 auto;
-    width: auto;
-  }
-
-  /* order pulls the goal below the id/chip/ratio line and the bar below that */
-  .rollup-row {
-    flex-wrap: wrap;
-    row-gap: 6px;
-    min-height: 0;
-    padding: 10px 0;
-  }
-
-  .r-goal {
-    order: 3;
-    flex: 0 0 100%;
-    overflow: visible;
-    white-space: normal;
-    text-wrap: pretty;
-  }
-
-  .r-ratio {
-    margin-left: auto;
-  }
-
-  .r-bar {
-    order: 4;
-    flex: 1 1 auto;
-    width: auto;
-  }
-
-  /* ---- project detail sheet: what the header title opens ---- */
-  .sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 44;
-    background: var(--backdrop);
-    backdrop-filter: blur(2px);
-  }
-
-  .detail-sheet {
-    position: fixed;
-    top: 44px;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 45;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    border-top: 1px solid var(--border);
-    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
-    animation: sheetUp var(--dur-slow) var(--ease);
-  }
-
-  /* the grabber, same as the filter/sort sheet */
-  .detail-sheet::before {
-    content: "";
-    flex: none;
-    align-self: center;
-    width: 38px;
-    height: 4px;
-    border-radius: var(--r-pill);
-    background: var(--border-strong);
-    margin: 8px 0 2px;
-  }
-
-  .sheet-head {
+  .pg-nums {
     flex: none;
     display: flex;
     align-items: center;
-    gap: var(--s-3);
-    padding: 10px var(--s-4) 12px;
+    gap: 6px;
+  }
+
+  .pg.edge {
+    flex: none;
+    height: var(--hit-min);
+    padding: 0 16px;
+    gap: 7px;
+    border-radius: var(--r-pill);
+    font-family: var(--font);
+  }
+
+  .pg.edge svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pg-word {
+    display: inline;
+  }
+
+  .pg.num {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: var(--r-md);
+    font-weight: 700;
+  }
+
+  /* ---- phone project detail: its own two-row header ---- */
+  .pdet-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    /* .content.detail is the scroller — bleed to its edges and ride its top edge */
+    margin: -12px -12px 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
   }
 
-  .sheet-title {
+  .pdet-top {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px 0 2px;
+  }
+
+  .pdet-back,
+  .pdet-info {
+    flex: none;
+    width: var(--hit-min);
+    height: var(--hit-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .pdet-info.on {
+    color: var(--on-accent-subtle);
+  }
+
+  .pdet-back svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .pdet-info svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .pdet-ident {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .pdet-ident .id-chip {
+    flex: none;
+    font-weight: 700;
+  }
+
+  .pdet-name {
     min-width: 0;
     font-size: 17px;
     font-weight: 700;
@@ -3385,15 +3308,426 @@ button.task-grid:hover {
     white-space: nowrap;
   }
 
+  /* the period stepper is a row of its own, with the ratio drawn as a 2px underline */
+  .pdet-period {
+    position: relative;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .pdet-nav {
+    flex: none;
+    width: var(--hit-min);
+    height: var(--hit-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+  }
+
+  .pdet-nav:disabled {
+    color: var(--text-disabled);
+  }
+
+  .pdet-nav svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .pdet-period-mid .chip {
+    padding: 2px 8px;
+  }
+
+  .pdet-period-mid {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .pdet-period-id {
+    font-family: var(--font-mono);
+    font-size: var(--t-body);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pdet-period-ratio {
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+  }
+
+  .pdet-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--surface-raised);
+  }
+
+  .pdet-progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--gradient);
+  }
+
+  /* ---- the info sheet behind the (i) button ---- */
+  .sheet-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .sheet-scrim {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    background: var(--backdrop);
+    backdrop-filter: blur(2px);
+  }
+
+  .info-sheet {
+    position: relative;
+    max-height: 78vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+    box-shadow: var(--e-3);
+    animation: sheetUp var(--dur-slow) var(--ease);
+  }
+
+  .sheet-grip {
+    flex: none;
+    align-self: center;
+    width: 38px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+    margin: 10px 0 12px;
+  }
+
+  .sheet-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 0 20px 12px;
+  }
+
+  .sheet-title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--t-subtitle);
+    font-weight: 600;
+  }
+
+  .sheet-close {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .sheet-close svg {
+    width: 14px;
+    height: 14px;
+  }
+
   .sheet-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: var(--s-4) var(--s-4) calc(var(--s-6) + env(safe-area-inset-bottom));
+    padding: 0 16px calc(24px + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--gap);
+  }
+
+  .pdet-desc {
+    font-size: var(--t-body);
+    line-height: var(--lh-body);
+    text-wrap: pretty;
+    color: var(--text-muted);
+  }
+
+  /* the sheet sits on --surface, so its cards step up instead of matching it */
+  .pdet-card {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface-raised);
+    padding: 14px;
+  }
+
+  .pdet-card-title {
+    font-size: var(--t-subtitle);
+    font-weight: 600;
+  }
+
+  .pdet-facts {
+    gap: 10px;
+  }
+
+  .pdet-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .pdet-fact-label {
+    font-size: var(--t-badge);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+  }
+
+  .pdet-fact-value {
+    font-size: var(--t-caption);
+    line-height: var(--lh-body);
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+
+  .pdet-fact-value.mono {
+    font-family: var(--font-mono);
+  }
+
+  .pdet-road {
+    gap: 12px;
+  }
+
+  .pdet-road-head {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  /* the card behind it is already --surface-raised, so the stepper steps back down */
+  .pdet-road-head .ynav-btn:hover:not(:disabled) {
+    background: var(--surface-raised);
+  }
+
+  .pdet-road-head .ynav {
+    background: var(--surface);
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .pdet-road-head .ynav-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .pdet-road-head .ynav-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pdet-road-head .ynav-year {
+    min-width: 0;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    font-weight: 700;
+  }
+
+  .pdet-road-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .pdet-road-goal {
+    font-size: var(--t-caption);
+    line-height: var(--lh-body);
+    text-wrap: pretty;
+    color: var(--text-muted);
+  }
+
+  /* four quarters as a 2x2 grid — the desktop timeline needs room for its segments */
+  .pdet-q-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .pdet-q {
+    min-height: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    text-align: left;
+    padding: 10px 11px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .pdet-q.sel {
+    box-shadow: 0 0 0 4px var(--accent-subtle);
+  }
+
+  .pdet-q-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .pdet-q-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--neutral-subtle);
+  }
+
+  .pdet-q.q-done .pdet-q-dot { background: var(--success); }
+  .pdet-q.q-active .pdet-q-dot { background: var(--accent); }
+  .pdet-q.q-none .pdet-q-dot { background: var(--surface-raised); }
+
+  .pdet-q-id {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .pdet-q.q-done .pdet-q-id { color: var(--text); }
+  .pdet-q.q-active .pdet-q-id { color: var(--on-accent-subtle); }
+  .pdet-q.q-none .pdet-q-id { color: var(--text-disabled); }
+
+  .pdet-q-label {
+    font-size: var(--t-badge);
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .pdet-q.q-active .pdet-q-label { color: var(--on-accent-subtle); }
+  .pdet-q.q-done .pdet-q-label { color: var(--on-success-subtle); }
+
+  .pdet-q-goal {
+    font-size: var(--t-badge);
+    line-height: var(--lh-body);
+    text-wrap: pretty;
+    overflow: hidden;
+    color: var(--text-muted);
+  }
+
+  .pdet-q.q-active .pdet-q-goal { color: var(--text); }
+  .pdet-q.q-none .pdet-q-goal,
+  .pdet-q.q-planned .pdet-q-goal { color: var(--text-disabled); }
+
+  .pdet-nnl {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding-top: 2px;
+  }
+
+  .pdet-nnl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 2px 0 2px 11px;
+    border-left: 2px solid var(--border);
+  }
+
+  .pdet-nnl-item.nnl-0 { border-left-color: var(--accent); }
+  .pdet-nnl-item.nnl-1 { border-left-color: var(--accent-subtle); }
+
+  .pdet-nnl-label {
+    font-family: var(--font-mono);
+    font-size: var(--t-badge);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .pdet-nnl-item.nnl-0 .pdet-nnl-label { color: var(--on-accent-subtle); }
+
+  .pdet-nnl-text {
+    font-size: var(--t-caption);
+    line-height: var(--lh-body);
+    text-wrap: pretty;
+    color: var(--text-muted);
+  }
+
+  .pdet-month {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pdet-month-top {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .pdet-month-id {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    font-weight: 700;
+  }
+
+  .pdet-month-goal {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--t-caption);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pdet-month-ratio {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pdet-month-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--surface);
   }
 
   /* ---- task panel: full screen ---- */

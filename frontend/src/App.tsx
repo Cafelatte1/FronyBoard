@@ -69,7 +69,6 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const closingInApp = useRef(false);
   const isPhone = useIsPhone();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [detailSheet, setDetailSheet] = useState(false);
   const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
@@ -130,11 +129,6 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
     if (data && openProject !== null && !data.statuses[openProject]) closeDetail();
   }, [data, openProject]);
 
-  // The sheet belongs to one project; leaving the detail closes it.
-  useEffect(() => {
-    setDetailSheet(false);
-  }, [openProject]);
-
   const go = (p: Page) => {
     setPage(p);
     closeDetail();
@@ -163,7 +157,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
     }
   };
   const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
-  // On a phone the detail screen swaps the header for a back button and drops the tab bar.
+  // The phone detail screen owns its whole chrome: no app header, no tab bar.
   const phoneDetail = isPhone && openProject !== null;
   const version = data?.server.version ?? "…";
 
@@ -172,14 +166,11 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
       <div className="ambient" />
       <div className={`shell ${menuOpen ? "open" : ""}`}>
         <main className="main">
+          {/* The phone's project detail draws its own two-row header (project + period
+              stepper), so the app header steps aside entirely on that one screen. */}
+          {!phoneDetail && (
           <header className="head">
-            {phoneDetail ? (
-              <button className="head-back" onClick={closeDetail} title="뒤로" aria-label="뒤로">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 4.5 6.5 10l5.5 5.5" />
-                </svg>
-              </button>
-            ) : isPhone ? (
+            {isPhone ? (
               <div className="head-brand">
                 <FronyMark />
                 <span className="logo-text">
@@ -194,39 +185,24 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 </svg>
               </button>
             )}
-            {!isPhone || phoneDetail ? (
+            {isPhone ? (
+              <span className="head-spacer" />
+            ) : (
               <div className="head-titles">
                 <div className="head-meta">
-                  {!isPhone && (
-                    <span className="head-lockup">
-                      <FronyMark />
-                      <span className="logo-inline">
-                        <span className="logo-frony">FRONY</span>
-                        <span className="logo-sep" />
-                        <span className="logo-name">Board</span>
-                      </span>
+                  <span className="head-lockup">
+                    <FronyMark />
+                    <span className="logo-inline">
+                      <span className="logo-frony">FRONY</span>
+                      <span className="logo-sep" />
+                      <span className="logo-name">Board</span>
                     </span>
-                  )}
+                  </span>
                   {crumb && <div className="crumb">{crumb}</div>}
                 </div>
-                {/* On a phone the title is the way into the project's own detail —
-                    the summary, roadmap and period chrome live behind it. */}
-                {phoneDetail ? (
-                  <button className="head-title-btn" onClick={() => setDetailSheet(true)}>
-                    <h1>{title}</h1>
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7.5 4.5 13 10l-5.5 5.5" />
-                    </svg>
-                  </button>
-                ) : (
-                  <h1>{title}</h1>
-                )}
+                <h1>{title}</h1>
               </div>
-            ) : (
-              <span className="head-spacer" />
             )}
-            {/* the phone's detail header is back + title only — sync lives on the top-level screens */}
-            {!phoneDetail && (
             <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
               <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
@@ -234,10 +210,10 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </svg>
               {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
             </button>
-            )}
           </header>
+          )}
 
-          <div className="content">
+          <div className={`content ${phoneDetail ? "detail" : ""}`}>
             {isPhone && !phoneDetail && <h1 className="page-title">{title}</h1>}
             {error && <p className="error">{error}</p>}
             {!data && !error && <p className="muted">불러오는 중…</p>}
@@ -250,8 +226,6 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 openKey={openProject}
                 setOpenKey={(key) => (key === null ? closeDetail() : openDetail(key))}
                 onOpenTask={(key, task) => setOpenTask({ key, task })}
-                sheetOpen={detailSheet}
-                onCloseSheet={() => setDetailSheet(false)}
               />
             )}
             {data && page === "settings" && <Settings data={data} onAuthFail={onAuthFail} />}
@@ -267,11 +241,13 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
         />
 
         {isPhone ? (
+          !phoneDetail && (
           <nav className="tabbar">
             <TabItem label="대시보드" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
             <TabItem label="프로젝트" on={page === "projects"} onClick={() => go("projects")} icon="folder" />
             <TabItem label="설정" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
           </nav>
+          )
         ) : (
           <>
           <div className="backdrop" onClick={() => setMenuOpen(false)} />
