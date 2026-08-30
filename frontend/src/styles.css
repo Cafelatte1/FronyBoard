@@ -2984,9 +2984,13 @@ button.task-grid:hover {
     scrollbar-gutter: auto;
   }
 
-  /* the project detail packs more in, so it runs tighter gutters than the rest */
+  /* The project detail packs more in, so it runs tighter gutters than the rest.
+     No padding-top: a sticky child is confined to its containing block, so any
+     top padding on the scroller would park .pdet-head that far down the screen
+     and let the list scroll through the gap above it. The 12px below the header
+     is the flex gap instead. */
   .content.detail {
-    padding: 12px 12px 24px;
+    padding: 0 12px 24px;
     gap: var(--gap);
   }
 
@@ -3241,8 +3245,9 @@ button.task-grid:hover {
     position: sticky;
     top: 0;
     z-index: 5;
-    /* .content.detail is the scroller — bleed to its edges and ride its top edge */
-    margin: -12px -12px 0;
+    /* .content.detail has no top padding, so top: 0 is already the screen edge;
+       the side margins bleed the bar out to the full width. */
+    margin: 0 -12px;
     display: flex;
     flex-direction: column;
     background: var(--surface);
