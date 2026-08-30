@@ -6,6 +6,7 @@ import {
   SORTS,
   StatusChip,
   TASK_ST,
+  TagChip,
   countBy,
   currentPeriodName,
   doneRatio,
@@ -527,7 +528,7 @@ function PeriodView({
         </div>
 
         <div className="task-grid thead">
-          {(["ID", "TITLE", "STATUS", "MONTH", "WEEK", "CREATED"] as const).map((col) => (
+          {(["ID", "TITLE", "TAGS", "STATUS", "MONTH", "WEEK", "CREATED"] as const).map((col) => (
             <span key={col} className={sortDef.col === col ? "on" : ""}>
               {col}
             </span>
@@ -540,12 +541,10 @@ function PeriodView({
             onClick={() => onOpenTask(t)}
           >
             <span className="c-id">{t.id}</span>
-            <span className="c-title">
-              <span className="c-title-text">{t.title}</span>
+            <span className="c-title">{t.title}</span>
+            <span className="c-tags">
               {t.tags?.map((tag) => (
-                <span key={tag} className="tag-chip">
-                  {tag}
-                </span>
+                <TagChip key={tag} tag={tag} />
               ))}
             </span>
             <span>

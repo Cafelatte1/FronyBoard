@@ -96,6 +96,34 @@
   --neutral-subtle: #383843;
   --on-neutral-subtle: #b4b4be;
 
+  /* categorical — for "which one of many" (tags), never "how is it going". Status is an
+     answer the system knows; a category is a name the user gave. Eight hues at the same
+     lightness so none outranks another; assigned by name, not by meaning. Wrap at 9. */
+  --cat-1: #b490d8;
+  --cat-1-subtle: #3b3252;
+  --on-cat-1-subtle: #c9aee8;
+  --cat-2: #de8cae;
+  --cat-2-subtle: #4a3040;
+  --on-cat-2-subtle: #efaeca;
+  --cat-3: #dc957c;
+  --cat-3-subtle: #4a342b;
+  --on-cat-3-subtle: #efb39b;
+  --cat-4: #c6a85f;
+  --cat-4-subtle: #423821;
+  --on-cat-4-subtle: #dcc181;
+  --cat-5: #62bfb2;
+  --cat-5-subtle: #1f403c;
+  --on-cat-5-subtle: #86d6c9;
+  --cat-6: #78afd8;
+  --cat-6-subtle: #253a4c;
+  --on-cat-6-subtle: #9bc7e8;
+  --cat-7: #8e9bde;
+  --cat-7-subtle: #2f3352;
+  --on-cat-7-subtle: #aeb6ec;
+  --cat-8: #9a9aae;
+  --cat-8-subtle: #35353f;
+  --on-cat-8-subtle: #b8b8c6;
+
   /* overlays */
   --backdrop: rgba(8, 7, 11, 0.62);
   --backdrop-strong: rgba(8, 7, 11, 0.62);
@@ -1970,7 +1998,7 @@ svg.logo-mark {
 
 .task-grid {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) 78px 68px 46px 90px;
+  grid-template-columns: 82px minmax(0, 1fr) 176px 78px 68px 46px 90px;
   gap: var(--gap);
   align-items: center;
   padding: 0 var(--card-pad);
@@ -2013,30 +2041,50 @@ button.task-grid:hover {
 
 .c-title {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.c-title-text {
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Free-form task label, shown in the table row and the detail panel. */
+.c-tags {
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* Free-form task label, shown in the table row and the detail panel. Colour comes from
+   the tag's own name (see TagChip), so .cat-N below only maps the slot to its triplet. */
 .tag-chip {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--t-badge);
   font-weight: 600;
-  color: var(--text-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  padding: 1px 8px;
+  padding: 3px 9px;
+  border-radius: var(--r-md);
   white-space: nowrap;
+  background: var(--chip-bg);
+  color: var(--chip-fg);
 }
+
+.tag-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--chip-dot);
+}
+
+.cat-1 { --chip-bg: var(--cat-1-subtle); --chip-fg: var(--on-cat-1-subtle); --chip-dot: var(--cat-1); }
+.cat-2 { --chip-bg: var(--cat-2-subtle); --chip-fg: var(--on-cat-2-subtle); --chip-dot: var(--cat-2); }
+.cat-3 { --chip-bg: var(--cat-3-subtle); --chip-fg: var(--on-cat-3-subtle); --chip-dot: var(--cat-3); }
+.cat-4 { --chip-bg: var(--cat-4-subtle); --chip-fg: var(--on-cat-4-subtle); --chip-dot: var(--cat-4); }
+.cat-5 { --chip-bg: var(--cat-5-subtle); --chip-fg: var(--on-cat-5-subtle); --chip-dot: var(--cat-5); }
+.cat-6 { --chip-bg: var(--cat-6-subtle); --chip-fg: var(--on-cat-6-subtle); --chip-dot: var(--cat-6); }
+.cat-7 { --chip-bg: var(--cat-7-subtle); --chip-fg: var(--on-cat-7-subtle); --chip-dot: var(--cat-7); }
+.cat-8 { --chip-bg: var(--cat-8-subtle); --chip-fg: var(--on-cat-8-subtle); --chip-dot: var(--cat-8); }
 
 .c-dim {
   font-family: var(--font-mono);
@@ -2116,8 +2164,18 @@ button.task-grid:hover {
 .panel-badges {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
+}
+
+.panel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-tags .panel-cap {
+  margin-right: 2px;
 }
 
 .panel-title {
