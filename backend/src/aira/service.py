@@ -188,6 +188,15 @@ def upsert_milestone(key: str, year: str, quarter: str,
 # ----------------------------------------------------------------- periods
 
 
+def _require_period(state: ProjectState, period: str) -> None:
+    """Refuse an unknown period by name — closed periods are still in here, so the
+    only way to miss is a period that was never opened (or a typo in its name)."""
+    if period not in state.periods:
+        known = ", ".join(sorted(state.periods)) or "none — open_period starts one"
+        raise AiraError(
+            f"project {state.key} has no period {period} (it has: {known})")
+
+
 def _milestone_for(state: ProjectState, period: str) -> dict:
     if not validation.PERIOD_NAME.fullmatch(period):
         raise AiraError(f"period must look like 2026Q3, got {period!r}")
@@ -217,9 +226,10 @@ def open_period(key: str, period: str) -> dict:
 @_locked
 def close_period(key: str, period: str, result_markdown: str) -> dict:
     state = store.load_state(key)
+    # the period first: a quarter that was never opened cannot be closed, and pointing
+    # at its missing milestone would send the caller off to upsert_milestone instead
+    _require_period(state, period)
     milestone = _milestone_for(state, period)
-    if period not in state.periods:
-        raise AiraError(f"period {period} is not open")
     open_tasks = [t["id"] for t in state.periods[period].data.get("tasks") or []
                   if t.get("status") not in ("done", "blocked", "cancelled")]
     if open_tasks:
@@ -238,8 +248,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
 
 def get_retrospective(key: str, period: str) -> dict:
     state = store.load_state(key)
-    if period not in state.periods:
-        raise AiraError(f"period {period} is not open")
+    _require_period(state, period)
     p = state.periods[period]
     if not p.has_result:
         raise AiraError(f"period {period} is not closed yet — no retrospective")
@@ -250,8 +259,7 @@ def get_retrospective(key: str, period: str) -> dict:
 def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
                  goal: str | None = None, status: str | None = None) -> dict:
     state = store.load_state(key)
-    if period not in state.periods:
-        raise AiraError(f"period {period} is not open")
+    _require_period(state, period)
     months = state.periods[period].data.setdefault("months", [])
     m = next((m for m in months if m.get("id") == month_id), None)
     if m is None:
@@ -324,8 +332,7 @@ def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
                 prd: str | None = None, tags: list[str] | None = None) -> dict:
     state = store.load_state(key)
-    if period not in state.periods:
-        raise AiraError(f"period {period} is not open")
+    _require_period(state, period)
     task: dict = {"id": _next_task_id(state), "title": title,
                   "month": month, "status": "todo"}
     if week is not None:
@@ -407,8 +414,8 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
                tags: list[str] | None = None) -> dict:
     state = store.load_state(key)
-    if period is not None and period not in state.periods:
-        raise AiraError(f"period {period} is not open")
+    if period is not None:
+        _require_period(state, period)
     wanted = set(_clean_tags(tags))   # a task must carry all of them
     results = []
     for pname, p in sorted(state.periods.items()):

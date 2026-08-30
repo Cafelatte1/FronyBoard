@@ -239,6 +239,24 @@ def test_update_project_renames():
     assert service.list_projects()["projects"][0]["name"] == "FronyBoard"
 
 
+def test_unknown_period_names_the_ones_that_exist():
+    """A closed period is still a period — the only way to miss is a name that never existed."""
+    key = bootstrap()
+    for call in (lambda p: service.list_tasks(key, period=p),
+                 lambda p: service.create_task(key, p, title="x", month="M1"),
+                 lambda p: service.upsert_month(key, p, "M1"),
+                 lambda p: service.close_period(key, p, "# r"),
+                 lambda p: service.get_retrospective(key, p)):
+        with pytest.raises(service.AiraError, match=r"has no period 2026Q4 \(it has: 2026Q3\)"):
+            call("2026Q4")
+        with pytest.raises(service.AiraError, match="has no period|must look like"):
+            call("2026-Q3")
+
+    # a closed period still answers
+    service.close_period(key, "2026Q3", "# done")
+    assert service.list_tasks(key, period="2026Q3")["count"] == 0
+
+
 def test_get_retrospective_and_rewrite():
     key = bootstrap()
     with pytest.raises(service.AiraError, match="not closed"):
