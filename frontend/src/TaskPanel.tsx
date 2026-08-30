@@ -1,5 +1,5 @@
 import { parseMd, type Span } from "./markdown";
-import { StatusChip, TASK_ST, fmtServerTime, monthOf, tzLabel, weekLabel } from "./shared";
+import { StatusChip, TagChip, TASK_ST, fmtServerTime, monthOf, tzLabel, weekLabel } from "./shared";
 import type { MonthInfo, ServerTimezone, Task } from "./types";
 
 /** Right-hand slide-over with the full task record. Stays mounted so the
@@ -29,11 +29,6 @@ export default function TaskPanel({
                 <div className="panel-badges">
                   <span className="id-chip">{task.id}</span>
                   <StatusChip status={task.status} />
-                  {task.tags?.map((tag) => (
-                    <span key={tag} className="tag-chip">
-                      {tag}
-                    </span>
-                  ))}
                 </div>
                 <div className="panel-title">{task.title}</div>
               </div>
@@ -45,6 +40,14 @@ export default function TaskPanel({
             </div>
 
             <div className="panel-body">
+              {task.tags && task.tags.length > 0 && (
+                <div className="panel-tags">
+                  <span className="panel-cap">tags</span>
+                  {task.tags.map((tag) => (
+                    <TagChip key={tag} tag={tag} />
+                  ))}
+                </div>
+              )}
               <div className="field-grid">
                 <Field label="status" value={TASK_ST[task.status]?.label ?? task.status} tone="accent" />
                 <Field

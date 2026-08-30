@@ -266,6 +266,19 @@ export function StatusChip({ status }: { status: string }) {
   return <span className={`chip st-${status}`}>{TASK_ST[status]?.label ?? status}</span>;
 }
 
+/** Tags name a category, not a state: the colour comes from the tag's own text, so the
+    same tag looks the same everywhere and no tag outranks another. Eight hues, wrapping. */
+export function TagChip({ tag }: { tag: string }) {
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+  return (
+    <span className={`tag-chip cat-${(h % 8) + 1}`}>
+      <span className="tag-dot" />
+      {tag}
+    </span>
+  );
+}
+
 export const PROJECT_ST: Record<string, string> = { active: "운영 중", paused: "보류", archived: "보관" };
 
 export function ProjectStatusChip({ status }: { status: string | undefined }) {
