@@ -2062,7 +2062,7 @@ svg.logo-mark {
 
 .task-grid {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) 176px 78px 68px 46px 90px;
+  grid-template-columns: 82px minmax(0, 1fr) 90px 78px 176px;
   gap: var(--gap);
   align-items: center;
   padding: 0 var(--card-pad);
@@ -2933,14 +2933,26 @@ button.task-grid:hover {
     background: transparent;
   }
 
+  /* the mockup pins summary + filter/sort right under the header, so it stays put
+     while the list scrolls. Sticky inside .content (the scroller); the negative
+     margins let the bar bleed to the screen edges the way the header does. */
   .table-top {
-    flex-wrap: wrap;
-    padding: 0 0 var(--s-3);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin: 0 calc(-1 * var(--s-4));
+    padding: var(--s-2) var(--s-4) var(--s-3);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* "태스크" is already the screen title — the bar keeps only the count */
+  .table-top .card-title {
+    display: none;
   }
 
   .task-grid.thead,
-  .key-grid.thead,
-  .c-created {
+  .key-grid.thead {
     display: none;
   }
 
@@ -2949,7 +2961,7 @@ button.task-grid:hover {
     grid-template-areas:
       "id status"
       "title title"
-      "tags meta";
+      "tags created";
     gap: var(--s-2);
     align-items: center;
     min-height: 0;
@@ -2974,22 +2986,10 @@ button.task-grid:hover {
     line-height: var(--lh-body);
   }
 
-  .c-month,
-  .c-week {
-    grid-area: meta;
+  .c-created {
+    grid-area: created;
     justify-self: end;
     font-variant-numeric: tabular-nums;
-  }
-
-  /* month and week share one cell, split by a hairline */
-  .c-month {
-    padding-right: 22px;
-  }
-
-  .c-week {
-    border-left: 1px solid var(--border-strong);
-    padding-left: 10px;
-    line-height: 1;
   }
 
   /* ---- filter / sort: pills that open a bottom sheet ---- */
