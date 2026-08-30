@@ -248,6 +248,10 @@ A project is two kinds of files — the roadmap, and one file per period.
 (`DLY-042` → `DLY`), so their `key` parameter is optional. Re-calling
 `close_period` on a closed period rewrites its retrospective.
 
+The two `upsert_*` tools sit at different levels: `upsert_milestone` is a quarter
+in the roadmap, `upsert_month` is one of the three months inside a period that is
+already open. A task's `month` is a month id (`M1`/`M2`/`M3`), never `YYYY-MM`.
+
 Typical flow:
 
 ```

@@ -27,7 +27,8 @@ mcp = MCPServer(
     middleware=[log.ToolLogMiddleware()],
     instructions=(
         "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's "
-        "own store, not in the codebase you are working on.\n\n"
+        "own store, not in the codebase you are working on — record agreed plans, "
+        "tasks and retrospectives through these tools, never as files in the repo.\n\n"
         "Which project: the codebase declares its FronyBoard project key in a "
         "`## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by "
         "FronyBoard (project key: DLY)'). No such declaration means the project is not "
@@ -36,23 +37,18 @@ mcp = MCPServer(
         "declaration to its CLAUDE.md.\n\n"
         "Task workflow: when starting branch-sized work, transition its task to in_progress "
         "and record the branch name (branch names look like feat/DLY-042/short-desc — the "
-        "task id is the only link between FronyBoard and the codebase; update_task and "
-        "transition_task derive the project from the task id, so key is optional there). "
-        "When the work is merged, "
-        "transition it to done; if you cannot observe the merge, ask the user before marking "
-        "done. If branch-sized work has no task yet, offer create_task first; trivial fixes "
-        "need no task. There is no hard delete: to drop a task, transition it to cancelled "
-        "with a reason (blocked = may resume, cancelled = will not happen). Projects are not "
-        "deleted either: update_project(status='archived') hides one and freezes its data; "
-        "paused only changes the badge.\n\n"
+        "task id is the only link between FronyBoard and the codebase). When the work is "
+        "merged, transition it to done; if you cannot observe the merge, ask the user before "
+        "marking done. If branch-sized work has no task yet, offer create_task first; trivial "
+        "fixes need no task.\n\n"
         "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
-        "-> open_period -> upsert_month, create_task -> transition_task as work "
-        "progresses -> close_period with a retrospective. A task that outlives its period is "
-        "not moved: recreate it in the next period under a new id, leave the old one blocked, "
-        "and map old id -> new id in the closing retrospective. Record agreed plans and "
-        "retrospectives through these tools — planning data never lives in the codebase. "
+        "-> open_period -> upsert_month + create_task -> transition_task as work progresses "
+        "-> close_period with a retrospective. A task that outlives its period is not moved: "
+        "recreate it in the next period under a new id, leave the old one blocked, and map "
+        "old id -> new id in the closing retrospective.\n\n"
         "Every mutation is validated before it is written; ids and timestamps are issued by "
-        "the server — never invent them.\n\n"
+        "the server — never invent them. Nothing is ever hard-deleted: transition_task to "
+        "cancelled drops a task, update_project(status='archived') retires a project.\n\n"
         "Task content: `content` is markdown that a human reads in a narrow side panel and "
         "an agent reads to pick the task up cold, so follow the template in create_task "
         "(Why / What / How / Done when, under ~25 lines) and keep What observable and How "
@@ -64,10 +60,14 @@ mcp = MCPServer(
 @mcp.tool()
 def create_project(key: str, name: str | None = None, description: str | None = None,
                    repo: str | None = None) -> dict:
-    """Create a new project. `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY).
+    """Register a new project — once per codebase, before any planning happens.
 
-    `description` is one line saying what the project is (shown on the dashboard cards);
-    `repo` is where its code lives (owner/name or a URL). Status starts as active.
+    `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY); `description` is one
+    line saying what the project is (shown on the dashboard cards); `repo` is where its
+    code lives (owner/name or a URL). Status starts as active.
+
+    A fresh project holds nothing yet: set_overview (year) -> upsert_milestone (quarter)
+    -> open_period must run before create_task will accept a task.
     """
     return service.create_project(key, name, description, repo)
 
@@ -75,34 +75,47 @@ def create_project(key: str, name: str | None = None, description: str | None = 
 @mcp.tool()
 def update_project(key: str, name: str | None = None, description: str | None = None,
                    repo: str | None = None, status: str | None = None) -> dict:
-    """Update project fields — pass at least one. The key (and task id prefix) never changes.
+    """Update a project's own fields — pass at least one of name, description, repo, status.
+    The key (and with it the task id prefix) never changes, and nothing here touches the
+    roadmap, periods or tasks.
 
     `status`: active | paused | archived. paused only changes the badge; archived hides the
     project from list_projects and refuses every other mutation until it is set back to
-    active. There is no hard delete.
+    active. Archived is as far as removal goes — there is no hard delete.
     """
     return service.update_project(key, name, description, repo, status)
 
 
 @mcp.tool()
 def list_projects(include_archived: bool = False) -> dict:
-    """List projects (key, name, description, repo, status, meta). Archived ones are
-    left out unless `include_archived` is set."""
+    """List every project (key, name, description, repo, status, meta) — how to find out
+    which keys exist. Archived ones are left out unless `include_archived` is set.
+
+    Nothing about periods, milestones or tasks: get_roadmap for the plan, get_status for
+    where a project stands.
+    """
     return service.list_projects(include_archived)
 
 
 @mcp.tool()
 def get_roadmap(key: str) -> dict:
-    """Get a project's roadmap (yearly overviews + quarterly milestones) and its open periods."""
+    """Read a project's plan as written: yearly overviews (goal + now/next/later), quarterly
+    milestones, and the names of its periods.
+
+    Goals only, no counts — get_status for progress and the current period, list_tasks for
+    the tasks themselves.
+    """
     return service.get_roadmap(key)
 
 
 @mcp.tool()
 def set_overview(key: str, year: str, goal: str, now: str, next: str, later: str) -> dict:
     """Create or replace a year's overview: single-line goal plus now/next/later direction.
+    A year needs one before upsert_milestone will add a quarter to it.
 
-    Each of now/next/later is one short line of direction (current focus / coming up /
-    someday) — concrete goals belong in the quarterly milestones, not here.
+    `year` is YYYY. Each of now/next/later is one short line of direction (current focus /
+    coming up / someday) — concrete goals belong in the quarterly milestones, not here.
+    Calling it again on the same year overwrites all four fields.
     """
     return service.set_overview(key, year, goal, now, next, later)
 
@@ -110,37 +123,62 @@ def set_overview(key: str, year: str, goal: str, now: str, next: str, later: str
 @mcp.tool()
 def upsert_milestone(key: str, year: str, quarter: str,
                      goal: str | None = None, status: str | None = None) -> dict:
-    """Create or update a quarterly milestone (quarter: Q1-Q4; status: planned/active/done)."""
+    """Create or update a quarterly milestone — a year's goal for one quarter.
+
+    `year` is YYYY (its overview must exist), `quarter` is Q1-Q4, `status` is
+    planned | active | done (open_period flips planned to active, close_period sets done).
+    Omitted fields keep their current value.
+
+    This is the roadmap level. The months inside a quarter that is already running are
+    upsert_month.
+    """
     return service.upsert_milestone(key, year, quarter, goal, status)
 
 
 @mcp.tool()
 def open_period(key: str, period: str) -> dict:
-    """Open a period (e.g. 2026Q3) derived from its roadmap milestone. Marks a planned milestone active."""
+    """Start working in a quarter: opens its period and flips a planned milestone to active.
+    Required before upsert_month or create_task will accept that period.
+
+    `period` is YYYYQn (e.g. 2026Q3) and its roadmap milestone must already exist —
+    upsert_milestone first.
+    """
     return service.open_period(key, period)
 
 
 @mcp.tool()
 def close_period(key: str, period: str, result_markdown: str) -> dict:
-    """Close a period: requires all tasks done, blocked, or cancelled; stores the retrospective as the period's `result`, marks the milestone done.
+    """Close a period (YYYYQn) and record its retrospective — call when its work is over.
+
+    Refuses while any task is still todo or in_progress. Stores `result_markdown` as the
+    period's `result` and marks the milestone done.
 
     The retrospective should stay under ~30 lines and hold judgment and reasons only —
     summary vs goal, per-month outcome, carried-over tasks (old id -> new id), lessons.
-    Calling it again on a closed period rewrites the retrospective.
+    Calling it again on a closed period rewrites the retrospective and changes nothing else.
     """
     return service.close_period(key, period, result_markdown)
 
 
 @mcp.tool()
 def get_retrospective(key: str, period: str) -> dict:
-    """Read a closed period's retrospective (the `result` markdown)."""
+    """Read a closed period's (YYYYQn) retrospective — the `result` markdown close_period
+    wrote. Errors while the period is still open; get_status says which ones are closed.
+    """
     return service.get_retrospective(key, period)
 
 
 @mcp.tool()
 def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
                  goal: str | None = None, status: str | None = None) -> dict:
-    """Create or update a monthly milestone in a period (month_id: M1/M2/M3, month: YYYY-MM)."""
+    """Create or update a month inside an open period — the quarter's goal split into
+    thirds, and what a task's `month` points at.
+
+    `period` is YYYYQn and must be open, `month_id` is M1/M2/M3, `month` is YYYY-MM,
+    `status` is planned | active | done. Omitted fields keep their current value.
+
+    This is the in-period level. The quarter's own goal is upsert_milestone.
+    """
     return service.upsert_month(key, period, month_id, month, goal, status)
 
 
@@ -148,12 +186,13 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
 def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
                 prd: str | None = None, tags: list[str] | None = None) -> dict:
-    """Create a task (issue/branch-sized unit of work) with status todo.
+    """Create a task — one issue/branch-sized unit of work — with status todo.
 
-    The id is assigned from the project-global sequence (never reused). Every task belongs
-    to a month: `month` references a month id (M#) that must exist in the period first
-    (get_status lists them). `week` is the week-of-month (1-5) and `prd` is an optional
-    link to or excerpt of the requirement behind it.
+    The id is assigned from the project-global sequence and never reused.
+    `period` is YYYYQn and must be open. Every task belongs to a month: `month` is a month
+    id (M1/M2/M3), not YYYY-MM, and must already exist in that period (get_status lists
+    them, upsert_month creates them). `week` is the week-of-month (1-5) and `prd` is an
+    optional link to or excerpt of the requirement behind it.
 
     `tags` are free-form labels for cutting across months and status ("frontend",
     "bug", "infra"): up to 8 per task, 24 characters each, no commas. Reuse the
@@ -184,7 +223,10 @@ def update_task(task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None,
                 tags: list[str] | None = None, key: str | None = None) -> dict:
-    """Update task fields (not status — use transition_task). `branch` records the working branch name.
+    """Update a task's fields — everything except status, which is transition_task.
+    `branch` records the working branch name, `month` is a month id (M1/M2/M3) that exists
+    in the task's period, `week` is 1-5.
+
     `content` replaces the whole markdown body — keep the create_task template (Why / What /
     How / Done when); fill in How once the approach is known.
 
@@ -205,12 +247,15 @@ def update_task(task_id: str, title: str | None = None,
 @mcp.tool()
 def transition_task(task_id: str, status: str, branch: str | None = None,
                     reason: str | None = None, key: str | None = None) -> dict:
-    """Transition a task's status (todo/in_progress/done/blocked/cancelled). `task_id` is the full id, e.g. DLY-042.
+    """Move a task to a new status: todo | in_progress | done | blocked | cancelled. The
+    only tool that changes status — title, month, content and tags are update_task.
 
-    The project is derived from the task id prefix, so `key` may be omitted (if given
-    it must match). Call when work starts (in_progress, ideally with the branch name)
-    and when it finishes (done). The server stamps started_at on first in_progress and
-    completed_at on done. `cancelled` is the soft delete: the record is kept but hidden
+    `task_id` is the full id, e.g. DLY-042; the project is derived from that prefix, so
+    `key` may be omitted (if given it must match). Call when work starts (in_progress,
+    ideally with the branch name) and when it finishes (done); the server stamps
+    started_at and completed_at itself.
+
+    `cancelled` is the soft delete — there is no hard one: the record is kept but hidden
     from queries by default, and `reason` is required. Use blocked for work that may
     resume, cancelled for work that will not happen. Transitioning a cancelled task to
     any other status restores it.
@@ -223,9 +268,12 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
                tags: list[str] | None = None) -> dict:
-    """List tasks, optionally filtered by period, status, month, or tags.
+    """List a project's tasks in full, optionally narrowed by period, status, month or tags.
+    Use get_status instead when the counts are all you need.
 
-    `tags` narrows to the tasks carrying *all* of the given labels; pass one tag to
+    `period` is YYYYQn (all periods, closed ones included, when omitted), `status` is one of
+    todo | in_progress | done | blocked | cancelled, `month` is a month id (M1/M2/M3), not
+    YYYY-MM. `tags` narrows to the tasks carrying *all* of the given labels; pass one tag to
     match on it alone, and call again per tag when you want the union.
     Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
     """
@@ -234,15 +282,24 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
 
 @mcp.tool()
 def get_status(key: str) -> dict:
-    """Project status rollup, per period: the milestone, months (each with its own
-    task counts), overall task counts by status, whether the period is closed, and
-    the list of in-progress task ids."""
+    """Where a project stands, per period: the milestone goal and status, its months (each
+    with its own task counts), overall task counts by status, whether the period is closed,
+    and the ids of in-progress tasks. Closed periods are included.
+
+    The quickest way to find the current period and the month ids create_task needs.
+    No task detail — list_tasks for the tasks themselves, get_roadmap for the plan as written.
+    """
     return service.get_status(key)
 
 
 @mcp.tool()
 def validate(key: str) -> dict:
-    """Validate a project's data against the FronyBoard schema and rules. Mutations run this gate automatically."""
+    """Check a project's stored data against the FronyBoard schema and rules, returning
+    errors and warnings.
+
+    Rarely needed on its own — every mutation runs this same gate and refuses to write when
+    it fails. Use it after the store was edited outside these tools.
+    """
     return service.validate(key)
 
 
