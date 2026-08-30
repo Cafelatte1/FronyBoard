@@ -108,3 +108,23 @@ def test_duplicate_task_ids_are_an_error():
     tasks.append(dict(tasks[0]))
     report = validation.validate_state(state)
     assert any("duplicate id" in e for e in report.errors)
+
+
+def test_tag_rules_are_enforced():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="x", month="M1")
+    state = store.load_state(key)
+    task = state.periods["2026Q3"].data["tasks"][0]
+
+    def errors(tags):
+        task["tags"] = tags
+        return " ".join(validation.validate_state(state).errors)
+
+    assert "list of strings" in errors("frontend")
+    assert "non-empty string" in errors([""])
+    assert "longer than 24" in errors(["x" * 25])
+    assert "must not contain a comma" in errors(["a,b"])
+    assert "leading/trailing whitespace" in errors([" ui"])
+    assert "duplicate tag" in errors(["ui", "ui"])
+    assert "at most 8 tags" in errors([f"t{n}" for n in range(9)])
+    assert not errors(["ui", "backend"])

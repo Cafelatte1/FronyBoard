@@ -21,6 +21,8 @@ PERIOD_NAME = re.compile(r"^\d{4}Q[1-4]$")
 MONTH_ID = re.compile(r"^M\d+$")
 PROJECT_KEY = re.compile(r"^[A-Z]{2,5}$")
 PROJECT_STATUS = {"active", "paused", "archived"}
+MAX_TAGS = 8
+MAX_TAG_LEN = 24
 
 
 class Report:
@@ -33,6 +35,31 @@ class Report:
 
     def warn(self, msg: str) -> None:
         self.warnings.append(msg)
+
+
+def _check_tags(tags, where: str, r: Report) -> None:
+    """Tags are a free-form label list: unique, trimmed, at most MAX_TAGS of them."""
+    if tags is None:
+        return
+    if not isinstance(tags, list):
+        r.err(f"{where}: tags must be a list of strings ({tags!r})")
+        return
+    if len(tags) > MAX_TAGS:
+        r.err(f"{where}: at most {MAX_TAGS} tags ({len(tags)} given)")
+    seen = set()
+    for tag in tags:
+        if not isinstance(tag, str) or not tag:
+            r.err(f"{where}: each tag must be a non-empty string ({tag!r})")
+            continue
+        if tag != tag.strip():
+            r.err(f"{where}: tag must not have leading/trailing whitespace ({tag!r})")
+        if len(tag) > MAX_TAG_LEN:
+            r.err(f"{where}: tag is longer than {MAX_TAG_LEN} characters ({tag!r})")
+        if "," in tag or any(ch.isspace() and ch != " " for ch in tag):
+            r.err(f"{where}: tag must not contain a comma or a line break ({tag!r})")
+        if tag in seen:
+            r.err(f"{where}: duplicate tag ({tag!r})")
+        seen.add(tag)
 
 
 def _check_meta(record: dict, where: str, r: Report) -> None:
@@ -178,6 +205,7 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
         week = t.get("week")
         if week is not None and not (isinstance(week, int) and 1 <= week <= 5):
             r.err(f"{where}: week must be an integer 1-5 (week of month) ({week!r})")
+        _check_tags(t.get("tags"), where, r)
         if t.get("content") is not None and not isinstance(t["content"], str):
             r.err(f"{where}: content must be a markdown string")
         _check_meta(t, where, r)

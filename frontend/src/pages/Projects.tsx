@@ -540,7 +540,14 @@ function PeriodView({
             onClick={() => onOpenTask(t)}
           >
             <span className="c-id">{t.id}</span>
-            <span className="c-title">{t.title}</span>
+            <span className="c-title">
+              <span className="c-title-text">{t.title}</span>
+              {t.tags?.map((tag) => (
+                <span key={tag} className="tag-chip">
+                  {tag}
+                </span>
+              ))}
+            </span>
             <span>
               <StatusChip status={t.status} />
             </span>

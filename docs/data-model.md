@@ -94,10 +94,13 @@ tasks:
     month: M1           # must reference a month in THIS period
     status: todo | in_progress | done | blocked | cancelled
     week: 3             # optional, integer 1-5 (week of month)
+    tags: [frontend]    # optional free-form labels — max 8, 24 chars each, no commas,
+                        # trimmed and unique; the vocabulary is a project convention
+                        # (see the project's CLAUDE.md), not a schema
     content: ...        # optional markdown — see "Task content" below
     prd: ...            # optional requirement link/excerpt
-    branch: feat/AIR-012/short-desc   # optional working branch — week/content/prd/branch
-                        # are removed by passing an empty value to update_task (0 or "");
+    branch: feat/AIR-012/short-desc   # optional working branch — week/content/prd/branch/tags
+                        # are removed by passing an empty value to update_task (0, "" or []);
                         # title/month cannot be removed this way
     cancel_reason: ...  # required iff status is cancelled
     meta: {...}

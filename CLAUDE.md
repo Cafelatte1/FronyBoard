@@ -31,3 +31,5 @@ FronyBoard: AI 에이전트가 1급 사용자인 프로젝트 트래커 MCP 서�
 
 This project is tracked by FronyBoard (project key: AIR).
 Manage tasks through the FronyBoard MCP tools, following the FronyBoard server instructions.
+Task tags: `frontend` / `backend` / `infra` / `docs` for where the work lands, plus
+`design` or `test` for what kind it is. Reuse these rather than coining a synonym.

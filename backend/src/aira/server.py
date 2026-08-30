@@ -147,13 +147,18 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
 @mcp.tool()
 def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
-                prd: str | None = None) -> dict:
+                prd: str | None = None, tags: list[str] | None = None) -> dict:
     """Create a task (issue/branch-sized unit of work) with status todo.
 
     The id is assigned from the project-global sequence (never reused). Every task belongs
     to a month: `month` references a month id (M#) that must exist in the period first
     (get_status lists them). `week` is the week-of-month (1-5) and `prd` is an optional
     link to or excerpt of the requirement behind it.
+
+    `tags` are free-form labels for cutting across months and status ("frontend",
+    "bug", "infra"): up to 8 per task, 24 characters each, no commas. Reuse the
+    wording already in use on the project (list_tasks shows it) instead of coining
+    a new spelling for the same thing.
 
     `content` is markdown, read by a human in a narrow panel and by an agent picking the
     task up cold. Use this template (keep it under ~25 lines):
@@ -171,26 +176,30 @@ def create_task(key: str, period: str, title: str, month: str,
     Record decisions inline as "(YYYY-MM-DD decided)"; put implementation detail under
     How, not What. The same Why/What/How later seeds the commit message.
     """
-    return service.create_task(key, period, title, month, week, content, prd)
+    return service.create_task(key, period, title, month, week, content, prd, tags)
 
 
 @mcp.tool()
 def update_task(task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None,
-                key: str | None = None) -> dict:
+                tags: list[str] | None = None, key: str | None = None) -> dict:
     """Update task fields (not status — use transition_task). `branch` records the working branch name.
     `content` replaces the whole markdown body — keep the create_task template (Why / What /
     How / Done when); fill in How once the approach is known.
 
+    `tags` replaces the whole label list — pass the tags the task should end up with,
+    not just the new ones.
+
     Omitted fields are left as they are. To remove an optional field pass an empty value:
-    `week=0`, `content=""`, `prd=""`, `branch=""` (title and month cannot be removed).
+    `week=0`, `content=""`, `prd=""`, `branch=""`, `tags=[]` (title and month cannot
+    be removed).
 
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
     """
     return service.update_task(service.resolve_key(key, task_id), task_id,
-                               title, month, week, content, prd, branch)
+                               title, month, week, content, prd, branch, tags)
 
 
 @mcp.tool()
@@ -212,12 +221,15 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 
 @mcp.tool()
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               month: str | None = None, include_cancelled: bool = False) -> dict:
-    """List tasks, optionally filtered by period, status, or month.
+               month: str | None = None, include_cancelled: bool = False,
+               tags: list[str] | None = None) -> dict:
+    """List tasks, optionally filtered by period, status, month, or tags.
 
+    `tags` narrows to the tasks carrying *all* of the given labels; pass one tag to
+    match on it alone, and call again per tag when you want the union.
     Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
     """
-    return service.list_tasks(key, period, status, month, include_cancelled)
+    return service.list_tasks(key, period, status, month, include_cancelled, tags)
 
 
 @mcp.tool()
