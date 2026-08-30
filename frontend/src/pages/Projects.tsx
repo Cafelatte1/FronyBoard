@@ -11,11 +11,9 @@ import {
   currentPeriodName,
   doneRatio,
   fmtServerTime,
-  monthOf,
   sortTasks,
   useFavorites,
   useIsPhone,
-  weekLabel,
   type SortKey,
 } from "../shared";
 import type { BoardData, PeriodStatus, Roadmap, ServerTimezone, StatusResp, Task } from "../types";
@@ -532,7 +530,7 @@ function PeriodView({
         </div>
 
         <div className="task-grid thead">
-          {(["ID", "TITLE", "TAGS", "STATUS", "MONTH", "WEEK", "CREATED"] as const).map((col) => (
+          {(["ID", "TITLE", "CREATED", "STATUS", "TAGS"] as const).map((col) => (
             <span key={col} className={sortDef.col === col ? "on" : ""}>
               {col}
             </span>
@@ -546,17 +544,15 @@ function PeriodView({
           >
             <span className="c-id">{t.id}</span>
             <span className="c-title">{t.title}</span>
+            <span className="c-dim c-created">{fmtServerTime(t.meta.created_at, tz).slice(0, 10)}</span>
+            <span className="c-status">
+              <StatusChip status={t.status} />
+            </span>
             <span className="c-tags">
               {t.tags?.map((tag) => (
                 <TagChip key={tag} tag={tag} />
               ))}
             </span>
-            <span className="c-status">
-              <StatusChip status={t.status} />
-            </span>
-            <span className="c-dim c-month">{monthOf(period.months, t.month)}</span>
-            <span className="c-dim c-week">{weekLabel(t.week)}</span>
-            <span className="c-dim c-created">{fmtServerTime(t.meta.created_at, tz).slice(0, 10)}</span>
           </button>
         ))}
         {sorted.length === 0 && (
