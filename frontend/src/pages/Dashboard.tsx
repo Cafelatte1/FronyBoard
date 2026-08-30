@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { TASK_ST, countBy, currentPeriodName, doneRatio, donutGradient, latestUpdate, parseUtc } from "../shared";
 import type { BoardData, Task } from "../types";
 
@@ -10,6 +11,16 @@ export default function Dashboard({
   onOpenProject: (key: string) => void;
   onOpenTask: (key: string, task: Task) => void;
 }) {
+  const [burnMode, setBurnMode] = useState<BurnMode>(storedBurnMode);
+  const pickBurn = (m: BurnMode) => {
+    setBurnMode(m);
+    try {
+      localStorage.setItem(BURN_KEY, m);
+    } catch {
+      /* private mode / blocked storage — the tab just does not stick */
+    }
+  };
+
   if (data.projects.length === 0)
     return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
 
@@ -51,7 +62,8 @@ export default function Dashboard({
   );
 
   const mainPeriod = perProject.find((p) => p.period)?.period ?? null;
-  const burn = mainPeriod ? burnup(pooled, mainPeriod) : null;
+  const burn = completionBuckets(pooled, burnMode, mainPeriod);
+  const burnSum = burn.values.reduce((a, b) => a + b, 0);
 
   return (
     <>
@@ -112,29 +124,23 @@ export default function Dashboard({
         <div className="card burn-card">
           <div className="burn-head">
             <div>
-              <div className="card-title">주별 완료 추이 (누적)</div>
-              <div className="card-sub mono">
-                {mainPeriod ?? "—"}
-                {burn && burn.weeks.length > 1 && ` · ${burn.weeks[0]}–${burn.weeks[burn.weeks.length - 1]}`}
-              </div>
+              <div className="card-title">완료 추이</div>
+              <div className="card-sub mono">{burn.range}</div>
             </div>
-            <div className="burn-total">
-              <b>{burn ? burn.values[burn.values.length - 1] : 0}</b>
-              <span>누적 완료</span>
+            <div className="burn-tabs">
+              <button className={burnMode === "daily" ? "on" : ""} onClick={() => pickBurn("daily")}>
+                일별
+              </button>
+              <button className={burnMode === "weekly" ? "on" : ""} onClick={() => pickBurn("weekly")}>
+                주간별
+              </button>
             </div>
           </div>
-          {burn && burn.values.length >= 3 ? (
-            <>
-              <BurnChart values={burn.values} />
-              <div className="burn-weeks">
-                {burn.weeks.map((w) => (
-                  <span key={w}>{w}</span>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="burn-empty">데이터 없음</div>
-          )}
+          <div className="burn-total">
+            <b>{burnSum}</b>
+            <span>{burn.sumLabel}</span>
+          </div>
+          <BurnChart values={burn.values} labels={burn.labels} />
         </div>
       </div>
 
@@ -214,31 +220,57 @@ function Stat({
 
 /** Cumulative done counts per ISO week of the quarter, up to today.
     completed_at only accumulates from v0.2.0 on — older done tasks land in week 1. */
-function burnup(tasks: Task[], period: string): { weeks: string[]; values: number[] } | null {
-  const m = /^(\d{4})Q([1-4])$/.exec(period);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const startMonth = (Number(m[2]) - 1) * 3;
-  const qStart = new Date(Date.UTC(year, startMonth, 1));
-  const qEnd = new Date(Date.UTC(year, startMonth + 3, 1));
-  const end = new Date(Math.min(Date.now(), qEnd.getTime()));
-  if (end <= qStart) return null;
+type BurnMode = "daily" | "weekly";
 
-  const weekEnds: Date[] = [];
-  const cur = new Date(qStart);
-  cur.setUTCDate(cur.getUTCDate() + ((7 - ((cur.getUTCDay() + 6) % 7)) % 7 || 7)); // next Monday
-  while (cur <= end) {
-    weekEnds.push(new Date(cur));
-    cur.setUTCDate(cur.getUTCDate() + 7);
+const BURN_KEY = "fb.burnMode";
+
+function storedBurnMode(): BurnMode {
+  try {
+    return localStorage.getItem(BURN_KEY) === "weekly" ? "weekly" : "daily";
+  } catch {
+    return "daily";
   }
-  weekEnds.push(new Date(end.getTime() + 1));
+}
 
-  const doneAt = tasks
-    .filter((t) => t.status === "done")
-    .map((t) => (t.meta.completed_at ? parseUtc(t.meta.completed_at).getTime() : qStart.getTime()));
-  const values = weekEnds.map((w) => doneAt.filter((d) => d < w.getTime()).length);
-  const weeks = weekEnds.map((w) => `W${isoWeek(new Date(w.getTime() - 86400000))}`);
-  return { weeks, values };
+const DAY = 86400000;
+const KST = 9 * 3600000;
+
+/** Day index (0 = 1970-01-01) of a KST-shifted timestamp. */
+const dayOf = (ms: number) => Math.floor(ms / DAY);
+/** Day index of that day's Monday. Day 0 was a Thursday, hence the +3. */
+const mondayOf = (day: number) => day - ((day + 3) % 7);
+
+/** How many tasks finished in each bucket, oldest bucket first. Buckets are cut on KST
+    boundaries: completed_at is stamped in UTC, so cutting there would push anything
+    finished before 09:00 KST into the previous day. */
+function completionBuckets(tasks: Task[], mode: BurnMode, period: string | null) {
+  const done = tasks
+    .filter((t) => t.status === "done" && t.meta.completed_at)
+    .map((t) => dayOf(parseUtc(t.meta.completed_at!).getTime() + KST));
+  const today = dayOf(Date.now() + KST);
+  const values = Array(7).fill(0) as number[];
+
+  if (mode === "daily") {
+    for (const d of done) {
+      const i = 6 - (today - d);
+      if (i >= 0 && i < 7) values[i]++;
+    }
+    const labels = values.map((_, i) => {
+      const d = new Date((today - (6 - i)) * DAY);
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+    });
+    return { values, labels, sumLabel: "최근 7일 완료",
+             range: `${labels[0]} – ${labels[6]} · 오늘 포함` };
+  }
+
+  const thisMonday = mondayOf(today);
+  for (const d of done) {
+    const i = 6 - (thisMonday - mondayOf(d)) / 7;
+    if (i >= 0 && i < 7) values[i]++;
+  }
+  const labels = values.map((_, i) => `W${isoWeek(new Date((thisMonday - (6 - i) * 7) * DAY))}`);
+  return { values, labels, sumLabel: "최근 7주 완료",
+           range: `${period ? `${period} · ` : ""}${labels[0]}–${labels[6]} · 이번 주 포함` };
 }
 
 function isoWeek(d: Date): number {
@@ -250,30 +282,26 @@ function isoWeek(d: Date): number {
   return 1 + Math.round((diff - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
 }
 
-function BurnChart({ values }: { values: number[] }) {
-  const W = 640;
-  const H = 168;
+function BurnChart({ values, labels }: { values: number[]; labels: string[] }) {
   const max = Math.max(...values, 1);
-  const pts = values.map((v, i) => {
-    const x = values.length === 1 ? W : (i / (values.length - 1)) * W;
-    const y = H - 12 - (v / max) * (H - 26);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
+  const last = values.length - 1;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="burn-svg">
-      <defs>
-        <linearGradient id="fbline" x1="0" y1="0" x2={W} y2="0" gradientUnits="userSpaceOnUse">
-          <stop style={{ stopColor: "var(--brand-1)" }} />
-          <stop offset="1" style={{ stopColor: "var(--brand-2)" }} />
-        </linearGradient>
-        <linearGradient id="fbarea" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
-          <stop style={{ stopColor: "var(--accent)", stopOpacity: 0.34 }} />
-          <stop offset="1" style={{ stopColor: "var(--accent)", stopOpacity: 0 }} />
-        </linearGradient>
-      </defs>
-      <path d={`M0 42H${W}M0 84H${W}M0 126H${W}`} stroke="var(--border)" strokeWidth="1" />
-      <path d={`M0,${H - 12} L${pts.join(" L")} L${W},${H - 12} Z`} fill="url(#fbarea)" />
-      <polyline points={pts.join(" ")} fill="none" stroke="url(#fbline)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <>
+      <div className="burn-bars">
+        {values.map((v, i) => (
+          <span key={labels[i]} className={`burn-bar ${i === last ? "on" : ""}`}>
+            <span className="burn-val">{v}</span>
+            <span className="burn-fill" style={{ height: `${Math.max(4, Math.round((v / max) * 112))}px` }} />
+          </span>
+        ))}
+      </div>
+      <div className="burn-labels">
+        {labels.map((l, i) => (
+          <span key={l} className={i === last ? "on" : ""}>
+            {l}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }

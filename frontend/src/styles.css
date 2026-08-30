@@ -965,7 +965,7 @@ svg.logo-mark {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  flex: none;
+  margin-top: 12px;
 }
 
 .burn-total b {
@@ -981,31 +981,95 @@ svg.logo-mark {
   color: var(--on-accent-subtle);
 }
 
-.burn-svg {
-  display: block;
-  width: 100%;
-  height: 168px;
+/* Bars, not a cumulative line: a cumulative series only ever rises, so a busy week and
+   an empty one looked the same. The newest bucket is the gradient one. */
+.burn-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 140px;
   margin-top: 14px;
+  border-bottom: 1px solid var(--border);
 }
 
-.burn-weeks {
+.burn-bar {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.burn-val {
+  font-size: var(--t-meta);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.burn-bar.on .burn-val {
+  color: var(--text);
+}
+
+.burn-fill {
+  width: 100%;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: var(--accent-subtle);
+}
+
+.burn-bar.on .burn-fill {
+  background: var(--gradient);
+}
+
+.burn-labels {
+  display: flex;
+  gap: 10px;
   margin-top: 8px;
   font-size: var(--t-meta);
-  color: var(--text-muted);
   font-family: var(--font-mono);
+  color: var(--text-muted);
 }
 
-.burn-empty {
+.burn-labels span {
   flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.burn-labels span.on {
+  color: var(--on-accent-subtle);
+}
+
+.burn-tabs {
+  flex: none;
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 150px;
-  font-size: var(--t-caption);
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+}
+
+.burn-tabs button {
+  border: 0;
+  cursor: pointer;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  background: transparent;
   color: var(--text-muted);
 }
+
+.burn-tabs button.on {
+  background: var(--accent-subtle);
+  color: var(--on-accent-subtle);
+}
+
 
 .project-grid-3 {
   display: grid;
