@@ -350,10 +350,14 @@ function LoginGate({ onDone }: { onDone: () => void }) {
     <div className="login-wrap" data-density="compact">
       <div className="ambient" />
       <div className="login-card">
-        <span className="logo-mark">F</span>
-        <div className="login-title">
-          <span className="frony">Frony</span>Board
-        </div>
+        <span className="login-lockup">
+          <FronyMark />
+          <span className="login-name">
+            <span className="logo-frony">FRONY</span>
+            <span className="logo-sep" />
+            <span className="logo-name">Board</span>
+          </span>
+        </span>
         <p className="login-sub">대시보드 로그인으로 전체 프로젝트를 조회합니다</p>
         <form
           className="login-form"
@@ -376,10 +380,19 @@ function LoginGate({ onDone }: { onDone: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
           />
           <button className="cta-btn" type="submit" disabled={busy}>
-            {busy ? "…" : "로그인"}
+            {busy && <span className="cta-spin" />}
+            {busy ? "로그인 중…" : "로그인"}
           </button>
         </form>
-        {error && <p className="login-error">{error}</p>}
+        {error && (
+          <p className="login-error">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+              <circle cx="10" cy="10" r="7.4" />
+              <path d="M10 6.3v4.4M10 13.4h.01" />
+            </svg>
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
