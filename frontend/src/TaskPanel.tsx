@@ -29,6 +29,11 @@ export default function TaskPanel({
                 <div className="panel-badges">
                   <span className="id-chip">{task.id}</span>
                   <StatusChip status={task.status} />
+                  {task.tags?.map((tag) => (
+                    <span key={tag} className="tag-chip">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
                 <div className="panel-title">{task.title}</div>
               </div>

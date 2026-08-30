@@ -114,6 +114,31 @@ def test_update_task_empty_value_removes_optional_field():
         service.update_task(key, "DLY-001", title="")  # required fields cannot be cleared
 
 
+def test_tags_are_cleaned_and_filterable():
+    key = bootstrap()
+    task = service.create_task(key, "2026Q3", title="drawer", month="M1",
+                               tags=[" frontend ", "ui", "frontend", ""])["task"]
+    assert task["tags"] == ["frontend", "ui"]          # trimmed, de-duplicated, order kept
+    service.create_task(key, "2026Q3", title="gate", month="M1", tags=["backend", "ui"])
+    service.create_task(key, "2026Q3", title="plain", month="M1")
+    assert "tags" not in service.list_tasks(key)["tasks"][2]   # omitted when none given
+
+    ids = lambda **kw: [t["id"] for t in service.list_tasks(key, **kw)["tasks"]]
+    assert ids(tags=["ui"]) == ["DLY-001", "DLY-002"]
+    assert ids(tags=["ui", "frontend"]) == ["DLY-001"]         # all of them, not any
+    assert ids(tags=["nope"]) == []
+
+
+def test_update_task_replaces_the_whole_tag_list():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="x", month="M1", tags=["bug"])
+    task = service.update_task(key, "DLY-001", tags=["infra", "bug"])["task"]
+    assert task["tags"] == ["infra", "bug"]
+    task = service.update_task(key, "DLY-001", tags=[])["task"]
+    assert "tags" not in task
+    assert "tags" not in service.list_tasks(key)["tasks"][0]   # gone from the file too
+
+
 def test_cancel_requires_reason():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="mistake", month="M1")

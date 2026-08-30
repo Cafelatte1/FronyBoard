@@ -303,10 +303,26 @@ def _find_task(state: ProjectState, task_id: str) -> tuple[str, dict]:
     raise AiraError(f"task {task_id} not found in project {state.key}")
 
 
+def _clean_tags(tags: list[str] | None) -> list[str]:
+    """Trim, drop blanks and de-duplicate while keeping the order given."""
+    if not tags:
+        return []
+    if not isinstance(tags, list):
+        raise AiraError("tags must be a list of strings")
+    cleaned: list[str] = []
+    for tag in tags:
+        if not isinstance(tag, str):
+            raise AiraError(f"tags must be a list of strings ({tag!r})")
+        tag = tag.strip()
+        if tag and tag not in cleaned:
+            cleaned.append(tag)
+    return cleaned
+
+
 @_locked
 def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
-                prd: str | None = None) -> dict:
+                prd: str | None = None, tags: list[str] | None = None) -> dict:
     state = store.load_state(key)
     if period not in state.periods:
         raise AiraError(f"period {period} is not open")
@@ -314,6 +330,9 @@ def create_task(key: str, period: str, title: str, month: str,
                   "month": month, "status": "todo"}
     if week is not None:
         task["week"] = week
+    tags = _clean_tags(tags)
+    if tags:
+        task["tags"] = tags
     if content is not None:
         task["content"] = content
     if prd is not None:
@@ -325,23 +344,26 @@ def create_task(key: str, period: str, title: str, month: str,
     return _ok({"period": period, "task": task}, warnings)
 
 
-# Optional task fields; an "empty" value (0 / "") passed to update_task removes them.
-_CLEARABLE = {"week", "content", "prd", "branch"}
+# Optional task fields; an "empty" value (0 / "" / []) passed to update_task removes them.
+_CLEARABLE = {"week", "content", "prd", "branch", "tags"}
 
 
 @_locked
 def update_task(key: str, task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
-                prd: str | None = None, branch: str | None = None) -> dict:
+                prd: str | None = None, branch: str | None = None,
+                tags: list[str] | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
+    if tags is not None:
+        tags = _clean_tags(tags)
     fields = {"title": title, "month": month, "week": week,
-              "content": content, "prd": prd, "branch": branch}
+              "content": content, "prd": prd, "branch": branch, "tags": tags}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise AiraError("nothing to update — pass at least one field (status changes go through transition_task)")
     for k, v in changed.items():
-        if k in _CLEARABLE and v in (0, ""):
+        if k in _CLEARABLE and v in (0, "", []):
             task.pop(k, None)
         else:
             task[k] = v
@@ -382,10 +404,12 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 
 
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               month: str | None = None, include_cancelled: bool = False) -> dict:
+               month: str | None = None, include_cancelled: bool = False,
+               tags: list[str] | None = None) -> dict:
     state = store.load_state(key)
     if period is not None and period not in state.periods:
         raise AiraError(f"period {period} is not open")
+    wanted = set(_clean_tags(tags))   # a task must carry all of them
     results = []
     for pname, p in sorted(state.periods.items()):
         if period is not None and pname != period:
@@ -397,6 +421,8 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
             if status is not None and t.get("status") != status:
                 continue
             if month is not None and t.get("month") != month:
+                continue
+            if wanted and not wanted <= set(t.get("tags") or []):
                 continue
             results.append({"period": pname, **t})
     return _jsonable({"tasks": results, "count": len(results)})

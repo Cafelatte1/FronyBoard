@@ -2013,8 +2013,28 @@ button.task-grid:hover {
 
 .c-title {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.c-title-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Free-form task label, shown in the table row and the detail panel. */
+.tag-chip {
+  flex: none;
+  font-size: var(--t-badge);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
   white-space: nowrap;
 }
 
@@ -2096,6 +2116,7 @@ button.task-grid:hover {
 .panel-badges {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

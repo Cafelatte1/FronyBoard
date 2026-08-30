@@ -64,6 +64,7 @@ export interface Task {
   month: string;
   status: string;
   week?: number;
+  tags?: string[];
   content?: string;
   prd?: string;
   branch?: string;
