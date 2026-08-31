@@ -49,10 +49,8 @@ def test_tasks_filters_and_cancelled_toggle():
     assert body["count"] == 2
 
 
-def test_login_issues_session_token():
-    from aira import auth
-
-    auth.set_admin("admin", "1234")
+def test_login_issues_session_token(fake_fauth):
+    fake_fauth.admin = ("admin", "1234")
     status, _ = _request("POST", "/api/login", body={"username": "admin", "password": "no"})
     assert status == 401
     status, body = _request("POST", "/api/login", body={"username": "admin", "password": "1234"})
@@ -61,11 +59,17 @@ def test_login_issues_session_token():
     assert body["username"] == "admin"
 
 
-def test_server_info():
-    from aira import auth
+def test_login_answers_503_when_fauth_is_down(fake_fauth):
+    fake_fauth.admin = ("admin", "1234")
+    fake_fauth.down = True
+    status, body = _request("POST", "/api/login", body={"username": "admin", "password": "1234"})
+    assert status == 503
+    assert "auth service unavailable" in body["error"]
 
+
+def test_server_info(fake_fauth):
     bootstrap()
-    auth.generate_key("pc1")
+    fake_fauth.keys["pc1"] = "frony_pc1"
     status, body = _get("/api/server")
     assert status == 200
     assert body["version"]
@@ -77,6 +81,14 @@ def test_server_info():
     assert body["timezone"]["name"] is None or body["timezone"]["name"].isascii()
 
 
+def test_server_info_survives_fauth_outage(fake_fauth):
+    bootstrap()
+    fake_fauth.down = True
+    status, body = _get("/api/server")
+    assert status == 200  # deploys verify against this route — it must not depend on fauth
+    assert body["api_keys"] is None
+
+
 def test_server_timezone_honours_aira_tz(monkeypatch):
     from aira import web
 
@@ -86,13 +98,11 @@ def test_server_timezone_honours_aira_tz(monkeypatch):
     assert isinstance(web._timezone()["offset_minutes"], int)  # falls back, no crash
 
 
-def test_key_management_requires_dashboard_session():
-    from aira import auth
-
-    api_key = auth.generate_key("pc1")
+def test_key_management_requires_dashboard_session(fake_fauth):
+    fake_fauth.keys["pc1"] = "frony_pc1"
     status, body = _request("GET", "/api/keys")
     assert status == 403
-    status, body = _request("GET", "/api/keys", token=api_key)  # API key is not enough
+    status, body = _request("GET", "/api/keys", token="frony_pc1")  # API key is not enough
     assert status == 403
 
     session = auth.create_session()
@@ -105,18 +115,25 @@ def test_key_management_requires_dashboard_session():
     status, body = _request("POST", "/api/keys", body={"name": "pc2"}, token=session)
     assert status == 200
     assert body["key"].startswith("frony_")
-    assert auth.verify_key(body["key"]) == "pc2"
+    assert fake_fauth.keys["pc2"] == body["key"]
 
     status, body = _request("POST", "/api/keys", body={"name": "pc2"}, token=session)
-    assert status == 400
+    assert status == 400  # FronyAuth's duplicate 409 maps onto this API's usual 400
 
     status, body = _request("DELETE", "/api/keys/pc2", token=session)
     assert status == 200
-    assert auth.verify_key(body.get("key")) is None
-    assert [k["name"] for k in auth.key_info()] == ["pc1"]
+    assert list(fake_fauth.keys) == ["pc1"]
 
     status, body = _request("DELETE", "/api/keys/pc2", token=session)
     assert status == 404
+
+
+def test_key_management_answers_503_when_fauth_is_down(fake_fauth):
+    session = auth.create_session()
+    fake_fauth.down = True
+    assert _request("GET", "/api/keys", token=session)[0] == 503
+    assert _request("POST", "/api/keys", body={"name": "x"}, token=session)[0] == 503
+    assert _request("DELETE", "/api/keys/x", token=session)[0] == 503
 
 
 def test_tasks_period_status_month_filters():
@@ -137,10 +154,8 @@ def test_tasks_period_status_month_filters():
     assert status == 400
 
 
-def test_logout_drops_session():
-    from aira import auth
-
-    auth.set_admin("admin", "1234")
+def test_logout_drops_session(fake_fauth):
+    fake_fauth.admin = ("admin", "1234")
     _, body = _request("POST", "/api/login", body={"username": "admin", "password": "1234"})
     token = body["token"]
     assert auth.verify_session(token)
@@ -155,10 +170,12 @@ def test_unknown_project_is_404():
     assert "error" in body
 
 
-def test_dashboard_login_locks_after_repeated_failures():
-    auth.set_admin("admin", "pw")
-    for _ in range(auth.login_throttle.limit):
+def test_dashboard_login_locks_after_repeated_failures(fake_fauth):
+    fake_fauth.admin = ("admin", "pw")
+    for n in range(fake_fauth.limit - 1):
         status, _ = _request("POST", "/api/login", body={"username": "admin", "password": "nope"})
         assert status == 401
+    status, _ = _request("POST", "/api/login", body={"username": "admin", "password": "nope"})
+    assert status == 429  # the locking strike itself answers 429
     status, body = _request("POST", "/api/login", body={"username": "admin", "password": "pw"})
     assert status == 429 and "too many" in body["error"]

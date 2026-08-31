@@ -1,21 +1,83 @@
 """Shared fixtures and helpers for the FronyBoard test suite."""
 
 import json
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
 import anyio
 import pytest
 
-from aira import auth, service
+from aira import fauth, service
 
 
 @pytest.fixture(autouse=True)
 def data_root(tmp_path, monkeypatch):
     monkeypatch.setenv("AIRA_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("FRONY_AUTH_FILE", str(tmp_path / "frony" / "auth.yaml"))
-    monkeypatch.setenv("FRONY_OAUTH_FILE", str(tmp_path / "frony" / "oauth.yaml"))
-    monkeypatch.setattr(auth, "login_throttle", auth.LoginThrottle())  # lockouts must not leak across tests
+    fauth.clear_cache()  # verdicts must not leak across tests
     return tmp_path
+
+
+@pytest.fixture
+def fake_fauth(monkeypatch):
+    """Stand-in for the FronyAuth server: patches the fauth client's functions
+    with an in-memory registry so no HTTP happens. Matches the contract in
+    project-auth's docs/introspection.md. `state.down = True` simulates an
+    outage; `state.oauth[token] = caller` plants an OAuth verdict."""
+    state = SimpleNamespace(keys={}, oauth={}, admin=None, fails={}, limit=5, down=False)
+
+    def _check_up():
+        if state.down:
+            raise fauth.Unavailable("fauth is down")
+
+    async def verify(token):
+        _check_up()
+        if not token:
+            return None
+        for name, key in state.keys.items():
+            if key == token:
+                return f"key:{name}"
+        return state.oauth.get(token)
+
+    async def admin_verify(username, password, client_addr):
+        _check_up()
+        if state.fails.get(client_addr, 0) >= state.limit:
+            return 429, {"error": "locked out", "retry_after_seconds": 60}
+        if state.admin == (username, password):
+            state.fails.pop(client_addr, None)
+            return 200, {"ok": True, "username": username}
+        state.fails[client_addr] = state.fails.get(client_addr, 0) + 1
+        if state.fails[client_addr] >= state.limit:
+            return 429, {"error": "locked out", "retry_after_seconds": 60}
+        return 200, {"ok": False, "attempts_left": state.limit - state.fails[client_addr]}
+
+    async def keys():
+        _check_up()
+        return [{"name": n, "fingerprint": "ab12…cd34", "created_at": "2026-08-31 00:00:00"}
+                for n in state.keys]
+
+    async def create_key(name):
+        _check_up()
+        if name in state.keys:
+            return 409, {"error": f"a key named '{name}' already exists — revoke it first"}
+        if not name.strip():
+            return 400, {"error": "key name must not be empty"}
+        token = f"frony_{name}fake"
+        state.keys[name] = token
+        return 201, {"name": name, "key": token}
+
+    async def delete_key(name):
+        _check_up()
+        if name not in state.keys:
+            return 404, {"error": f"no key named '{name}'"}
+        del state.keys[name]
+        return 200, {"revoked": name}
+
+    monkeypatch.setattr(fauth, "verify", verify)
+    monkeypatch.setattr(fauth, "admin_verify", admin_verify)
+    monkeypatch.setattr(fauth, "keys", keys)
+    monkeypatch.setattr(fauth, "create_key", create_key)
+    monkeypatch.setattr(fauth, "delete_key", delete_key)
+    return state
 
 
 def bootstrap(key="DLY"):

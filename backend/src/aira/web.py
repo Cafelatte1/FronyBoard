@@ -21,7 +21,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import auth, log, service, store
+from . import auth, fauth, log, service, store
 from .service import AiraError
 
 _started_at = store.now()  # module import happens at process start — close enough for uptime
@@ -89,8 +89,7 @@ def _tasks(request):
     )
 
 
-@_endpoint
-def _server(request):
+async def _server(request):
     projects = service.list_projects()["projects"]
     open_periods = []
     for p in projects:
@@ -102,15 +101,19 @@ def _server(request):
         ver = pkg_version("aira")
     except PackageNotFoundError:
         ver = "dev"
-    return {
+    try:
+        api_keys = len(await fauth.keys())
+    except fauth.Unavailable:
+        api_keys = None  # FronyAuth down — still answer, deploys verify against this route
+    return JSONResponse({
         "version": ver,
         "started_at": str(_started_at),
         "data_root": str(store.data_root()),
         "projects": len(projects),
         "open_periods": open_periods,
-        "api_keys": len(auth.key_info()),
+        "api_keys": api_keys,
         "timezone": _timezone(),
-    }
+    })
 
 
 def _session_token(request) -> str | None:
@@ -124,34 +127,45 @@ def _require_admin(request) -> JSONResponse | None:
     return JSONResponse({"error": "key management requires the dashboard login"}, status_code=403)
 
 
+def _fauth_down() -> JSONResponse:
+    return JSONResponse({"error": "auth service unavailable — try again shortly"}, status_code=503)
+
+
 async def _keys(request):
     denied = _require_admin(request)
     if denied is not None:
         return denied
-    if request.method == "GET":
-        return JSONResponse({"keys": auth.key_info()})
     try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "invalid JSON body"}, status_code=400)
-    name = str(body.get("name", "")).strip()
-    try:
-        key = auth.generate_key(name)
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
+        if request.method == "GET":
+            return JSONResponse({"keys": await fauth.keys()})
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+        name = str(body.get("name", "")).strip()
+        status, result = await fauth.create_key(name)
+    except fauth.Unavailable:
+        return _fauth_down()
+    if status != 201:
+        # FronyAuth's 409 (duplicate) / 400 map onto the 400 this API always answered
+        return JSONResponse({"error": result.get("error", "key creation failed")}, status_code=400)
     log.event("INFO", "auth", "key_created", name=name, ip=_ip(request))
-    return JSONResponse({"name": name, "key": key})
+    return JSONResponse({"name": result["name"], "key": result["key"]})
 
 
 async def _delete_key(request):
     denied = _require_admin(request)
     if denied is not None:
         return denied
+    name = request.path_params["name"]
     try:
-        auth.revoke_key(request.path_params["name"])
-    except FileNotFoundError as e:
-        return JSONResponse({"error": str(e)}, status_code=404)
-    log.event("INFO", "auth", "key_revoked", name=request.path_params["name"], ip=_ip(request))
+        status, result = await fauth.delete_key(name)
+    except fauth.Unavailable:
+        return _fauth_down()
+    if status != 200:
+        return JSONResponse({"error": result.get("error", "revoke failed")}, status_code=404)
+    log.event("INFO", "auth", "key_revoked", name=name, ip=_ip(request))
+    fauth.clear_cache()  # a revoked key must stop working now, not when the cache expires
     return JSONResponse({"ok": True})
 
 
@@ -162,13 +176,15 @@ async def _login(request):
         return JSONResponse({"error": "invalid JSON body"}, status_code=400)
     username = str(body.get("username", ""))
     ip = _ip(request)
-    if auth.login_throttle.blocked(ip):
+    try:
+        status, result = await fauth.admin_verify(username, str(body.get("password", "")), ip or "?")
+    except fauth.Unavailable:
+        return _fauth_down()
+    if status == 429:
         return JSONResponse({"error": "too many failed logins — try again later"}, status_code=429)
-    if not auth.verify_admin(username, str(body.get("password", ""))):
-        auth.login_throttle.fail(ip)
+    if status != 200 or not result.get("ok"):
         log.event("WARNING", "auth", "login_failed", user=username, ip=ip)
         return JSONResponse({"error": "invalid credentials"}, status_code=401)
-    auth.login_throttle.clear(ip)
     log.event("INFO", "auth", "login_ok", user=username, ip=ip)
     return JSONResponse({"token": auth.create_session(username), "username": username})
 
