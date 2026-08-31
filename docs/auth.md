@@ -2,12 +2,17 @@
 
 Every request that reaches plan data — MCP or the JSON API — carries one
 `Authorization: Bearer <token>` header, checked in one place
-(`BearerAuthMiddleware`, `backend/src/aira/auth.py`). Channels differ only in
-**how the token is obtained** and **which network path they arrive on**.
+(`BearerAuthMiddleware`, `backend/src/aira/auth.py`). Since v0.18.0 (AIR-056)
+the middleware does not judge keys or OAuth tokens itself: it asks **FronyAuth**
+(project-auth repo, same machine, `:8640`) via `POST /introspect` and caches the
+verdict briefly (`backend/src/aira/fauth.py`; contract: project-auth's
+`docs/introspection.md`). Only dashboard session tokens stay local. Channels
+differ only in **how the token is obtained** and **which network path they
+arrive on**.
 
 | # | channel | reaches the server via | token | how it is obtained | lifetime |
 |---|---|---|---|---|---|
-| 1 | Agent CLIs — Claude Code, Codex, any MCP client that can set a header | tailnet, `http://<server>:8642/mcp` | API key `frony_…` | `aira keygen <machine>` on the server, pasted into the client config once | until revoked |
+| 1 | Agent CLIs — Claude Code, Codex, any MCP client that can set a header | tailnet, `http://<server>:8642/mcp` | API key `frony_…` | `fauth keygen <machine>` on the server (or dashboard Settings), pasted into the client config once | until revoked |
 | 2 | Claude Desktop (local MCP config) | tailnet, through the `mcp-remote` bridge | API key `frony_…` | same key as 1 | until revoked |
 | 3 | Dashboard in a browser | tailnet, `http://<server>:8642/` | session `fbsession_…` | `POST /api/login` with the admin id/password | until the server restarts |
 | 4 | Hosted apps — Claude app (mobile/web connector), ChatGPT connector | public internet, `https://<funnel-name>/board/mcp` | OAuth access `fbat_…` (+ refresh `fbrt_…`) | one browser login on the approval page; the app manages the tokens afterwards | 24 h, refreshed silently for 90 days |
@@ -25,11 +30,12 @@ Whatever the channel, the tool log records who called (`caller` in
 ## 1. Agent CLIs (API key)
 
 ```
-you, on the server          client machine                 server
-─────────────────           ──────────────                 ──────
-aira keygen macbook ──key──▶ stored in the MCP config
+you, on the server           client machine                 server                    FronyAuth (:8640)
+─────────────────            ──────────────                 ──────                    ─────────────────
+fauth keygen macbook ──key──▶ stored in the MCP config
                              every request:
-                             Authorization: Bearer frony_… ──▶ sha256(key) ∈ Frony\auth.yaml? → ok, caller=key:macbook
+                             Authorization: Bearer frony_… ──▶ POST /introspect ────▶ sha256(key) ∈ Frony\auth.yaml?
+                                                               (verdict cached 60s) ◀─ {active, caller=key:macbook}
 ```
 
 - Claude Code: `claude mcp add --transport http --scope user FronyBoard http://<server>:8642/mcp --header "Authorization: Bearer <key>"`
@@ -45,22 +51,17 @@ aira keygen macbook ──key──▶ stored in the MCP config
 
 ### The shared key registry
 
-A key is a **device** credential, not a FronyBoard one: it is stored in the
-Frony-wide file `%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE`
-overrides) and any Frony service on the same machine accepts it by doing the
-same check. To add a service, read the file per request and compare
-`sha256(bearer)` against the list — no shared code needed:
+A key is a **device** credential, not a FronyBoard one. FronyAuth owns the
+registry (`%LOCALAPPDATA%\Frony\auth.yaml` on its machine) and is the only
+process that reads it; every Frony service — FronyBoard included, on any
+machine — accepts the same key by asking FronyAuth's `POST /introspect`
+(project-auth `docs/introspection.md` is the contract a new service implements).
 
-```yaml
-keys:
-- name: frony-pc            # label = the device
-  sha256: <hex digest>      # of the full "frony_…" string
-  created_at: 2026-08-18 05:49:35
-```
-
-Issue and revoke through FronyBoard (`aira keygen`, dashboard Settings); the
-change is visible to every service on the next request. Older `aira_…` keys
-keep working — only the hash is compared.
+Issue and revoke with `fauth keygen` or the FronyBoard dashboard Settings
+screen (which proxies FronyAuth's /keys API); a revoke is visible to every
+service within its verdict-cache TTL (≤60s; FronyBoard's own Settings clears
+its cache immediately). Older `aira_…` keys keep working — only the hash is
+compared.
 
 ## 2. Claude Desktop (API key through a bridge)
 
@@ -88,7 +89,8 @@ every /api request: Bearer fbsession_… ──▶ token in the session table? �
 POST /api/logout                     ──▶ dropped
 ```
 
-The credential is set on the server with `aira admin <username>` (one
+The credential is set on the server with `fauth admin <username>` (FronyAuth
+owns it; aira delegates the check via `POST /admin/verify`, lockout included) (one
 credential; setting it replaces the previous one). Sessions are in memory, so a
 restart signs everyone out. Five failed logins from one address within 15
 minutes lock that address out (`429`) until the window passes. Key management
@@ -134,22 +136,24 @@ What to know:
 - 거부 (`POST /oauth/deny`) drops the request and sends the app
   `error=access_denied`; nothing is issued. After approve or deny the page shows
   a result screen for a second, then hands the browser back on its own. The
-  page is server-rendered from `oauth_pages.py` with no third-party assets — it
-  is public and must render in any in-app browser. Its webfonts are the ones the
-  dashboard serves from `/fonts`.
-- Setup: `AIRA_PUBLIC_URL=https://<funnel-name>` and
-  `AIRA_PUBLIC_MCP_PATH=/board/mcp` on the server (or `aira serve --public-url
-  --public-mcp-path`), Funnel exposing `/board/mcp`, `/.well-known`,
-  `/register`, `/authorize`, `/token`, `/revoke`, `/oauth`. In the app, add
+  page is server-rendered by FronyAuth (`oauth_pages.py` in project-auth) with
+  no third-party assets — it is public and must render in any in-app browser;
+  FronyAuth serves its `/fonts` and `/favicon.ico` itself.
+- Setup: FronyAuth runs with `FAUTH_PUBLIC_URL=https://<funnel-name>`; aira
+  runs with `AIRA_PUBLIC_URL`/`AIRA_PUBLIC_MCP_PATH=/board/mcp` so its 401s
+  point at the metadata. Funnel exposes `/board/mcp` (+ legacy `/mcp`) to aira
+  and `/.well-known`, `/register`, `/authorize`, `/token`, `/revoke`, `/oauth`,
+  `/fonts`, `/favicon.ico` to FronyAuth. In the app, add
   `https://<funnel-name>/board/mcp` as a custom connector. The issuer is the
   root; every service, FronyBoard included, sits under its own prefix.
 
 ### Other Frony services behind the same login
 
-FronyBoard is the only authorization server; a sibling service (FronyCache,
-…) that wants to be a connector too does not run OAuth itself. It gets its own
-Funnel path and verifies FronyBoard's tokens — the same idea as the shared key
-registry, with `oauth.yaml` instead of `auth.yaml`.
+FronyAuth is the only authorization server; a sibling service (FronyHome, …)
+that wants to be a connector too does not run OAuth itself. It gets its own
+Funnel path (on whatever machine it runs) and verifies tokens through
+FronyAuth's `POST /introspect` — the same call it already makes for API keys,
+so being on a different machine is fine.
 
 ```
 tailscale funnel --bg --set-path /cache http://127.0.0.1:9412     # https://<funnel-name>/cache/* -> the service

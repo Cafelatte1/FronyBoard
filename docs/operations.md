@@ -16,7 +16,9 @@ git push origin main vX.Y.Z
 ```
 
 On the server, `scripts/deploy.ps1` does the whole sequence (from a dev PC:
-`ssh -i ~/.ssh/aira_homeserver flash@100.108.65.117 "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
+`ssh -i ~/.ssh/aira_homeserver flash@100.67.93.87 "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
+FronyAuth deploys the same way from its own checkout (`C:\Users\flash\projects\project-auth`,
+task "FronyAuth Server", its own `scripts\deploy.ps1`).
 Run it as its own ssh command, not combined with anything that also mentions
 `aira-server.cmd`: the process cleanup below matches command lines containing
 both `aira` and `serve`, so a combined command naming the launcher would match
@@ -64,15 +66,16 @@ signs in again. API keys are unaffected.
 ## Hosted MCP clients (Tailscale Funnel + OAuth)
 
 The Claude / ChatGPT apps connect from the vendor's servers, so the MCP
-endpoint is also reachable from the public internet through Tailscale Funnel,
-and the server runs an OAuth authorization server for them (`AIRA_PUBLIC_URL` +
-`AIRA_PUBLIC_MCP_PATH` in `aira-server.cmd`; `aira serve --public-url
---public-mcp-path` is the CLI form). The public layout is *root = auth, one
-prefix per service*:
+endpoint is also reachable from the public internet through Tailscale Funnel.
+The OAuth authorization server is **FronyAuth** (project-auth, `:8640`) since
+v0.18.0 — aira only advertises FronyAuth's resource metadata on a 401
+(`AIRA_PUBLIC_URL` + `AIRA_PUBLIC_MCP_PATH` in `aira-server.cmd`). The public
+layout is *root = auth, one prefix per service*:
 
-    https://laptop.tailab9579.ts.net/board/mcp   -> proxy http://127.0.0.1:8642/mcp   (FronyBoard)
-    https://laptop.tailab9579.ts.net/cache/*     -> proxy http://127.0.0.1:9412/*     (FronyCache, when enabled)
-    https://laptop.tailab9579.ts.net/{.well-known,register,authorize,token,revoke,oauth}  -> FronyBoard (auth for all)
+    https://laptop-windows-hp-dragonflyg3.tailab9579.ts.net/board/mcp  -> http://127.0.0.1:8642/mcp  (FronyBoard)
+    https://laptop-windows-hp-dragonflyg3.tailab9579.ts.net/{.well-known,register,authorize,token,revoke,oauth,fonts,favicon.ico}
+                                                                       -> http://127.0.0.1:8640/*    (FronyAuth)
+    https://laptop-windows-hp-gpu.tailab9579.ts.net/cache/*            -> http://127.0.0.1:9412/*    (FronyHome, its own machine)
 
 Funnel exposes only these path prefixes — the dashboard and `/api` stay
 tailnet-only:
@@ -105,21 +108,27 @@ on the admin console (done 2026-08-27): `nodeAttrs` grants `funnel` to
 ```powershell
 $ts = "C:\Program Files\Tailscale\tailscale.exe"
 & $ts funnel status
-foreach ($p in "/mcp", "/.well-known", "/register", "/authorize", "/token", "/revoke", "/oauth") {
-    & $ts funnel --bg --set-path $p "http://127.0.0.1:8642$p"     # (re-)enable
+foreach ($p in "/.well-known", "/register", "/authorize", "/token", "/revoke", "/oauth", "/fonts", "/favicon.ico") {
+    & $ts funnel --bg --set-path $p "http://127.0.0.1:8640$p"     # FronyAuth (re-)enable
 }
-& $ts funnel --bg --set-path /board/mcp http://127.0.0.1:8642/mcp   # the prefixed address
+& $ts funnel --bg --set-path /board/mcp http://127.0.0.1:8642/mcp   # FronyBoard
+& $ts funnel --bg --set-path /mcp http://127.0.0.1:8642/mcp         # pre-prefix address, old connectors
 & $ts funnel --https=443 off                                      # close everything
 ```
+
+Gotcha: the stored funnel config is keyed by the machine's DNS name at the time
+it was written — after a machine rename, `--set-path <p> off` reports "handler
+does not exist". `tailscale serve reset` and re-add instead.
 
 ## API keys
 
 Preferred: the dashboard **Settings** screen (list, issue, revoke) — requires
-the dashboard login; API keys themselves cannot manage keys. CLI equivalent on
-the server:
+the dashboard login; API keys themselves cannot manage keys. Since v0.18.0 the
+dashboard proxies these to FronyAuth's /keys API. CLI equivalent on the server
+(project-auth checkout):
 
 ```powershell
-uv run aira keygen <machine-name>    # prints the key once
+uv run fauth keygen <machine-name>   # prints the key once
 ```
 
 Keys sit in the Frony-wide registry `C:\Users\<user>\AppData\Local\Frony\auth.yaml`,
@@ -134,10 +143,11 @@ start with zero keys, so the first key always comes from the CLI.
 
 ## Dashboard login
 
-Reset (or create) the admin credential on the server:
+Reset (or create) the admin credential on the server (FronyAuth owns it since
+v0.18.0 — project-auth checkout):
 
 ```powershell
-uv run aira admin <username>         # prompts for the password without echo
+uv run fauth admin <username>        # prompts for the password without echo
 ```
 
 There is one credential; setting it replaces the previous one.
@@ -157,7 +167,8 @@ repo checkout is reproducible from git and holds no state.
 | `uv sync` fails with `os error 32` | server still running while syncing — `schtasks /End` returns before the python child actually exits | wait until no `aira serve` process remains (`Get-CimInstance Win32_Process` filtered on the command line; force-stop after ~20s), then sync and `/Run`. A `/Run` while the old process lives is silently ignored (`IgnoreNew`), so the old version keeps serving |
 | `git checkout vX.Y.Z` refuses ("local changes") | `uv sync` dirtied `backend/uv.lock` | `git checkout -- backend/uv.lock`, then check out the tag |
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
-| `aira serve` exits with "no API keys yet" | fresh data root | `uv run aira keygen <name>` once, then start |
+| every request answers 503 "auth service unavailable" | FronyAuth down or `FRONY_SERVICE_KEY`/`FRONY_AUTH_URL` wrong in `aira-server.cmd` | check `GET :8640/health`, restart "FronyAuth Server" task, verify the launcher env |
+| `fauth serve` exits with "no API keys yet" | fresh registry | `uv run fauth keygen <name>` once, then start |
 | task-panel timestamps show `UTC+9` instead of `KST` (or a wrong zone) | the SYSTEM account's locale gives no short zone name / a different zone | set `AIRA_TZ=Asia/Seoul` in the launcher script next to `AIRA_DATA_DIR` |
 | server starts with empty data (all projects gone) | task runs as SYSTEM, whose `%LOCALAPPDATA%` is the system profile — the default root resolved elsewhere | set `AIRA_DATA_DIR` to the absolute data path in the launcher script |
 | server dead after closing the lid / after ~3 days | laptop slept on lid close, or the task's default 72h execution limit killed it | lid action = do nothing (`powercfg`), `ExecutionTimeLimit 0`, 10-minute watchdog trigger — all applied; re-check with `Get-ScheduledTask` if the task is ever re-created |

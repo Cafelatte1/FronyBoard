@@ -18,7 +18,7 @@
   powershell -NoProfile -File scripts\configure_mcp_settings.ps1              # reuse the key already configured
 #>
 param(
-    [string]$Server = "http://100.108.65.117:8642",
+    [string]$Server = "http://100.67.93.87:8642",
     [string]$ApiKey
 )
 $ErrorActionPreference = "Stop"
@@ -45,7 +45,7 @@ if (-not $ApiKey -and (Test-Path $claudeJson)) {
 if (-not $ApiKey -and (Test-Path $desktopJson)) {
     $ApiKey = Strip-Bearer (Read-Json $desktopJson).mcpServers.$Name.env.AUTH_HEADER
 }
-if (-not $ApiKey) { throw "no API key: pass -ApiKey (issue one on the server with 'aira keygen <this-pc>')" }
+if (-not $ApiKey) { throw "no API key: pass -ApiKey (issue one on the server with 'fauth keygen <this-pc>')" }
 
 # 2. prove the key against the server before touching any config
 try {

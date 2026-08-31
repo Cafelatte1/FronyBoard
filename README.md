@@ -178,9 +178,21 @@ from GitHub, never by editing in place.
    git checkout vX.Y.Z                   # the latest release tag
    cd backend
    uv sync
-   uv run aira keygen <client-pc-name>   # once per client PC, save each key
-   uv run aira admin <username>          # dashboard login (prompts for a password)
    ```
+
+   Auth lives in **FronyAuth** (the project-auth repo) — install it next to
+   this checkout the same way (`git checkout vX.Y.Z`, `uv sync`), then issue
+   keys and the dashboard login there:
+
+   ```powershell
+   uv run fauth keygen <client-pc-name>  # once per client PC, save each key
+   uv run fauth keygen board-server      # aira's own key -> FRONY_SERVICE_KEY
+   uv run fauth admin <username>         # dashboard login (prompts for a password)
+   ```
+
+   `aira serve` needs `FRONY_AUTH_URL` (default `http://127.0.0.1:8640`) and
+   `FRONY_SERVICE_KEY` in its launcher. A new machine bootstraps ssh/git/uv
+   with `scripts\bootstrap-server.ps1` (run once, as admin).
 
 3. Keep it running across reboots with Task Scheduler (`taskschd.msc` → Create
    Task): trigger **At startup**, action = path from `(Get-Command uv).Source`
