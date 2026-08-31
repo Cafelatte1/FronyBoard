@@ -4276,7 +4276,8 @@ mark.gs-mark {
 }
 
 .gs-via.ph {
-  max-width: none;
+  max-width: 100%;
+  box-sizing: border-box;
   align-self: flex-start;
   font-size: var(--t-meta);
   padding: 2px 6px;
