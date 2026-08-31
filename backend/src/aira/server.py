@@ -3,9 +3,11 @@
 Commands:
     aira                                 stdio transport (local development)
     aira serve [--host H] [--port P]     streamable HTTP transport (home server)
-               [--public-url URL]        also serve OAuth for hosted MCP clients
-               [--public-mcp-path P]     where /mcp sits under that URL (default /mcp)
-    aira keygen <name>                   issue an API key for a client machine
+               [--public-url URL]        the shared Funnel domain (401s advertise
+               [--public-mcp-path P]     the resource metadata FronyAuth serves there)
+
+Keys and the admin credential are issued by FronyAuth (`fauth keygen` /
+`fauth admin`, project-auth repo) — aira delegates every bearer check to it.
 
 Register a remote server in Claude Code:
 
@@ -20,7 +22,7 @@ import os
 
 from mcp.server.mcpserver import MCPServer
 
-from . import auth, log, oauth, service, store, web
+from . import auth, fauth, log, service, store, web
 
 mcp = MCPServer(
     "fronyboard",
@@ -304,37 +306,31 @@ def validate(key: str) -> dict:
 
 
 def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: str = "/mcp") -> None:
-    """Run the streamable HTTP server behind bearer-key auth.
+    """Run the streamable HTTP server behind bearer auth delegated to FronyAuth.
 
-    With `public_url` (the HTTPS address hosted MCP clients reach us at, e.g. a
-    Tailscale Funnel name) the OAuth endpoints are mounted too and /mcp accepts
-    the access tokens they issue alongside API keys.
+    OAuth itself lives in FronyAuth now (AIR-056): with `public_url` (the shared
+    Funnel domain) a 401 on /mcp advertises the resource metadata that FronyAuth
+    serves on that domain, so hosted clients still find their way to the login.
     """
     import uvicorn
     from mcp.server.transport_security import TransportSecuritySettings
 
-    if not auth.has_keys():
-        raise SystemExit("no API keys yet — run `aira keygen <name>` first")
-    provider = None
+    resource_metadata_url = None
     if public_url:
-        try:
-            provider = oauth.Provider(public_url, public_mcp_path)
-        except ValueError as e:
-            raise SystemExit(f"--public-url: {e}")
+        path = "/" + public_mcp_path.strip("/")
+        resource_metadata_url = f"{public_url.rstrip('/')}/.well-known/oauth-protected-resource{path}"
     # Host-header (DNS rebinding) checks are disabled: clients reach the server
     # under varying names (Tailscale name, LAN IP), and every request already
     # requires a bearer key that a rebound browser page cannot attach.
     app = mcp.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
-    if provider is not None:
-        app.router.routes.extend(oauth.routes(provider))  # before the dashboard's catch-all
     web.attach(app)
-    _boot("http", host=f"{host}:{port}", public_url=public_url,
-          public_mcp=provider.urls.resource_server_url if provider else None)
+    _boot("http", host=f"{host}:{port}", public_url=public_url, fauth=fauth.base_url())
     try:
         uvicorn.run(auth.with_mcp_cors(
                         auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
-                                                  open_paths=("/api/login",), oauth=provider)),
+                                                  open_paths=("/api/login",),
+                                                  resource_metadata_url=resource_metadata_url)),
                     host=host, port=port, log_config=None)
     finally:
         log.event("INFO", "boot", "shutdown", mode="http")
@@ -363,36 +359,11 @@ def main() -> None:
     serve_p.add_argument("--public-mcp-path", default=os.environ.get("AIRA_PUBLIC_MCP_PATH") or "/mcp",
                          help="path of the MCP endpoint under --public-url, e.g. /board/mcp; "
                               "default: AIRA_PUBLIC_MCP_PATH or /mcp")
-    keygen_p = sub.add_parser("keygen", help="issue an API key for a client machine")
-    keygen_p.add_argument("name", help="key label, e.g. the machine name")
-    admin_p = sub.add_parser("admin", help="set the FronyBoard dashboard login (id/password)")
-    admin_p.add_argument("username")
-    admin_p.add_argument("password", nargs="?", default=None,
-                         help="omit to be prompted without echo")
     args = parser.parse_args()
 
     if args.command == "serve":
         log.setup()
         serve(args.host, args.port, args.public_url, args.public_mcp_path)
-    elif args.command == "keygen":
-        try:
-            token = auth.generate_key(args.name)
-        except ValueError as e:
-            raise SystemExit(str(e))
-        print(f"API key for '{args.name}' (shown once — store it now):\n\n  {token}\n")
-        print("Register in Claude Code:\n"
-              f'  claude mcp add --transport http --scope user FronyBoard http://<server>:8642/mcp '
-              f'--header "Authorization: Bearer {token}"')
-    elif args.command == "admin":
-        password = args.password
-        if password is None:
-            import getpass
-            password = getpass.getpass("password: ")
-        try:
-            auth.set_admin(args.username, password)
-        except ValueError as e:
-            raise SystemExit(str(e))
-        print(f"dashboard login set for '{args.username.strip()}'")
     else:
         log.setup(stderr=True)  # stdout is the MCP channel — never a log sink
         _boot("stdio")

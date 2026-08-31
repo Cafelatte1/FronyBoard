@@ -1,101 +1,134 @@
-"""API key management and bearer-auth middleware tests."""
+"""Bearer-auth middleware (FronyAuth delegation) and fauth client tests."""
 
-import hashlib
+import json
 
 import pytest
 
-from aira import auth, store
+from aira import auth, fauth
 from conftest import asgi_request
 
 
-def test_keygen_and_verify_roundtrip():
-    assert not auth.has_keys()
-    token = auth.generate_key("pc1")
-    assert token.startswith("frony_")
-    assert auth.has_keys()
-    assert auth.verify_key(token) == "pc1"
-    assert auth.verify_key("aira_wrong") is None
-    assert auth.verify_key(None) is None
-    assert auth.verify_key("") is None
-
-
-def test_keygen_rejects_duplicates_and_stores_only_hash(data_root):
-    token = auth.generate_key("pc1")
-    with pytest.raises(ValueError, match="already exists"):
-        auth.generate_key("pc1")
-    registry = data_root / "frony" / "auth.yaml"
-    assert registry.read_text(encoding="utf-8").count("pc1") == 1
-    assert token not in registry.read_text(encoding="utf-8")
-    assert not (data_root / "auth.yaml").exists()  # keys never touch FronyBoard's own file
-
-
-def test_legacy_keys_move_to_the_shared_registry(data_root):
-    """Keys issued before the registry existed sit in <data root>/auth.yaml — one
-    read moves them over, leaves the admin entry behind, and the key still works."""
-    token = "aira_" + "ab" * 24
-    store.save_yaml(data_root / "auth.yaml", {
-        "keys": [{"name": "old-pc", "sha256": hashlib.sha256(token.encode()).hexdigest(),
-                  "created_at": "2026-08-01 00:00:00"}],
-        "admin": {"username": "admin", "salt": "00", "sha256": "x", "created_at": "2026-08-01 00:00:00"},
-    })
-    assert auth.verify_key(token) == "old-pc"
-    assert "keys" not in store.load_yaml(data_root / "auth.yaml")
-    assert store.load_yaml(data_root / "auth.yaml")["admin"]["username"] == "admin"
-    assert [k["name"] for k in store.load_yaml(data_root / "frony" / "auth.yaml")["keys"]] == ["old-pc"]
-    assert auth.verify_key(token) == "old-pc"  # second read comes from the registry
-    auth.revoke_key("old-pc")
-    assert auth.verify_key(token) is None
-
-
-def _run_middleware(headers: list, path: str = "/mcp",
-                    protected: tuple = ("/",), open_paths: tuple = ()) -> int:
-    """Drive the bare middleware (no app behind it beyond a 200 stub); return the status."""
+def _run_middleware(headers: list, path: str = "/mcp", protected: tuple = ("/",),
+                    open_paths: tuple = (), resource_metadata_url: str | None = None):
+    """Drive the bare middleware (no app behind it beyond a 200 stub)."""
 
     async def inner_app(scope, receive, send):
         await send({"type": "http.response.start", "status": 200, "headers": []})
         await send({"type": "http.response.body", "body": b"ok"})
 
-    middleware = auth.BearerAuthMiddleware(inner_app, protected=protected, open_paths=open_paths)
-    return asgi_request(middleware, "POST", path, headers=headers)[0]
+    middleware = auth.BearerAuthMiddleware(inner_app, protected=protected, open_paths=open_paths,
+                                           resource_metadata_url=resource_metadata_url)
+    return asgi_request(middleware, "POST", path, headers=headers)
 
 
-def test_middleware_rejects_missing_or_bad_key():
-    auth.generate_key("pc1")
-    assert _run_middleware([]) == 401
-    assert _run_middleware([(b"authorization", b"Bearer aira_bogus")]) == 401
-    assert _run_middleware([(b"authorization", b"Basic abc")]) == 401
+def _bearer(token: str) -> list:
+    return [(b"authorization", f"Bearer {token}".encode())]
 
 
-def test_middleware_passes_valid_key():
-    token = auth.generate_key("pc1")
-    assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 200
+def test_middleware_rejects_missing_or_bad_credential(fake_fauth):
+    fake_fauth.keys["pc1"] = "frony_real"
+    assert _run_middleware([])[0] == 401
+    assert _run_middleware(_bearer("aira_bogus"))[0] == 401
+    assert _run_middleware([(b"authorization", b"Basic abc")])[0] == 401
 
 
-def test_middleware_protects_only_listed_prefixes():
-    auth.generate_key("pc1")
+def test_middleware_passes_key_and_oauth_verdicts(fake_fauth):
+    fake_fauth.keys["pc1"] = "frony_real"
+    fake_fauth.oauth["fbat_tok"] = "oauth:Claude:admin"
+    assert _run_middleware(_bearer("frony_real"))[0] == 200
+    assert _run_middleware(_bearer("fbat_tok"))[0] == 200
+
+
+def test_middleware_protects_only_listed_prefixes(fake_fauth):
     protected = ("/mcp", "/api")
-    assert _run_middleware([], path="/", protected=protected) == 200
-    assert _run_middleware([], path="/assets/app.js", protected=protected) == 200
-    assert _run_middleware([], path="/api/projects", protected=protected) == 401
-    assert _run_middleware([], path="/mcp", protected=protected) == 401
+    assert _run_middleware([], path="/", protected=protected)[0] == 200
+    assert _run_middleware([], path="/assets/app.js", protected=protected)[0] == 200
+    assert _run_middleware([], path="/api/projects", protected=protected)[0] == 401
+    assert _run_middleware([], path="/mcp", protected=protected)[0] == 401
     assert _run_middleware([], path="/api/login", protected=protected,
-                           open_paths=("/api/login",)) == 200
+                           open_paths=("/api/login",))[0] == 200
 
 
-def test_admin_roundtrip_and_hash_only(data_root):
-    auth.set_admin("admin", "1234")
-    assert auth.verify_admin("admin", "1234")
-    assert not auth.verify_admin("admin", "wrong")
-    assert not auth.verify_admin("other", "1234")
-    assert "1234" not in (data_root / "auth.yaml").read_text(encoding="utf-8")
-    auth.generate_key("pc1")  # must not wipe the admin entry
-    assert auth.verify_admin("admin", "1234")
+def test_middleware_answers_503_when_fauth_is_down(fake_fauth):
+    fake_fauth.down = True
+    status, _, body = _run_middleware(_bearer("frony_real"))
+    assert status == 503
+    assert "auth service unavailable" in json.loads(body)["error"]
 
 
-def test_session_tokens_pass_middleware_until_dropped():
-    auth.generate_key("pc1")
+def test_401_on_mcp_advertises_resource_metadata(fake_fauth):
+    url = "https://auth.example.ts.net/.well-known/oauth-protected-resource/board/mcp"
+    status, headers, _ = _run_middleware([], path="/mcp", resource_metadata_url=url)
+    assert status == 401
+    assert headers["www-authenticate"] == f'Bearer resource_metadata="{url}"'
+    # only /mcp carries the pointer — an /api 401 does not
+    status, headers, _ = _run_middleware([], path="/api/projects", resource_metadata_url=url)
+    assert status == 401 and "www-authenticate" not in headers
+
+
+def test_session_tokens_pass_middleware_locally_until_dropped(fake_fauth):
+    fake_fauth.down = True  # sessions never touch FronyAuth
     token = auth.create_session()
     assert auth.verify_session(token)
-    assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 200
+    assert _run_middleware(_bearer(token))[0] == 200
     auth.drop_session(token)
-    assert _run_middleware([(b"authorization", f"Bearer {token}".encode())]) == 401
+    assert _run_middleware(_bearer(token))[0] == 503  # falls through to fauth, which is down
+
+
+# -- fauth client: cache and outage behaviour ------------------------------------
+
+
+class _Response:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def _patch_post(monkeypatch, replies):
+    """Replace fauth._post with a scripted responder that counts calls."""
+    calls = []
+
+    async def post(path, payload):
+        calls.append((path, payload))
+        reply = replies[min(len(calls), len(replies)) - 1]
+        if reply is None:
+            raise fauth.Unavailable("down")
+        return _Response(*reply)
+
+    monkeypatch.setattr(fauth, "_post", post)
+    return calls
+
+
+def test_verify_caches_positive_verdicts(monkeypatch):
+    calls = _patch_post(monkeypatch, [(200, {"active": True, "type": "key", "caller": "key:pc1",
+                                             "expires_at": None})])
+    import anyio
+    assert anyio.run(fauth.verify, "frony_x") == "key:pc1"
+    assert anyio.run(fauth.verify, "frony_x") == "key:pc1"
+    assert len(calls) == 1  # second answer came from the cache
+
+
+def test_verify_caches_negatives_and_serves_stale_on_outage(monkeypatch):
+    import anyio
+    calls = _patch_post(monkeypatch, [(200, {"active": False}), None])
+    assert anyio.run(fauth.verify, "frony_x") is None
+    fauth._cache.clear()
+
+    # a cached positive with expired TTL still beats an outage
+    calls = _patch_post(monkeypatch, [(200, {"active": True, "type": "key", "caller": "key:pc1",
+                                             "expires_at": None}), None])
+    assert anyio.run(fauth.verify, "frony_y") == "key:pc1"
+    for digest in fauth._cache:
+        fauth._cache[digest] = (0.0, fauth._cache[digest][1])  # force-expire
+    assert anyio.run(fauth.verify, "frony_y") == "key:pc1"
+    assert len(calls) == 2
+
+
+def test_verify_raises_unavailable_with_no_cache(monkeypatch):
+    import anyio
+    _patch_post(monkeypatch, [None])
+    with pytest.raises(fauth.Unavailable):
+        anyio.run(fauth.verify, "frony_x")
