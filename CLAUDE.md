@@ -23,9 +23,12 @@ FronyBoard: AI 에이전트가 1급 사용자인 프로젝트 트래커 MCP 서�
 
 ## 배포 방식
 
-홈서버(`laptop`, Tailscale `100.108.65.117:8642`)에서 작업 스케줄러 "AIRA Server"로 상시 실행 중.
+홈서버(드래곤플라이 G3, Tailscale `100.67.93.87:8642`)에서 작업 스케줄러 "AIRA Server"로 상시 실행 중.
+같은 머신의 "FronyAuth Server"(`:8640`, project-auth 레포)가 인증을 담당한다 — aira는 모든 bearer 검증을
+FronyAuth introspection에 위임하므로(v0.18.0+, `FRONY_AUTH_URL`/`FRONY_SERVICE_KEY`) FronyAuth 없이는 인증이 안 된다.
 홈서버는 **release 태그(vX.Y.Z) 기준으로만 배포**한다 — main에 push해도 영향 없음.
-배포 절차: 태그 push 후 서버에서 `git fetch --tags` + `git checkout vX.Y.Z` + `uv sync` + 태스크 재시작 (README의 Deploy 섹션 참조).
+배포 절차: 태그 push 후 서버에서 `scripts\deploy.ps1 -Tag vX.Y.Z` (README의 Deploy 섹션 참조).
+키 발급은 `fauth keygen`(또는 대시보드 Settings) — `aira keygen`은 제거됨.
 
 ## 디자인 시안
 
