@@ -114,13 +114,14 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
       pushedDetail.current = true;
     }
   };
-  // A search pick lands on the task's own quarter and opens its panel right away.
-  const [detailFocus, setDetailFocus] = useState<{ period: string; nonce: number } | null>(null);
+  // A search pick lands on the task's own quarter — table paged to the task — and
+  // opens its panel right away.
+  const [detailFocus, setDetailFocus] = useState<{ period: string; taskId: string; nonce: number } | null>(null);
   const focusNonce = useRef(0);
   const openFromSearch = (key: string, task: Task) => {
     openDetail(key);
     focusNonce.current += 1;
-    setDetailFocus({ period: task.period, nonce: focusNonce.current });
+    setDetailFocus({ period: task.period, taskId: task.id, nonce: focusNonce.current });
     setOpenTask({ key, task });
   };
   const closeDetail = () => {

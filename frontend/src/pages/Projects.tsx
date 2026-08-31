@@ -30,8 +30,9 @@ export default function Projects({
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onOpenTask: (key: string, task: Task) => void;
-  /** A search pick: land the detail on this period (nonce remounts on every pick). */
-  focus?: { period: string; nonce: number } | null;
+  /** A search pick: land the detail on this period, paged to this task
+      (nonce remounts on every pick). */
+  focus?: { period: string; taskId?: string; nonce: number } | null;
 }) {
   if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
   return (
@@ -40,6 +41,7 @@ export default function Projects({
       data={data}
       projectKey={openKey}
       initialPeriod={focus?.period ?? null}
+      initialTaskId={focus?.taskId ?? null}
       onBack={() => setOpenKey(null)}
       onOpenTask={(t) => onOpenTask(openKey, t)}
     />
@@ -151,12 +153,14 @@ function ProjectDetail({
   data,
   projectKey,
   initialPeriod,
+  initialTaskId,
   onBack,
   onOpenTask,
 }: {
   data: BoardData;
   projectKey: string;
   initialPeriod?: string | null;
+  initialTaskId?: string | null;
   onBack: () => void;
   onOpenTask: (t: Task) => void;
 }) {
@@ -275,6 +279,7 @@ function ProjectDetail({
         tasks={allTasks.filter((t) => t.period === periodId)}
         tz={data.server.timezone}
         onOpenTask={onOpenTask}
+        initialTaskId={initialTaskId ?? undefined}
       />
     ) : null;
 
@@ -708,17 +713,30 @@ function TaskTable({
   tasks,
   tz,
   onOpenTask,
+  initialTaskId,
 }: {
   name: string;
   period: PeriodStatus;
   tasks: Task[];
   tz: ServerTimezone | undefined;
   onOpenTask: (t: Task) => void;
+  /** Start on the page holding this task (a search pick); cancelled targets un-hide themselves. */
+  initialTaskId?: string;
 }) {
+  const target = initialTaskId ? tasks.find((t) => t.id === initialTaskId) : undefined;
   const [filter, setFilter] = useState<Filter>("all");
-  const [cancelled, setCancelled] = useState(false);
+  const [cancelled, setCancelled] = useState(target?.status === "cancelled");
   const [sort, setSort] = useState<SortKey>("created");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    if (!target) return 1;
+    const list = sortTasks(
+      tasks.filter((t) => target.status === "cancelled" || t.status !== "cancelled"),
+      "created",
+      period.months.map((m) => m.id),
+    );
+    const idx = list.findIndex((t) => t.id === target.id);
+    return idx < 0 ? 1 : Math.floor(idx / ROWS_PER_PAGE) + 1;
+  });
   const [menu, setMenu] = useState<"filter" | "sort" | null>(null);
   const isPhone = useIsPhone();
 
