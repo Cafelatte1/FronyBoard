@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { clearSession, getToken, login } from "./api";
+import SearchBar from "./SearchBar";
 import { currentPeriodName, fmtAgo, useBoardData, useIsPhone } from "./shared";
 import TaskPanel from "./TaskPanel";
 import Dashboard from "./pages/Dashboard";
@@ -107,10 +108,20 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const openDetail = (key: string) => {
     setPage("projects");
     setOpenProject(key);
+    setDetailFocus(null);
     if (detailKeyFromHash() !== key) {
       window.history.pushState(null, "", `#/p/${key}`);
       pushedDetail.current = true;
     }
+  };
+  // A search pick lands on the task's own quarter and opens its panel right away.
+  const [detailFocus, setDetailFocus] = useState<{ period: string; nonce: number } | null>(null);
+  const focusNonce = useRef(0);
+  const openFromSearch = (key: string, task: Task) => {
+    openDetail(key);
+    focusNonce.current += 1;
+    setDetailFocus({ period: task.period, nonce: focusNonce.current });
+    setOpenTask({ key, task });
   };
   const closeDetail = () => {
     setOpenProject(null);
@@ -203,6 +214,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 <h1>{title}</h1>
               </div>
             )}
+            {data && <SearchBar data={data} onPick={openFromSearch} />}
             <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
               <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
@@ -226,6 +238,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 openKey={openProject}
                 setOpenKey={(key) => (key === null ? closeDetail() : openDetail(key))}
                 onOpenTask={(key, task) => setOpenTask({ key, task })}
+                focus={detailFocus}
               />
             )}
             {data && page === "settings" && <Settings data={data} onAuthFail={onAuthFail} />}

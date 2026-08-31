@@ -24,18 +24,22 @@ export default function Projects({
   openKey,
   setOpenKey,
   onOpenTask,
+  focus,
 }: {
   data: BoardData;
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onOpenTask: (key: string, task: Task) => void;
+  /** A search pick: land the detail on this period (nonce remounts on every pick). */
+  focus?: { period: string; nonce: number } | null;
 }) {
   if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
   return (
     <ProjectDetail
-      key={openKey}
+      key={focus ? `${openKey}:${focus.nonce}` : openKey}
       data={data}
       projectKey={openKey}
+      initialPeriod={focus?.period ?? null}
       onBack={() => setOpenKey(null)}
       onOpenTask={(t) => onOpenTask(openKey, t)}
     />
@@ -146,11 +150,13 @@ function landingPeriod(year: string, status: StatusResp): string | null {
 function ProjectDetail({
   data,
   projectKey,
+  initialPeriod,
   onBack,
   onOpenTask,
 }: {
   data: BoardData;
   projectKey: string;
+  initialPeriod?: string | null;
   onBack: () => void;
   onOpenTask: (t: Task) => void;
 }) {
@@ -166,8 +172,9 @@ function ProjectDetail({
   const years = [...new Set([...Object.keys(roadmap?.years ?? {}), ...periodNames.map((n) => n.slice(0, 4))])].sort();
   const currentYear = current?.slice(0, 4) ?? years[years.length - 1] ?? null;
 
-  const [year, setYear] = useState<string | null>(currentYear);
-  const [periodId, setPeriodId] = useState<string | null>(current);
+  const startPeriod = initialPeriod && status.periods[initialPeriod] ? initialPeriod : current;
+  const [year, setYear] = useState<string | null>(startPeriod?.slice(0, 4) ?? currentYear);
+  const [periodId, setPeriodId] = useState<string | null>(startPeriod);
 
   const selectPeriod = (id: string) => {
     setPeriodId(id);
