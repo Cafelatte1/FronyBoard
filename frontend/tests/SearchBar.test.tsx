@@ -34,7 +34,7 @@ describe("SearchBar (desktop)", () => {
     expect(screen.getByRole("button", { name: "로깅" })).toBeInTheDocument();
   });
 
-  it("groups matches by project and folds them to four rows", async () => {
+  it("groups matches by project and folds them to five rows", async () => {
     const { input } = setup();
     await userEvent.type(input, "정리");
     expect(screen.getByText("태스크 4건")).toBeInTheDocument();

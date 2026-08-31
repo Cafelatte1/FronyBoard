@@ -199,7 +199,7 @@ function Panel({
       </div>
       <div className="gs-list">
         {groups.map((g) => {
-          const rows = expanded.includes(g.key) ? g.rows : g.rows.slice(0, 4);
+          const rows = expanded.includes(g.key) ? g.rows : g.rows.slice(0, PREVIEW_ROWS);
           return (
             <div key={g.key}>
               <div className="gs-ghead">
@@ -309,6 +309,9 @@ function ClearButton({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
+
+/** Rows shown per project group before "모두 보기" expands it. */
+const PREVIEW_ROWS = 5;
 
 const RECENT_KEY = "fb.recentSearches";
 
