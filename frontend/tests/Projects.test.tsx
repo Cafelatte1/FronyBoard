@@ -82,6 +82,28 @@ describe("project detail task table", () => {
     expect(screen.getByText(/아직 기간 파일의 태스크가 없어요/)).toBeInTheDocument();
   });
 
+  it("starts on the page holding the focused task after a search pick", () => {
+    const tasks = Array.from({ length: 12 }, (_, i) =>
+      makeTask({ id: `DLY-${String(i + 1).padStart(3, "0")}`, title: `task ${i + 1}` }),
+    );
+    render(
+      <Projects data={makeBoard(tasks)} openKey="DLY" focus={{ period: "2026Q3", taskId: "DLY-012", nonce: 1 }} {...noop} />,
+    );
+    expect(screen.getByText("11–12 / 12")).toBeInTheDocument();
+    expect(screen.getByText("task 12")).toBeInTheDocument();
+  });
+
+  it("un-hides cancelled tasks when the focused task is cancelled", () => {
+    const tasks = [
+      makeTask(),
+      makeTask({ id: "DLY-002", title: "dropped", status: "cancelled", cancel_reason: "x" }),
+    ];
+    render(
+      <Projects data={makeBoard(tasks)} openKey="DLY" focus={{ period: "2026Q3", taskId: "DLY-002", nonce: 1 }} {...noop} />,
+    );
+    expect(screen.getByText("dropped")).toBeInTheDocument();
+  });
+
   it("pages long lists ten rows at a time", () => {
     renderDetail(
       Array.from({ length: 12 }, (_, i) =>
