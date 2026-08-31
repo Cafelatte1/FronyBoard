@@ -27,6 +27,12 @@ FronyBoard: AI 에이전트가 1급 사용자인 프로젝트 트래커 MCP 서�
 홈서버는 **release 태그(vX.Y.Z) 기준으로만 배포**한다 — main에 push해도 영향 없음.
 배포 절차: 태그 push 후 서버에서 `git fetch --tags` + `git checkout vX.Y.Z` + `uv sync` + 태스크 재시작 (README의 Deploy 섹션 참조).
 
+## 디자인 시안
+
+UI 목업은 Claude Design의 "FronyBoard" 프로젝트에 있다 — 아트보드 파일은 `FronyBoard_YYYYMMDD.dc.html`, 최신 날짜가 기준.
+Claude Code에서는 DesignSync 툴로 읽는다: projectId `2290d769-da3c-4fcb-846e-25d0045d8c88`에 `list_files` / `get_file`.
+`list_projects`에는 design-system 프로젝트만 나오므로 이 projectId를 직접 써야 하고, 세션 최초 1회 `/design-login` 승인이 필요하다.
+
 ## FronyBoard
 
 This project is tracked by FronyBoard (project key: AIR).
