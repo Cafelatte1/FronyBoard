@@ -2,10 +2,10 @@
 
 import hashlib
 
-import anyio
 import pytest
 
 from aira import auth, store
+from conftest import asgi_request
 
 
 def test_keygen_and_verify_roundtrip():
@@ -49,24 +49,14 @@ def test_legacy_keys_move_to_the_shared_registry(data_root):
 
 def _run_middleware(headers: list, path: str = "/mcp",
                     protected: tuple = ("/",), open_paths: tuple = ()) -> int:
-    """Drive the ASGI middleware with a minimal http scope; return the response status."""
+    """Drive the bare middleware (no app behind it beyond a 200 stub); return the status."""
 
     async def inner_app(scope, receive, send):
         await send({"type": "http.response.start", "status": 200, "headers": []})
         await send({"type": "http.response.body", "body": b"ok"})
 
-    events = []
-
-    async def send(event):
-        events.append(event)
-
-    async def receive():
-        return {"type": "http.request", "body": b"", "more_body": False}
-
-    scope = {"type": "http", "method": "POST", "path": path, "headers": headers}
     middleware = auth.BearerAuthMiddleware(inner_app, protected=protected, open_paths=open_paths)
-    anyio.run(lambda: middleware(scope, receive, send))
-    return next(e["status"] for e in events if e["type"] == "http.response.start")
+    return asgi_request(middleware, "POST", path, headers=headers)[0]
 
 
 def test_middleware_rejects_missing_or_bad_key():

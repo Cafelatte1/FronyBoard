@@ -8,12 +8,12 @@ import re
 import secrets
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import anyio
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from aira import auth, oauth, store
+from conftest import asgi_request as _request
 
 PUBLIC = "https://board.example.ts.net"
 REDIRECT = "https://app.example/cb"
@@ -25,35 +25,6 @@ def _app(provider):
 
     inner = Starlette(routes=[*oauth.routes(provider), Route("/mcp", mcp_stub, methods=["POST"])])
     return auth.with_mcp_cors(auth.BearerAuthMiddleware(inner, protected=("/mcp",), oauth=provider))
-
-
-def _request(app, method, path, query="", headers=None, json_body=None, form=None):
-    events = []
-    hdrs = list(headers or [])
-    if json_body is not None:
-        payload = json.dumps(json_body).encode()
-        hdrs.append((b"content-type", b"application/json"))
-    elif form is not None:
-        payload = urlencode(form).encode()
-        hdrs.append((b"content-type", b"application/x-www-form-urlencoded"))
-    else:
-        payload = b""
-    hdrs.append((b"content-length", str(len(payload)).encode()))
-
-    async def send(event):
-        events.append(event)
-
-    async def receive():
-        return {"type": "http.request", "body": payload, "more_body": False}
-
-    scope = {"type": "http", "method": method, "path": path, "raw_path": path.encode(),
-             "query_string": query.encode(), "scheme": "https", "headers": hdrs,
-             "server": ("test", 443), "client": ("test", 1), "root_path": ""}
-    anyio.run(lambda: app(scope, receive, send))
-    start = next(e for e in events if e["type"] == "http.response.start")
-    out_headers = {k.decode().lower(): v.decode() for k, v in start["headers"]}
-    body = b"".join(e.get("body", b"") for e in events if e["type"] == "http.response.body")
-    return start["status"], out_headers, body
 
 
 def _handoff(body):
@@ -178,20 +149,19 @@ def test_full_flow_login_token_refresh_revoke(data_root):
     assert login_url.startswith(PUBLIC + "/oauth/login?txn=")
     txn = parse_qs(urlparse(login_url).query)["txn"][0]
     status, headers, body = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
-    text = body.decode()
-    assert status == 200 and "Claude가<br>Frony 연결을 요청합니다" in text
+    assert status == 200 and f"name='txn' value='{txn}'" in body.decode()  # the login form
     assert headers["cache-control"] == "no-store"
 
     # wrong password re-renders the form with the attempt count; the right one
     # shows the "connected" screen and hands the browser back with a code
     status, _, body = _request(app, "POST", "/oauth/login",
                                form={"txn": txn, "username": "admin", "password": "nope"})
-    assert status == 200 and "아이디 또는 비밀번호가 맞지 않아요. (1/5)" in body.decode()
+    assert status == 200 and "class='err'" in body.decode() and "(1/5)" in body.decode()
     status, _, body = _request(app, "POST", "/oauth/login",
                                   form={"txn": txn, "username": "admin", "password": "pw"})
     assert status == 200
     text = body.decode()
-    assert "연결 완료" in text and "Claude로 돌아가는 중입니다" in text
+    assert "class='result done'" in text
     assert "→ app.example/cb?code=…" in text          # the code itself is not on the page
     back = urlparse(_handoff(body))
     assert f"{back.scheme}://{back.netloc}{back.path}" == REDIRECT
@@ -203,8 +173,7 @@ def test_full_flow_login_token_refresh_revoke(data_root):
 
     # the txn is single-use
     status, _, body = _request(app, "GET", "/oauth/login", query=f"txn={txn}")
-    assert status == 400 and "요청이 만료됐어요" in body.decode()
-    assert f"txn_{txn[:6]} · expired" in body.decode()
+    assert status == 400 and "class='result expired'" in body.decode()
 
     # code -> tokens (PKCE checked by the SDK)
     tokens = _tokens(app, client_id, code, verifier)
@@ -311,7 +280,7 @@ def test_denying_sends_the_app_access_denied(data_root):
     _, challenge = _pkce()
     txn = parse_qs(urlparse(_login_url(app, client_id, challenge)).query)["txn"][0]
     status, _, body = _request(app, "POST", "/oauth/deny", form={"txn": txn})
-    assert status == 200 and "연결을 거부했습니다" in body.decode()
+    assert status == 200 and "class='result denied'" in body.decode()
     back = urlparse(_handoff(body))
     assert f"{back.scheme}://{back.netloc}{back.path}" == REDIRECT
     assert parse_qs(back.query) == {"error": ["access_denied"], "state": ["xyz"]}
@@ -322,7 +291,7 @@ def test_denying_sends_the_app_access_denied(data_root):
         store.load_yaml(data_root / "frony" / "oauth.yaml").get("grants", []) == []
 
 
-def test_login_locks_after_repeated_failures():
+def test_oauth_login_locks_after_repeated_failures():
     auth.set_admin("admin", "pw")
     provider = oauth.Provider(PUBLIC)
     app = _app(provider)
@@ -337,10 +306,10 @@ def test_login_locks_after_repeated_failures():
     # the last strike locks right away, and even the right password is refused after that
     status, _, body = _request(app, "POST", "/oauth/login",
                                form={"txn": txn, "username": "admin", "password": "nope"})
-    assert status == 429 and f"로그인 실패가 {limit}회에 도달했습니다" in body.decode()
+    assert status == 429 and "class='result locked'" in body.decode()
     status, _, body = _request(app, "POST", "/oauth/login",
                                form={"txn": txn, "username": "admin", "password": "pw"})
-    assert status == 429 and f"HTTP 429 · 15분 / {limit}회 제한" in body.decode()
+    assert status == 429 and "class='result locked'" in body.decode()
 
 
 def test_public_url_must_be_https():

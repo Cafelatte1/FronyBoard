@@ -2,33 +2,17 @@
 
 import json
 
-import anyio
 from starlette.applications import Starlette
 
 from aira import auth, service, web
-from conftest import bootstrap
+from conftest import asgi_request, bootstrap
 
 
 def _request(method, path, query="", body=None, token=None):
     app = Starlette(routes=web.api_routes())
-    events = []
-    payload = json.dumps(body).encode() if body is not None else b""
-
-    async def send(event):
-        events.append(event)
-
-    async def receive():
-        return {"type": "http.request", "body": payload, "more_body": False}
-
-    headers = [(b"content-type", b"application/json")] if body is not None else []
-    if token is not None:
-        headers.append((b"authorization", f"Bearer {token}".encode()))
-    scope = {"type": "http", "method": method, "path": path, "raw_path": path.encode(),
-             "query_string": query.encode(), "scheme": "http", "headers": headers,
-             "server": ("test", 80), "client": ("test", 1), "root_path": ""}
-    anyio.run(lambda: app(scope, receive, send))
-    status = next(e["status"] for e in events if e["type"] == "http.response.start")
-    raw = b"".join(e.get("body", b"") for e in events if e["type"] == "http.response.body")
+    headers = [(b"authorization", f"Bearer {token}".encode())] if token is not None else []
+    status, _, raw = asgi_request(app, method, path, query=query, headers=headers,
+                                  json_body=body, scheme="http")
     return status, json.loads(raw) if raw else None
 
 
@@ -171,7 +155,7 @@ def test_unknown_project_is_404():
     assert "error" in body
 
 
-def test_login_locks_after_repeated_failures():
+def test_dashboard_login_locks_after_repeated_failures():
     auth.set_admin("admin", "pw")
     for _ in range(auth.login_throttle.limit):
         status, _ = _request("POST", "/api/login", body={"username": "admin", "password": "nope"})
