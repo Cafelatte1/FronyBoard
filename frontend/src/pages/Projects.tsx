@@ -286,51 +286,36 @@ function ProjectDetail({
   if (isPhone) {
     return (
       <>
-        {/* sticky, not fixed: .content is the scroller, so this rides its top edge */}
-        <div className="pdet-head">
-          <div className="pdet-top">
-            <button className="pdet-back" onClick={onBack} title="프로젝트 목록" aria-label="프로젝트 목록">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 4.5 6.5 10l5.5 5.5" />
-              </svg>
-            </button>
-            <span className="pdet-ident">
-              <span className="id-chip">{projectKey}</span>
-              <span className="pdet-name">{status.name ?? projectKey}</span>
-            </span>
-            <button
-              className={`pdet-info ${sheet ? "on" : ""}`}
-              onClick={() => setSheet(true)}
-              title="프로젝트 정보"
-              aria-label="프로젝트 정보"
-            >
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                <circle cx="10" cy="10" r="7.4" />
-                <path d="M10 13.7V9.3M10 6.6h.01" />
-              </svg>
-            </button>
-          </div>
-
+        {/* the back button and project identity live in the app header (App.tsx);
+            here only the period stepper remains, as a standalone segmented control */}
+        <div className="pdet-qrow">
           {periodId && period && (
-            <div className="pdet-period">
+            <div className="pdet-qnav">
               <button className="pdet-nav" disabled={!older} onClick={() => older && selectPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
               </button>
-              <span className="pdet-period-mid">
+              <span className="pdet-qmid">
                 <span className="pdet-period-id">{periodId}</span>
-                <MilestoneChip status={period.milestone_status} />
                 <span className="pdet-period-ratio">
-                  {periodRatio.done}/{periodRatio.total}
+                  {periodRatio.done}/{periodRatio.total} · {periodRatio.pct}%
                 </span>
               </span>
               <button className="pdet-nav" disabled={!newer} onClick={() => newer && selectPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
               </button>
-              <span className="pdet-progress">
-                <span className="pdet-progress-fill" style={{ width: `${periodRatio.pct}%` }} />
-              </span>
             </div>
           )}
+          <button
+            className={`pdet-info ${sheet ? "on" : ""}`}
+            onClick={() => setSheet(true)}
+            title="프로젝트 정보"
+            aria-label="프로젝트 정보"
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <circle cx="10" cy="10" r="7.4" />
+              <path d="M10 13.7V9.3M10 6.6h.01" />
+            </svg>
+          </button>
         </div>
 
         {table ?? <p className="muted">열린 분기가 없어요 — ⓘ 를 눌러 프로젝트 정보를 볼 수 있어요.</p>}

@@ -169,7 +169,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
     }
   };
   const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
-  // The phone detail screen owns its whole chrome: no app header, no tab bar.
+  // On a phone the detail keeps the app header (switched to back + project identity)
+  // but still hides the tab bar — back is the way out.
   const phoneDetail = isPhone && openProject !== null;
   const version = data?.server.version ?? "…";
 
@@ -178,18 +179,31 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
       <div className="ambient" />
       <div className={`shell ${menuOpen ? "open" : ""}`}>
         <main className="main">
-          {/* The phone's project detail draws its own two-row header (project + period
-              stepper), so the app header steps aside entirely on that one screen. */}
-          {!phoneDetail && (
+          {/* On a phone the header stays through the project detail, swapping the
+              brand for back + project identity so search and sync remain reachable. */}
           <header className="head">
             {isPhone ? (
-              <div className="head-brand">
-                <FronyMark />
-                <span className="logo-text">
-                  <span className="logo-frony">FRONY</span>
-                  <span className="logo-name">Board</span>
-                </span>
-              </div>
+              phoneDetail ? (
+                <>
+                  <button className="head-back" onClick={closeDetail} title="프로젝트 목록" aria-label="프로젝트 목록">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 4.5 6.5 10l5.5 5.5" />
+                    </svg>
+                  </button>
+                  <span className="head-ident">
+                    <span className="id-chip">{openProject}</span>
+                    <span className="head-detail-name">{detailName}</span>
+                  </span>
+                </>
+              ) : (
+                <div className="head-brand">
+                  <FronyMark />
+                  <span className="logo-text">
+                    <span className="logo-frony">FRONY</span>
+                    <span className="logo-name">Board</span>
+                  </span>
+                </div>
+              )
             ) : (
               <button className="menu-btn" onClick={() => setMenuOpen(true)} title="메뉴 열기" aria-label="메뉴 열기">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -198,7 +212,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </button>
             )}
             {isPhone ? (
-              <span className="head-spacer" />
+              !phoneDetail && <span className="head-spacer" />
             ) : (
               <div className="head-titles">
                 <div className="head-meta">
@@ -224,7 +238,6 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
             </button>
           </header>
-          )}
 
           <div className={`content ${phoneDetail ? "detail" : ""}`}>
             {isPhone && !phoneDetail && <h1 className="page-title">{title}</h1>}

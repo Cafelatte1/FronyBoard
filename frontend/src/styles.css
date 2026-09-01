@@ -2884,7 +2884,8 @@ button.task-grid:hover {
     grid-template-columns: 1fr;
   }
 
-  /* ---- header: brand + sync (the project detail draws its own) ---- */
+  /* ---- header: brand + sync; on the project detail the brand gives way to
+     back + project identity, keeping search and sync reachable ---- */
   .head {
     gap: var(--s-3);
     padding: 0 var(--s-3);
@@ -2900,6 +2901,49 @@ button.task-grid:hover {
 
   .head-spacer {
     flex: 1;
+  }
+
+  .head-back {
+    flex: none;
+    width: var(--hit-min);
+    height: var(--hit-min);
+    margin-left: -10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text);
+  }
+
+  .head-back svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .head-ident {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .head-ident .id-chip {
+    flex: none;
+    font-weight: 700;
+  }
+
+  .head-detail-name {
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* same stacked lockup as the drawer, one step down */
@@ -2956,13 +3000,9 @@ button.task-grid:hover {
     scrollbar-gutter: auto;
   }
 
-  /* The project detail packs more in, so it runs tighter gutters than the rest.
-     No padding-top: a sticky child is confined to its containing block, so any
-     top padding on the scroller would park .pdet-head that far down the screen
-     and let the list scroll through the gap above it. The 12px below the header
-     is the flex gap instead. */
+  /* The project detail packs more in, so it runs tighter gutters than the rest. */
   .content.detail {
-    padding: 0 12px 24px;
+    padding: var(--s-4) 12px 24px;
     gap: var(--gap);
   }
 
@@ -3208,29 +3248,36 @@ button.task-grid:hover {
     font-weight: 700;
   }
 
-  /* ---- phone project detail: its own two-row header ---- */
-  .pdet-head {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    /* .content.detail has no top padding, so top: 0 is already the screen edge;
-       the side margins bleed the bar out to the full width. */
-    margin: 0 -12px;
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .pdet-top {
-    height: 52px;
+  /* ---- phone project detail: period stepper as a standalone segmented control,
+     with the (i) info button riding alongside ---- */
+  .pdet-qrow {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 8px 0 2px;
+    gap: 6px;
   }
 
-  .pdet-back,
+  .pdet-qnav {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-sizing: border-box;
+  }
+
+  .pdet-qmid {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
   .pdet-info {
     flex: none;
     width: var(--hit-min);
@@ -3248,47 +3295,9 @@ button.task-grid:hover {
     color: var(--on-accent-subtle);
   }
 
-  .pdet-back svg {
-    width: 20px;
-    height: 20px;
-  }
-
   .pdet-info svg {
     width: 19px;
     height: 19px;
-  }
-
-  .pdet-ident {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .pdet-ident .id-chip {
-    flex: none;
-    font-weight: 700;
-  }
-
-  .pdet-name {
-    min-width: 0;
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* the period stepper is a row of its own, with the ratio drawn as a 2px underline */
-  .pdet-period {
-    position: relative;
-    height: 46px;
-    display: flex;
-    align-items: center;
-    padding: 0 8px;
-    border-top: 1px solid var(--border);
   }
 
   .pdet-nav {
@@ -3313,22 +3322,9 @@ button.task-grid:hover {
     height: 17px;
   }
 
-  .pdet-period-mid .chip {
-    padding: 2px 8px;
-  }
-
-  .pdet-period-mid {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
   .pdet-period-id {
     font-family: var(--font-mono);
-    font-size: var(--t-body);
+    font-size: var(--t-caption);
     font-weight: 700;
     letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
@@ -3340,21 +3336,6 @@ button.task-grid:hover {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
-  }
-
-  .pdet-progress {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: var(--surface-raised);
-  }
-
-  .pdet-progress-fill {
-    display: block;
-    height: 100%;
-    background: var(--gradient);
   }
 
   /* ---- the info sheet behind the (i) button ---- */
