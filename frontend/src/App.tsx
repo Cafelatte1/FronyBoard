@@ -105,9 +105,14 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // The phone detail's ⓘ sheet: its button lives in the app header (it replaces
+  // the sync button there), so the open state lives here too.
+  const [infoOpen, setInfoOpen] = useState(false);
+
   const openDetail = (key: string) => {
     setPage("projects");
     setOpenProject(key);
+    setInfoOpen(false);
     setDetailFocus(null);
     if (detailKeyFromHash() !== key) {
       window.history.pushState(null, "", `#/p/${key}`);
@@ -126,6 +131,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   };
   const closeDetail = () => {
     setOpenProject(null);
+    setInfoOpen(false);
     if (!detailKeyFromHash()) return;
     if (pushedDetail.current) {
       pushedDetail.current = false;
@@ -230,13 +236,28 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </div>
             )}
             {data && <SearchBar data={data} onPick={openFromSearch} />}
-            <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
-              <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
-                <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
-            </button>
+            {phoneDetail ? (
+              /* the detail swaps sync out for the project-info button, per the mock */
+              <button
+                className={`head-info ${infoOpen ? "on" : ""}`}
+                onClick={() => setInfoOpen(true)}
+                title="프로젝트 정보"
+                aria-label="프로젝트 정보"
+              >
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <circle cx="10" cy="10" r="7.4" />
+                  <path d="M10 13.7V9.3M10 6.6h.01" />
+                </svg>
+              </button>
+            ) : (
+              <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
+                <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
+                  <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
+              </button>
+            )}
           </header>
 
           <div className={`content ${phoneDetail ? "detail" : ""}`}>
@@ -253,6 +274,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 setOpenKey={(key) => (key === null ? closeDetail() : openDetail(key))}
                 onOpenTask={(key, task) => setOpenTask({ key, task })}
                 focus={detailFocus}
+                infoOpen={infoOpen}
+                onCloseInfo={() => setInfoOpen(false)}
               />
             )}
             {data && page === "settings" && <Settings data={data} onAuthFail={onAuthFail} />}

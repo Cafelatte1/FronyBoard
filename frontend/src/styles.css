@@ -2946,6 +2946,31 @@ button.task-grid:hover {
     white-space: nowrap;
   }
 
+  /* the detail's ⓘ button, sitting where sync sits on the other screens */
+  .head-info {
+    flex: none;
+    width: var(--hit-min);
+    height: var(--hit-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .head-info.on {
+    background: var(--accent-subtle);
+    color: var(--on-accent-subtle);
+  }
+
+  .head-info svg {
+    width: 19px;
+    height: 19px;
+  }
+
   /* same stacked lockup as the drawer, one step down */
   .logo-text {
     gap: 1px;
@@ -3248,14 +3273,7 @@ button.task-grid:hover {
     font-weight: 700;
   }
 
-  /* ---- phone project detail: period stepper as a standalone segmented control,
-     with the (i) info button riding alongside ---- */
-  .pdet-qrow {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
+  /* ---- phone project detail: period stepper as a standalone segmented control ---- */
   .pdet-qnav {
     flex: 1;
     min-width: 0;
@@ -3301,28 +3319,6 @@ button.task-grid:hover {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--on-accent-subtle);
-  }
-
-  .pdet-info {
-    flex: none;
-    width: var(--hit-min);
-    height: var(--hit-min);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-  }
-
-  .pdet-info.on {
-    color: var(--on-accent-subtle);
-  }
-
-  .pdet-info svg {
-    width: 19px;
-    height: 19px;
   }
 
   .pdet-nav {

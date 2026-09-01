@@ -25,6 +25,8 @@ export default function Projects({
   setOpenKey,
   onOpenTask,
   focus,
+  infoOpen,
+  onCloseInfo,
 }: {
   data: BoardData;
   openKey: string | null;
@@ -33,6 +35,9 @@ export default function Projects({
   /** A search pick: land the detail on this period, paged to this task
       (nonce remounts on every pick). */
   focus?: { period: string; taskId?: string; nonce: number } | null;
+  /** The phone detail's ⓘ sheet — its button sits in the app header, so App owns the state. */
+  infoOpen?: boolean;
+  onCloseInfo?: () => void;
 }) {
   if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
   return (
@@ -44,6 +49,8 @@ export default function Projects({
       initialTaskId={focus?.taskId ?? null}
       onBack={() => setOpenKey(null)}
       onOpenTask={(t) => onOpenTask(openKey, t)}
+      infoOpen={infoOpen ?? false}
+      onCloseInfo={onCloseInfo ?? (() => {})}
     />
   );
 }
@@ -156,6 +163,8 @@ function ProjectDetail({
   initialTaskId,
   onBack,
   onOpenTask,
+  infoOpen,
+  onCloseInfo,
 }: {
   data: BoardData;
   projectKey: string;
@@ -163,9 +172,10 @@ function ProjectDetail({
   initialTaskId?: string | null;
   onBack: () => void;
   onOpenTask: (t: Task) => void;
+  infoOpen: boolean;
+  onCloseInfo: () => void;
 }) {
   const isPhone = useIsPhone();
-  const [sheet, setSheet] = useState(false);
   const status = data.statuses[projectKey];
   const ref = data.projects.find((p) => p.key === projectKey);
   const roadmap = data.roadmaps[projectKey];
@@ -286,11 +296,10 @@ function ProjectDetail({
   if (isPhone) {
     return (
       <>
-        {/* the back button and project identity live in the app header (App.tsx);
-            here only the period stepper remains, as a standalone segmented control */}
-        <div className="pdet-qrow">
-          {periodId && period && (
-            <div className="pdet-qnav">
+        {/* the back button, project identity and the ⓘ info button live in the app
+            header (App.tsx); here only the period stepper remains, standalone */}
+        {periodId && period && (
+          <div className="pdet-qnav">
               <button className="pdet-nav" disabled={!older} onClick={() => older && selectPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
               </button>
@@ -306,25 +315,13 @@ function ProjectDetail({
               <button className="pdet-nav" disabled={!newer} onClick={() => newer && selectPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
               </button>
-            </div>
-          )}
-          <button
-            className={`pdet-info ${sheet ? "on" : ""}`}
-            onClick={() => setSheet(true)}
-            title="프로젝트 정보"
-            aria-label="프로젝트 정보"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              <circle cx="10" cy="10" r="7.4" />
-              <path d="M10 13.7V9.3M10 6.6h.01" />
-            </svg>
-          </button>
-        </div>
+          </div>
+        )}
 
         {table ?? <p className="muted">열린 분기가 없어요 — ⓘ 를 눌러 프로젝트 정보를 볼 수 있어요.</p>}
 
-        {sheet && (
-          <InfoSheet onClose={() => setSheet(false)}>
+        {infoOpen && (
+          <InfoSheet onClose={onCloseInfo}>
             <span className="pdet-desc">
               {ref?.description ?? "설명이 아직 없어요 — update_project로 추가할 수 있어요."}
             </span>
