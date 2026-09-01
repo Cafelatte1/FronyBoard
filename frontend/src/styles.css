@@ -3274,8 +3274,33 @@ button.task-grid:hover {
     min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: 6px;
+    padding: 0 2px;
+  }
+
+  .pdet-qmid .pdet-period-id {
+    text-align: center;
+  }
+
+  /* the ratio row: gradient bar with the percentage riding its right edge */
+  .pdet-qbar {
+    display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 8px;
+  }
+
+  .pdet-qbar-track {
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+  }
+
+  .pdet-qpct {
+    flex: none;
+    font-size: var(--t-meta);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-accent-subtle);
   }
 
   .pdet-info {
@@ -3328,14 +3353,6 @@ button.task-grid:hover {
     font-weight: 700;
     letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
-  }
-
-  .pdet-period-ratio {
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
   }
 
   /* ---- the info sheet behind the (i) button ---- */

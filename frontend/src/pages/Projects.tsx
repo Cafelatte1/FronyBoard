@@ -296,8 +296,11 @@ function ProjectDetail({
               </button>
               <span className="pdet-qmid">
                 <span className="pdet-period-id">{periodId}</span>
-                <span className="pdet-period-ratio">
-                  {periodRatio.done}/{periodRatio.total} · {periodRatio.pct}%
+                <span className="pdet-qbar">
+                  <span className="bar pdet-qbar-track">
+                    <span className="bar-fill" style={{ width: `${periodRatio.pct}%` }} />
+                  </span>
+                  <span className="pdet-qpct">{periodRatio.pct}%</span>
                 </span>
               </span>
               <button className="pdet-nav" disabled={!newer} onClick={() => newer && selectPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
