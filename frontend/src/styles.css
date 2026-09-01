@@ -1884,6 +1884,9 @@ svg.logo-mark {
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   background: var(--surface);
+  /* keeps room for the filter/sort dropdown (~294px from card top)
+     so a short task list never clips the open menu */
+  min-height: 300px;
 }
 
 .table-top {
