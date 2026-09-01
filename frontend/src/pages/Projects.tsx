@@ -702,8 +702,20 @@ function pageNums(pageNo: number, pageCount: number, max: number): number[] {
   const start = Math.min(Math.max(1, pageNo - Math.floor(max / 2)), pageCount - max + 1);
   return Array.from({ length: max }, (_, k) => start + k);
 }
-const FILTERS = ["all", "in_progress", "todo", "blocked", "done"] as const;
+const FILTERS = ["all", "in_progress", "todo", "blocked", "done", "cancelled"] as const;
 type Filter = (typeof FILTERS)[number];
+
+/** Menu/button colours per filter key — "전체" and "취소됨" are not regular status chips. */
+function filterDot(f: Filter): string {
+  if (f === "all") return "var(--text-muted)";
+  if (f === "cancelled") return "var(--text-disabled)";
+  return TASK_ST[f].swatch;
+}
+function filterLabel(f: Filter): string {
+  if (f === "all") return "전체";
+  if (f === "cancelled") return "취소됨";
+  return TASK_ST[f].label;
+}
 
 /** The task table of one period, with its own filter / sort / page state
     (reset whenever the period changes — see key=). */
@@ -720,20 +732,15 @@ function TaskTable({
   tasks: Task[];
   tz: ServerTimezone | undefined;
   onOpenTask: (t: Task) => void;
-  /** Start on the page holding this task (a search pick); cancelled targets un-hide themselves. */
+  /** Start on the page holding this task (a search pick). */
   initialTaskId?: string;
 }) {
   const target = initialTaskId ? tasks.find((t) => t.id === initialTaskId) : undefined;
-  const [filter, setFilter] = useState<Filter>("all");
-  const [cancelled, setCancelled] = useState(target?.status === "cancelled");
+  const [statuses, setStatuses] = useState<Filter[]>([]);
   const [sort, setSort] = useState<SortKey>("created");
   const [page, setPage] = useState(() => {
     if (!target) return 1;
-    const list = sortTasks(
-      tasks.filter((t) => target.status === "cancelled" || t.status !== "cancelled"),
-      "created",
-      period.months.map((m) => m.id),
-    );
+    const list = sortTasks(tasks, "created", period.months.map((m) => m.id));
     const idx = list.findIndex((t) => t.id === target.id);
     return idx < 0 ? 1 : Math.floor(idx / ROWS_PER_PAGE) + 1;
   });
@@ -750,9 +757,7 @@ function TaskTable({
   }, [menu]);
 
   const counts = countBy(tasks);
-  const visible = tasks.filter(
-    (t) => (cancelled || t.status !== "cancelled") && (filter === "all" || t.status === filter),
-  );
+  const visible = tasks.filter((t) => statuses.length === 0 || statuses.includes(t.status as Filter));
   const sorted = sortTasks(visible, sort, period.months.map((m) => m.id));
   const pageCount = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
   const pageNo = Math.min(page, pageCount);
@@ -769,6 +774,18 @@ function TaskTable({
     setMenu(null);
   };
 
+  // Multi-select: "전체" clears the selection, and picking every status folds back
+  // to 전체. The menu stays open so several statuses can be toggled in one visit.
+  const toggleStatus = (f: Filter) => {
+    setStatuses((cur) => {
+      if (f === "all") return [];
+      const next = cur.includes(f) ? cur.filter((k) => k !== f) : [...cur, f];
+      return next.length >= FILTERS.length - 1 ? [] : next;
+    });
+    setPage(1);
+  };
+  const selFilters = FILTERS.filter((f) => f !== "all" && statuses.includes(f));
+
   return (
     <>
       {menu && <div className="menu-overlay" onClick={() => setMenu(null)} />}
@@ -784,7 +801,7 @@ function TaskTable({
 
           <span className="tool">
             <button
-              className={`filter-btn ${filter !== "all" || cancelled ? "on" : ""}`}
+              className={`filter-btn ${statuses.length > 0 ? "on" : ""}`}
               onClick={() => setMenu(menu === "filter" ? null : "filter")}
               title="필터"
             >
@@ -793,28 +810,26 @@ function TaskTable({
               </svg>
               필터
               <span className="dots">
-                <span className="fdot" style={{ background: filter === "all" ? "var(--text-muted)" : TASK_ST[filter].swatch }} />
-                {cancelled && <span className="fdot off" />}
+                {(statuses.length > 0 ? selFilters.slice(0, 3) : (["all"] as const)).map((f) => (
+                  <span key={f} className="fdot" style={{ background: filterDot(f) }} />
+                ))}
+                {selFilters.length > 3 && <span className="fmore">+{selFilters.length - 3}</span>}
               </span>
             </button>
             {menu === "filter" && (
               <div className="menu">
                 <span className="menu-cap">상태</span>
                 {FILTERS.map((f) => (
-                  <button key={f} className={`menu-item ${filter === f ? "on" : ""}`} onClick={() => pick(setFilter)(f)}>
-                    <span className="dot" style={{ background: f === "all" ? "var(--text-muted)" : TASK_ST[f].swatch }} />
-                    <span className="grow">{f === "all" ? "전체" : TASK_ST[f].label}</span>
+                  <button
+                    key={f}
+                    className={`menu-item ${(f === "all" ? statuses.length === 0 : statuses.includes(f)) ? "on" : ""}`}
+                    onClick={() => toggleStatus(f)}
+                  >
+                    <span className="dot" style={{ background: filterDot(f) }} />
+                    <span className="grow">{filterLabel(f)}</span>
                     <span className="n">{f === "all" ? tasks.length : (counts[f] ?? 0)}</span>
-                    <span className="check">✓</span>
                   </button>
                 ))}
-                <span className="menu-sep" />
-                <button className="menu-item" onClick={() => pick(setCancelled)(!cancelled)}>
-                  <span className="grow">취소된 태스크 포함</span>
-                  <span className={`switch ${cancelled ? "on" : ""}`}>
-                    <span className="knob" />
-                  </span>
-                </button>
               </div>
             )}
           </span>

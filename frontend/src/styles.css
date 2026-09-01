@@ -1929,8 +1929,12 @@ svg.logo-mark {
   border-radius: 50%;
 }
 
-.filter-btn .fdot.off {
-  background: var(--text-disabled);
+/* overflow past three selected-status dots: "+N" */
+.filter-btn .fmore {
+  font-size: var(--t-meta);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-accent-subtle);
 }
 
 .filter-btn .sort-label {
@@ -1972,13 +1976,6 @@ svg.logo-mark {
   color: var(--text-muted);
   text-transform: uppercase;
   padding: 5px 8px 3px;
-}
-
-.menu-sep {
-  display: block;
-  height: 1px;
-  background: var(--border);
-  margin: 5px 4px;
 }
 
 .menu-item {
@@ -2029,31 +2026,6 @@ svg.logo-mark {
 
 .menu-item.on .check {
   color: var(--on-accent-subtle);
-}
-
-.switch {
-  flex: none;
-  width: 30px;
-  height: 17px;
-  border-radius: var(--r-pill);
-  background: var(--border-strong);
-  display: flex;
-  align-items: center;
-  padding: 2px;
-  box-sizing: border-box;
-  justify-content: flex-start;
-}
-
-.switch.on {
-  background: var(--accent);
-  justify-content: flex-end;
-}
-
-.switch .knob {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--bg);
 }
 
 .empty-row {
@@ -3183,10 +3155,6 @@ button.task-grid:hover {
     border-radius: 0;
     border-top: 1px solid var(--border);
     font-size: var(--t-body);
-  }
-
-  .menu-sep {
-    display: none;
   }
 
   /* iOS zooms the whole page when a focused field is under 16px */
