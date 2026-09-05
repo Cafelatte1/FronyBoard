@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import datetime
 import functools
+import gzip
+import json
 import re
 import threading
 
-from . import store, validation
+from . import log, store, validation
 from .store import PeriodState, ProjectState
 
 
@@ -128,16 +130,41 @@ def _project_summary(key: str, roadmap: dict) -> dict:
             "status": roadmap.get("status") or "active", "meta": roadmap.get("meta")}
 
 
-def list_projects(include_archived: bool = False) -> dict:
+def _project_keys(include_archived: bool = False) -> list[str]:
     root = store.projects_dir()
-    projects = []
+    keys = []
     if root.is_dir():
         for entry in sorted(root.iterdir()):
             if entry.is_dir() and (entry / "roadmap.yaml").exists():
                 roadmap = store.load_yaml(entry / "roadmap.yaml") or {}
-                summary = _project_summary(entry.name, roadmap)
-                if include_archived or summary["status"] != "archived":
-                    projects.append(summary)
+                if include_archived or (roadmap.get("status") or "active") != "archived":
+                    keys.append(entry.name)
+    return keys
+
+
+def _activity_summary(state: ProjectState) -> dict:
+    """Open periods, task counts by status and the newest task update — the one-line
+    "where is this project" that list_projects attaches to every entry."""
+    counts: dict[str, int] = {}
+    last = None
+    for p in state.periods.values():
+        for t in p.data.get("tasks") or []:
+            st = t.get("status", "?")
+            counts[st] = counts.get(st, 0) + 1
+            u = (t.get("meta") or {}).get("updated_at")
+            if isinstance(u, datetime.datetime) and (last is None or u > last):
+                last = u
+    return {"open_periods": [n for n, p in sorted(state.periods.items()) if not p.has_result],
+            "task_counts": counts, "last_activity": last}
+
+
+def list_projects(include_archived: bool = False) -> dict:
+    projects = []
+    for key in _project_keys(include_archived):
+        state = store.load_state(key)
+        entry = _project_summary(key, state.roadmap)
+        entry["summary"] = _activity_summary(state)
+        projects.append(entry)
     return _jsonable({"projects": projects, "data_root": str(store.data_root())})
 
 
@@ -412,11 +439,13 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
-               tags: list[str] | None = None) -> dict:
+               tags: list[str] | None = None, updated_since: str | None = None,
+               compact: bool = False) -> dict:
     state = store.load_state(key)
     if period is not None:
         _require_period(state, period)
     wanted = set(_clean_tags(tags))   # a task must carry all of them
+    cutoff = _naive_utc(_since(updated_since)) if updated_since else None
     results = []
     for pname, p in sorted(state.periods.items()):
         if period is not None and pname != period:
@@ -431,8 +460,168 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
                 continue
             if wanted and not wanted <= set(t.get("tags") or []):
                 continue
-            results.append({"period": pname, **t})
+            if cutoff is not None:
+                u = (t.get("meta") or {}).get("updated_at")
+                if not isinstance(u, datetime.datetime) or u < cutoff:
+                    continue
+            results.append(_compact(pname, t) if compact else {"period": pname, **t})
     return _jsonable({"tasks": results, "count": len(results)})
+
+
+# ---------------------------------------------------------------- reads
+
+_STATUS_ORDER = ("in_progress", "blocked", "todo", "done", "cancelled")
+_SNIPPET_AROUND = 30   # same window as the dashboard search (frontend/src/search.ts)
+_READ_TOOLS = frozenset({"list_projects", "get_roadmap", "get_retrospective", "list_tasks",
+                         "get_status", "validate", "get_task", "search_tasks",
+                         "recent_activity"})
+_DURATION = re.compile(r"^\s*(\d+)\s*([mhd])\s*$")
+_UNITS = {"m": "minutes", "h": "hours", "d": "days"}
+
+
+def _since(value: str | None, default: str = "24h") -> datetime.datetime:
+    """A cutoff (aware UTC) from a duration like "24h" / "7d" / "90m" or an ISO timestamp."""
+    raw = value or default
+    m = _DURATION.match(raw)
+    if m:
+        delta = datetime.timedelta(**{_UNITS[m.group(2)]: int(m.group(1))})
+        return datetime.datetime.now(datetime.timezone.utc) - delta
+    try:
+        ts = datetime.datetime.fromisoformat(raw.strip())
+    except ValueError:
+        raise AiraError("since must be a duration like 24h / 7d / 90m or an ISO timestamp, "
+                        f"got {raw!r}") from None
+    return ts if ts.tzinfo else ts.replace(tzinfo=datetime.timezone.utc)
+
+
+def _naive_utc(ts: datetime.datetime) -> datetime.datetime:
+    """Records store naive UTC (store.now); compare cutoffs in the same shape."""
+    return ts.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+
+def _compact(period: str, t: dict) -> dict:
+    return {"period": period, "id": t.get("id"), "title": t.get("title"),
+            "status": t.get("status"), "month": t.get("month"), "tags": t.get("tags") or [],
+            "updated_at": (t.get("meta") or {}).get("updated_at")}
+
+
+def get_task(task_id: str) -> dict:
+    key = resolve_key(None, task_id)
+    state = store.load_state(key)
+    period, task = _find_task(state, task_id)
+    return _jsonable({"project": key, "task": {"period": period, **task}})
+
+
+def _snippet(content: str, q: str) -> str | None:
+    flat = re.sub(r"\s+", " ", content)
+    i = flat.lower().find(q)
+    if i < 0:
+        return None
+    start = max(0, i - _SNIPPET_AROUND)
+    end = min(len(flat), i + len(q) + _SNIPPET_AROUND)
+    return ("…" if start > 0 else "") + flat[start:end] + ("…" if end < len(flat) else "")
+
+
+def search_tasks(query: str, key: str | None = None, status: str | None = None,
+                 include_cancelled: bool = False, limit: int = 20) -> dict:
+    """Dashboard search rules (frontend/src/search.ts): case-insensitive substring over
+    project key, task id, title and content; a key hit includes every task of that project.
+    Ordered by project, then status (in_progress first), then id."""
+    q = (query or "").strip().lower()
+    if not q:
+        raise AiraError("query must not be empty")
+    if limit < 1:
+        raise AiraError("limit must be at least 1")
+    hits = []
+    for pkey in ([key] if key else _project_keys()):
+        state = store.load_state(pkey)
+        key_hit = q in pkey.lower()
+        for pname, p in sorted(state.periods.items()):
+            for t in p.data.get("tasks") or []:
+                if (t.get("status") == "cancelled" and not include_cancelled
+                        and status != "cancelled"):
+                    continue
+                if status is not None and t.get("status") != status:
+                    continue
+                tid, title = str(t.get("id") or ""), str(t.get("title") or "")
+                content = str(t.get("content") or "")
+                if key_hit:
+                    match = "key"
+                elif q in tid.lower():
+                    match = "id"
+                elif q in title.lower():
+                    match = "title"
+                elif q in content.lower():
+                    match = "content"
+                else:
+                    continue
+                hit = {"project": pkey, **_compact(pname, t), "match": match}
+                if match == "content":
+                    hit["snippet"] = _snippet(content, q)
+                hits.append(hit)
+
+    def order(h):
+        st = h["status"]
+        rank = _STATUS_ORDER.index(st) if st in _STATUS_ORDER else len(_STATUS_ORDER)
+        return (h["project"], rank, h["id"] or "")
+
+    hits.sort(key=order)
+    return _jsonable({"hits": hits[:limit], "count": len(hits), "truncated": len(hits) > limit})
+
+
+def _activity_files(root) -> list:
+    """tools.jsonl first, then rotated days newest-first (tools.YYYY-MM-DD_....jsonl[.gz])."""
+    files = [root / "tools.jsonl"] if (root / "tools.jsonl").exists() else []
+    files += sorted(root.glob("tools.*.jsonl*"), reverse=True)
+    return files
+
+
+def _read_jsonl(path):
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except ValueError:
+                continue
+
+
+def recent_activity(key: str | None = None, since: str | None = None, limit: int = 50,
+                    writes_only: bool = True) -> dict:
+    """Tool calls from tools.jsonl newer than `since`, newest first. Files are read
+    newest-first and reading stops at the first file entirely older than the cutoff."""
+    if limit < 1:
+        raise AiraError("limit must be at least 1")
+    cutoff = _since(since)
+    root = log.log_dir()
+    utc = datetime.timezone.utc
+    rows: list[tuple[datetime.datetime, dict]] = []
+    for path in _activity_files(root):
+        newest = None
+        for r in _read_jsonl(path):
+            try:
+                ts = datetime.datetime.fromisoformat(str(r["ts"]))
+            except (KeyError, ValueError):
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=utc)
+            if newest is None or ts > newest:
+                newest = ts
+            if ts < cutoff:
+                continue
+            if key and r.get("project") != key:
+                continue
+            if writes_only and r.get("tool") in _READ_TOOLS:
+                continue
+            rows.append((ts, r))
+        if newest is not None and newest < cutoff:
+            break
+    rows.sort(key=lambda x: x[0], reverse=True)
+    return {"activity": [r for _, r in rows[:limit]], "count": len(rows),
+            "truncated": len(rows) > limit, "since": cutoff.isoformat(), "log_dir": str(root)}
 
 
 def get_status(key: str) -> dict:
