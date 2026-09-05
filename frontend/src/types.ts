@@ -9,11 +9,18 @@ export interface ProjectRef {
   meta?: { created_at: string; updated_at: string } | null;
 }
 
+export interface ChecklistItem {
+  text: string;
+  done: boolean;
+}
+
+/** v0.23.0: goal is the year in one line; now / target / checklist are the current
+    year's focus blocks and may be missing (years written before then have none). */
 export interface Overview {
   goal: string;
-  now: string;
-  next: string;
-  later: string;
+  now?: string;
+  target?: string;
+  checklist?: ChecklistItem[];
 }
 
 export interface Milestone {
