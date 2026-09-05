@@ -83,8 +83,7 @@ def fake_fauth(monkeypatch):
 def bootstrap(key="DLY"):
     """Create a project with an open 2026Q3 period and an active M1 month."""
     service.create_project(key, name="Dailying")
-    service.set_overview(key, "2026", goal="ship it", now="build core",
-                         next_="validate habit", later="expand")
+    service.set_overview(key, "2026", goal="ship it", now="build core", target="validate habit")
     service.upsert_milestone(key, "2026", "Q3", goal="MVP", status="planned")
     service.open_period(key, "2026Q3")
     service.upsert_month(key, "2026Q3", "M1", month="2026-07", goal="core", status="active")

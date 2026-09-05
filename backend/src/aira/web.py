@@ -14,6 +14,7 @@ import datetime
 import zoneinfo
 
 import os
+import time
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 from pathlib import Path
 
@@ -87,6 +88,31 @@ def _tasks(request):
         period=q.get("period"), status=q.get("status"), month=q.get("month"),
         include_cancelled=q.get("include_cancelled") in ("1", "true"),
     )
+
+
+async def _set_check(request):
+    """Dashboard checklist toggle — the one write the web API offers. Logged to
+    tools.jsonl like an MCP call so recent_activity shows who ticked what."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+    done = body.get("done") if isinstance(body, dict) else None
+    if not isinstance(done, bool):
+        return JSONResponse({"error": 'body must be {"done": true|false}'}, status_code=400)
+    p = request.path_params
+    caller = (request.scope.get("state") or {}).get("caller") or "unknown"
+    t0 = time.perf_counter()
+    try:
+        result = service.set_check(p["key"], p["year"], p["index"], done)
+    except FileNotFoundError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    except AiraError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    log.tool_call(req=log.new_req(), tool="set_check", caller=caller, project=p["key"],
+                  args={"year": p["year"], "index": p["index"], "done": done},
+                  ms=round((time.perf_counter() - t0) * 1000, 1), ok=True, warnings=0)
+    return JSONResponse(result)
 
 
 async def _server(request):
@@ -207,6 +233,8 @@ def api_routes() -> list[Route]:
         Route("/api/projects/{key}/roadmap", _roadmap),
         Route("/api/projects/{key}/status", _status),
         Route("/api/projects/{key}/tasks", _tasks),
+        Route("/api/projects/{key}/years/{year}/checklist/{index:int}", _set_check,
+              methods=["PATCH"]),
     ]
 
 

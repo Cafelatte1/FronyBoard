@@ -118,10 +118,14 @@ def _check_roadmap(state: ProjectState, r: Report) -> dict[str, str]:
         if not isinstance(overview, dict):
             r.err(f"{where}: missing overview")
         else:
-            for field in ("goal", "now", "next", "later"):
-                if not overview.get(field):
-                    r.err(f"{where}.overview: missing {field}")
-            _check_meta(overview, f"{where}.overview", r)
+            owhere = f"{where}.overview"
+            if not overview.get("goal"):
+                r.err(f"{owhere}: missing goal")
+            for field in ("now", "target"):
+                if field in overview and not isinstance(overview[field], str):
+                    r.err(f"{owhere}: {field} must be a string")
+            _check_checklist(overview.get("checklist"), owhere, r)
+            _check_meta(overview, owhere, r)
         milestones = (ydata or {}).get("milestones")
         if milestones is None:
             continue
@@ -235,3 +239,23 @@ def validate_state(state: ProjectState) -> Report:
     for name in sorted(actual & set(expected)):
         _check_period(state, name, expected[name], task_id_re, all_task_ids, r)
     return r
+
+
+def _check_checklist(items, where: str, r) -> None:
+    """overview.checklist: an ordered list of {text: non-empty str, done: bool}.
+    Absent is fine — the dashboard hides the block; legacy now/next/later years have none."""
+    if items is None:
+        return
+    if not isinstance(items, list):
+        r.err(f"{where}: checklist must be a list")
+        return
+    for i, item in enumerate(items):
+        iw = f"{where}.checklist[{i}]"
+        if not isinstance(item, dict):
+            r.err(f"{iw}: must be a map with text and done")
+            continue
+        text = item.get("text")
+        if not isinstance(text, str) or not text.strip():
+            r.err(f"{iw}: text must be a non-empty string")
+        if not isinstance(item.get("done"), bool):
+            r.err(f"{iw}: done must be true or false")

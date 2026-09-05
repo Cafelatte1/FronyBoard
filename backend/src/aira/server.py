@@ -106,8 +106,8 @@ def list_projects(include_archived: bool = False) -> dict:
 
 @mcp.tool()
 def get_roadmap(key: str) -> dict:
-    """Read a project's plan as written: yearly overviews (goal + now/next/later), quarterly
-    milestones, and the names of its periods.
+    """Read a project's plan as written: yearly overviews (goal, now, target, checklist),
+    quarterly milestones, and the names of its periods.
 
     Goals only, no counts — get_status for progress and the current period, list_tasks for
     the tasks themselves.
@@ -116,15 +116,29 @@ def get_roadmap(key: str) -> dict:
 
 
 @mcp.tool()
-def set_overview(key: str, year: str, goal: str, now: str, next: str, later: str) -> dict:
-    """Create or replace a year's overview: single-line goal plus now/next/later direction.
-    A year needs one before upsert_milestone will add a quarter to it.
+def set_overview(key: str, year: str, goal: str, now: str | None = None,
+                 target: str | None = None, checklist: list[str | dict] | None = None) -> dict:
+    """Create or replace a year's overview: the one-line yearly `goal`, plus the three
+    blocks the dashboard shows for the current year — `now` (what is being worked on),
+    `target` (what that work is meant to reach) and `checklist` (the concrete steps to get
+    there, ticked off as they land). A year needs an overview before upsert_milestone will
+    add a quarter to it.
 
-    `year` is YYYY. Each of now/next/later is one short line of direction (current focus /
-    coming up / someday) — concrete goals belong in the quarterly milestones, not here.
-    Calling it again on the same year overwrites all four fields.
+    `year` is YYYY. `now` and `target` are one short line each. `checklist` items are
+    strings (not done yet) or {text, done} maps, in display order. Calling it again
+    replaces the whole overview — resend the checklist to keep it; use set_check to tick a
+    single item. Quarterly goals belong in upsert_milestone, not here.
     """
-    return service.set_overview(key, year, goal, now, next, later)
+    return service.set_overview(key, year, goal, now, target, checklist)
+
+
+@mcp.tool()
+def set_check(key: str, year: str, index: int, done: bool = True) -> dict:
+    """Tick or untick one item of a year's overview checklist: `index` is its 0-based
+    position in get_roadmap's `checklist`, `done` the new state. Returns the updated
+    overview. To add, remove or reword items use set_overview.
+    """
+    return service.set_check(key, year, index, done)
 
 
 @mcp.tool()
