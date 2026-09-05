@@ -41,7 +41,7 @@ A frontend-only feature. There is no search API; `searchTasks(data, query)` in `
 
 Matching:
 
-- Case-insensitive substring match on project key, task id, title and content. Branch and tags are **not** searched (pinned by `tests/search.test.ts`).
+- Case-insensitive substring match on project key, task id, title and content. Branch and tags are **not** searched (pinned by `test/search.test.ts`).
 - Scope is every project and every period, including closed periods and cancelled tasks.
 - A matching project key includes all of that project's tasks.
 - Results are grouped by project; inside a group, status order (`in_progress → blocked → todo → done → cancelled`) then id.
