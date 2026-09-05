@@ -1,5 +1,11 @@
 # Logging
 
+**When to read**: when adding a log field or event, or reading tools.jsonl / server.jsonl
+**Code**: `backend/src/aira/log.py`, `backend/src/aira/server.py`, `backend/src/aira/web.py`
+**Related**: [logging-spec](templates/logging-spec.md), [operations](operations.md), [auth](auth.md), [tool-surface](tool-surface.md)
+
+---
+
 FronyBoard writes JSON Lines, not prose: the reader is an agent (or a query tool),
 so every line is a flat object with a fixed field set. Nothing is logged to stdout —
 in stdio mode that channel carries MCP.
@@ -61,7 +67,7 @@ Fixed head `ts level scope event`, then per-event fields:
 | `boot` | `shutdown` | `mode` |
 | `auth` | `login_ok` / `login_failed` | `user`, `ip` |
 | `auth` | `oauth_login_ok` / `oauth_login_failed` | `user`, `ip` — the approval page for hosted clients |
-| `auth` | `oauth_login_denied` | `client` — the user pressed 거부 on the approval page |
+| `auth` | `oauth_login_denied` | `client` — the user pressed “거부” (Deny) on the approval page |
 | `auth` | `oauth_client_registered` | `client`, `client_id` |
 | `auth` | `key_rejected` | `ip`, `path`, `prefix` |
 | `auth` | `key_created` / `key_revoked` | `name`, `ip` |

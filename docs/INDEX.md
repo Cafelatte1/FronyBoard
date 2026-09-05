@@ -1,13 +1,26 @@
-# 문서 색인
+# Docs index
 
-| 문서 | 언제 읽나 |
+Every doc opens with **When to read / Code / Related**; the middle column below is that first line. Conventions and skeletons for other Frony repos are in [templates/README](templates/README.md).
+
+## Core
+
+| Doc | When to read |
 |---|---|
-| [auth.md](auth.md) | 인증 방식(API 키, 세션, OAuth)이나 접근 채널을 건드릴 때 |
-| [http-api.md](http-api.md) | `/api/*` JSON API 라우트를 건드릴 때 |
-| [data-model.md](data-model.md) | `roadmap.yaml`/기간 파일 스키마나 검증 규칙을 건드릴 때 |
-| [tool-surface.md](tool-surface.md) | MCP 툴을 새로 추가·이름변경하거나 `instructions=` 블록을 건드릴 때 |
-| [logging.md](logging.md) | `tools.jsonl`/`server.jsonl` 로그 필드나 이벤트를 건드릴 때 |
-| [logging-spec.md](logging-spec.md) | 로깅 라이브러리·싱크 설정·줄 템플릿을 다른 Frony 서비스에 그대로 가져갈 때 |
-| [operations.md](operations.md) | 홈서버 배포·운영(작업 스케줄러, Funnel, 백업, 장애 대응)을 다룰 때 |
-| [search.md](search.md) | 헤더 검색바(`SearchBar.tsx`)나 검색 매칭 로직(`search.ts`)을 건드릴 때 |
-| [testing.md](testing.md) | 백엔드(pytest)·프론트엔드(vitest) 테스트를 추가·수정할 때 |
+| [architecture](architecture.md) | when adding a component, changing how an MCP call or dashboard request reaches disk, or asking why the server is shaped this way |
+| [data-model](data-model.md) | when changing the roadmap.yaml / period-file schema or the validation rules |
+| [tool-surface](tool-surface.md) | when adding, renaming or regrouping an `@mcp.tool()` or editing the server `instructions=` block |
+| [http-api](http-api.md) | when adding or changing an `/api/*` route the dashboard calls |
+| [auth](auth.md) | when changing how a request is authenticated (API key, dashboard session, OAuth) or which access channel serves it |
+| [operations](operations.md) | when deploying, restarting, backing up or diagnosing the home-server instance |
+| [logging](logging.md) | when adding a log field or event, or reading tools.jsonl / server.jsonl |
+| [frontend](frontend.md) | when changing a dashboard page, the data loading, or a UI-only feature such as the header search |
+| [testing](testing.md) | when adding or changing backend (pytest) or frontend (vitest) tests |
+
+## Templates (shared with other Frony repos)
+
+| Doc | When to read |
+|---|---|
+| [templates/README](templates/README.md) | when setting up or auditing the `docs/` folder of a Frony service repo |
+| [templates/CLAUDE](templates/CLAUDE.md) | when writing a repo's `CLAUDE.md` / `AGENTS.md` |
+| [templates/logging-spec](templates/logging-spec.md) | when a Frony service adopts the shared JSON Lines logging or changes its sink configuration |
+| `templates/*.md` (skeletons) | when starting one of the docs above in another repo |

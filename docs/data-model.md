@@ -1,5 +1,11 @@
 # Data model
 
+**When to read**: when changing the roadmap.yaml / period-file schema or the validation rules
+**Code**: `backend/src/aira/validation.py`, `backend/src/aira/store.py`
+**Related**: [tool-surface](tool-surface.md), [auth](auth.md), [http-api](http-api.md)
+
+---
+
 Field-level reference for the files under the data root
 (`%LOCALAPPDATA%\Frony\FronyBoard\data`, or `~/.Frony/FronyBoard/data` where
 `LOCALAPPDATA` is unset; override with `AIRA_DATA_DIR`). The conceptual overview lives in the README ("Model");
