@@ -2,7 +2,7 @@
 
 **When to read**: when setting up or auditing the `docs/` folder of a Frony service repo (project-aira, project-shop, project-wallet, project-file)
 **Code**: —
-**Related**: [INDEX](INDEX.md), [CLAUDE](CLAUDE.md), [logging-spec](logging-spec.md)
+**Related**: [INDEX](template_INDEX.md), [CLAUDE](template_CLAUDE.md), [logging-spec](template_logging-spec.md)
 
 ---
 
@@ -23,7 +23,7 @@ Agents read docs by task, not cover to cover. Each file answers one question ("h
 | `docs/http-api.md` | if it serves HTTP | Routes, auth per route, payload shapes, error shape. |
 | `docs/auth.md` | if it authenticates | Credentials, channels, verification path (FronyAuth introspection). |
 | `docs/operations.md` | if it is deployed | Host, launcher, deploy / restart / backup, incident notes. |
-| `docs/logging.md` | if it logs | Files, fields, events, query recipes. Start from [logging-spec](logging-spec.md). |
+| `docs/logging.md` | if it logs | Files, fields, events, query recipes. Start from [logging-spec](template_logging-spec.md). |
 | `docs/frontend.md` | if it has a UI | Pages, data loading, UI-only features, build. |
 
 Add a domain doc only when a topic outgrows the file it lives in. Name files by topic, never by ticket.
@@ -52,7 +52,7 @@ Every doc starts with this block. `When to read` is copied verbatim into `INDEX.
 
 ## Adopting in a repo
 
-1. Copy `CLAUDE.md` to the repo root and fill the `<...>` slots (name it `AGENTS.md` for tools that read that name).
-2. Copy `INDEX.md` and the skeletons that apply into `docs/`.
+1. Copy `template_CLAUDE.md` to the repo root as `CLAUDE.md` and fill the `<...>` slots (name it `AGENTS.md` for tools that read that name).
+2. Copy `template_INDEX.md` and the skeletons that apply into `docs/`, dropping the `template_` prefix.
 3. Move existing notes into the matching file, translate to English, add the header block.
 4. Delete sections and slots you did not fill. An empty heading is worse than none.
