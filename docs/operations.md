@@ -1,5 +1,11 @@
 # Operations runbook — home server
 
+**When to read**: when deploying, restarting, backing up or diagnosing the home-server instance
+**Code**: `scripts/deploy.ps1`, `aira-server.cmd`
+**Related**: [auth](auth.md), [logging](logging.md), [http-api](http-api.md)
+
+---
+
 Day-2 operations for the always-on Windows server. First-time install lives in
 the README ("Deploy — Windows home server"); this page is what you need after
 that. The server runs as the Task Scheduler task **"AIRA Server"** and deploys

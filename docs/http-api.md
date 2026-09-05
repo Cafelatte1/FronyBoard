@@ -1,5 +1,11 @@
 # HTTP API
 
+**When to read**: when adding or changing an `/api/*` route the dashboard calls
+**Code**: `backend/src/aira/web.py`, `backend/src/aira/auth.py`
+**Related**: [auth](auth.md), [operations](operations.md), [data-model](data-model.md)
+
+---
+
 The JSON API behind the FronyBoard dashboard, served by `aira serve` alongside
 the MCP endpoint (`/mcp`) and the static dashboard (`/`). It is read-only over
 plan data — every plan mutation goes through the MCP tools. The one writable

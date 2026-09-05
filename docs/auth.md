@@ -1,5 +1,11 @@
 # Access channels and how each one authenticates
 
+**When to read**: when changing how a request is authenticated (API key, dashboard session, OAuth) or which access channel serves it
+**Code**: `backend/src/aira/auth.py`, `backend/src/aira/fauth.py`
+**Related**: [operations](operations.md), [logging](logging.md)
+
+---
+
 Every request that reaches plan data — MCP or the JSON API — carries one
 `Authorization: Bearer <token>` header, checked in one place
 (`BearerAuthMiddleware`, `backend/src/aira/auth.py`). Since v0.18.0 (AIR-056)
@@ -133,7 +139,7 @@ What to know:
   min per address; all Funnel traffic counts as one address, so an attack locks
   the public page, never the tailnet). It counts attempts on the form
   (`(2/5)`), and the fifth strike shows the lockout screen at once.
-- 거부 (`POST /oauth/deny`) drops the request and sends the app
+- Denying (`POST /oauth/deny`) drops the request and sends the app
   `error=access_denied`; nothing is issued. After approve or deny the page shows
   a result screen for a second, then hands the browser back on its own. The
   page is server-rendered by FronyAuth (`oauth_pages.py` in project-auth) with
