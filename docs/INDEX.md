@@ -1,6 +1,6 @@
 # Docs index
 
-Every doc opens with **When to read / Code / Related**; the middle column below is that first line. Conventions and skeletons for other Frony repos are in [templates/README](templates/README.md).
+Every doc opens with **When to read / Code / Related**; the middle column below is that first line. Conventions and skeletons for other Frony repos are in [templates/README](templates/template_README.md).
 
 ## Core
 
@@ -20,7 +20,7 @@ Every doc opens with **When to read / Code / Related**; the middle column below 
 
 | Doc | When to read |
 |---|---|
-| [templates/README](templates/README.md) | when setting up or auditing the `docs/` folder of a Frony service repo |
-| [templates/CLAUDE](templates/CLAUDE.md) | when writing a repo's `CLAUDE.md` / `AGENTS.md` |
-| [templates/logging-spec](templates/logging-spec.md) | when a Frony service adopts the shared JSON Lines logging or changes its sink configuration |
+| [templates/README](templates/template_README.md) | when setting up or auditing the `docs/` folder of a Frony service repo |
+| [templates/CLAUDE](templates/template_CLAUDE.md) | when writing a repo's `CLAUDE.md` / `AGENTS.md` |
+| [templates/logging-spec](templates/template_logging-spec.md) | when a Frony service adopts the shared JSON Lines logging or changes its sink configuration |
 | `templates/*.md` (skeletons) | when starting one of the docs above in another repo |

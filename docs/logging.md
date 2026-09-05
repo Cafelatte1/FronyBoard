@@ -2,7 +2,7 @@
 
 **When to read**: when adding a log field or event, or reading tools.jsonl / server.jsonl
 **Code**: `backend/src/aira/log.py`, `backend/src/aira/server.py`, `backend/src/aira/web.py`
-**Related**: [logging-spec](templates/logging-spec.md), [operations](operations.md), [auth](auth.md), [tool-surface](tool-surface.md)
+**Related**: [logging-spec](templates/template_logging-spec.md), [operations](operations.md), [auth](auth.md), [tool-surface](tool-surface.md)
 
 ---
 
