@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true, // lets testing-library auto-cleanup between tests
-    setupFiles: "./tests/setup.ts",
-    include: ["tests/**/*.test.{ts,tsx}"],
+    setupFiles: "./test/setup.ts",
+    include: ["test/**/*.test.{ts,tsx}"],
   },
 });

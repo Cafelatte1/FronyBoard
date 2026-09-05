@@ -1,7 +1,7 @@
 # Testing
 
 **When to read**: when adding or changing backend/frontend tests, or touching a test helper
-**Code**: `backend/tests/`, `frontend/tests/`
+**Code**: `backend/test/`, `frontend/test/`
 **Related**: [architecture](architecture.md), [frontend](frontend.md)
 
 ---
@@ -9,7 +9,7 @@
 ## Backend (pytest)
 
 `uv run --directory backend pytest` — `[tool.pytest.ini_options] testpaths = ["tests"]`
-in `backend/pyproject.toml` collects only `backend/tests/`.
+in `backend/pyproject.toml` collects only `backend/test/`.
 Currently 10 files, 79 tests.
 
 | file | covers |
@@ -27,11 +27,11 @@ Currently 10 files, 79 tests.
 
 The split between `test_oauth.py` and `test_oauth_pages.py` is deliberate: when page
 copy changes only `test_oauth_pages.py` breaks, while the flow (status codes,
-redirects, token issuance) is guarded separately by `test_oauth.py` (`backend/tests/test_oauth_pages.py:1-6`).
+redirects, token issuance) is guarded separately by `test_oauth.py` (`backend/test/test_oauth_pages.py:1-6`).
 
 ### ASGI request helper
 
-The logic for pushing a single HTTP request through an ASGI app is unified into one helper in `backend/tests/conftest.py`:
+The logic for pushing a single HTTP request through an ASGI app is unified into one helper in `backend/test/conftest.py`:
 `asgi_request(app, method, path, query="", headers=None, json_body=None, form=None, scheme="https") -> (status, headers, body)`
 — `test_web.py`, `test_oauth.py` and `test_auth.py` all pull it in
 (`from conftest import asgi_request`). When adding a new ASGI route test, reuse this
@@ -46,7 +46,7 @@ not need to set up the data root itself.
 
 ## Frontend (vitest)
 
-`cd frontend; npm run test` (= `vitest run`) — `frontend/tests/`, 8 files,
+`cd frontend; npm run test` (= `vitest run`) — `frontend/test/`, 8 files,
 47 tests. No server is started; `fetch` is mocked with `vi.stubGlobal`.
 
 | file | covers |
@@ -59,11 +59,11 @@ not need to set up the data root itself.
 | `fixtures.ts` | shared test data (not a test file) |
 
 Configuration lives in the `test` block of `frontend/vite.config.ts`: `environment: "jsdom"`,
-`setupFiles: "./tests/setup.ts"`, `include: ["tests/**/*.test.{ts,tsx}"]`.
-`tests/setup.ts` fills in `window.matchMedia`, which jsdom lacks, with a desktop
+`setupFiles: "./test/setup.ts"`, `include: ["test/**/*.test.{ts,tsx}"]`.
+`test/setup.ts` fills in `window.matchMedia`, which jsdom lacks, with a desktop
 (`matches: false`) stub so that `useIsPhone` works.
 
 The `include` in `frontend/tsconfig.json` is only `["src"]`, so `npm run build`
-(`tsc -b && vite build`) does not type-check `tests/` — type errors in test code
+(`tsc -b && vite build`) does not type-check `test/` — type errors in test code
 surface only when `npm test` runs (vitest's esbuild transform), not at build
 time.
