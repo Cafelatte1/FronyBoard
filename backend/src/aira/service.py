@@ -176,19 +176,58 @@ def get_roadmap(key: str) -> dict:
 # ----------------------------------------------------------------- roadmap
 
 
+def _clean_checklist(items) -> list:
+    """Accept plain strings (not done yet) or {text, done} maps; anything else is passed
+    through unchanged so validation reports it."""
+    out = []
+    for item in items:
+        if isinstance(item, str):
+            out.append({"text": item, "done": False})
+        elif isinstance(item, dict):
+            out.append({"text": item.get("text"), "done": bool(item.get("done", False))})
+        else:
+            out.append(item)
+    return out
+
+
 @_locked
-def set_overview(key: str, year: str, goal: str, now: str, next_: str, later: str) -> dict:
+def set_overview(key: str, year: str, goal: str, now: str | None = None,
+                 target: str | None = None, checklist: list | None = None) -> dict:
+    """Replace the year's overview wholesale. Legacy now/next/later keys are dropped
+    here — there is no migration; rewriting the overview is the migration."""
     state = store.load_state(key)
     years = state.roadmap.setdefault("years", {})
     ydata = years.setdefault(str(year), {})
-    overview = ydata.get("overview")
-    if overview is None:
-        overview = ydata["overview"] = {"meta": store.new_meta()}
-    overview.update({"goal": goal, "now": now, "next": next_, "later": later})
+    old = ydata.get("overview") or {}
+    overview: dict = {"goal": goal}
+    if now:
+        overview["now"] = now
+    if target:
+        overview["target"] = target
+    if checklist is not None:
+        overview["checklist"] = _clean_checklist(checklist)
+    overview["meta"] = old.get("meta") or store.new_meta()
+    ydata["overview"] = overview
     store.touch_meta(overview)
     warnings = _gate(state)
     store.save_roadmap(state)
     return _ok({"year": str(year), "overview": overview}, warnings)
+
+
+@_locked
+def set_check(key: str, year: str, index: int, done: bool) -> dict:
+    state = store.load_state(key)
+    overview = ((state.roadmap.get("years") or {}).get(str(year)) or {}).get("overview")
+    items = (overview or {}).get("checklist")
+    if not items:
+        raise AiraError(f"year {year} has no checklist — set_overview writes one")
+    if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(items):
+        raise AiraError(f"index must be 0..{len(items) - 1}, got {index!r}")
+    items[index]["done"] = bool(done)
+    store.touch_meta(overview)
+    warnings = _gate(state)
+    store.save_roadmap(state)
+    return _ok({"year": str(year), "index": index, "overview": overview}, warnings)
 
 
 @_locked

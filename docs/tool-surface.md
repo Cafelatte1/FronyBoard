@@ -1,18 +1,19 @@
 # MCP tool surface
 
-Why the 19 `@mcp.tool()` functions in `backend/src/aira/server.py` are named and
+Why the 20 `@mcp.tool()` functions in `backend/src/aira/server.py` are named and
 structured the way they are. Each tool's docstring is the description an MCP client
 shows an agent, and it is the source of truth for what that tool does and how to call
 it — read `server.py` directly. This page only covers what a docstring cannot say by
 itself: the shape of the surface and the constraints it was built under. The README's
-["Tools"](../README.md#tools) table is the same 19 tools grouped by area.
+["Tools"](../README.md#tools) table is the same 20 tools grouped by area.
 
 ## Shape
 
 Grouped by lifecycle stage — the order a project actually moves through:
 
 - `create_project`, `update_project`, `list_projects` — the project record
-- `get_roadmap`, `set_overview`, `upsert_milestone` — yearly overview + quarterly milestones
+- `get_roadmap`, `set_overview`, `set_check`, `upsert_milestone` — yearly overview
+  (goal / now / target / checklist; `set_check` ticks one item) + quarterly milestones
 - `open_period`, `close_period`, `get_retrospective` — period lifecycle
 - `upsert_month`, `create_task`, `update_task`, `transition_task` — in-period planning
 - `list_tasks`, `get_status`, `validate` — reads

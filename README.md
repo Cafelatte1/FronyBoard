@@ -217,7 +217,7 @@ Clients then connect with the server's Tailscale name (see "Remote" above).
 ```
 projects/
 └── {KEY}/                  one folder per project, named by its key (e.g. DLY)
-    ├── roadmap.yaml        yearly overview (goal / now / next / later) + quarterly milestones
+    ├── roadmap.yaml        yearly overview (goal / now / target / checklist) + quarterly milestones
     └── {YYYY}{Q#}.yaml     one file per opened period (e.g. 2026Q3.yaml):
                             monthly milestones (M1, M2, ...) + tasks ({KEY}-001, ...)
                             + `result` (retrospective, written when the period closes)
@@ -251,7 +251,7 @@ A project is two kinds of files — the roadmap, and one file per period.
 | Area | Tools |
 |---|---|
 | Projects | `create_project`, `update_project`, `list_projects`, `get_roadmap`, `get_status`, `validate` |
-| Roadmap | `set_overview`, `upsert_milestone` |
+| Roadmap | `set_overview`, `set_check`, `upsert_milestone` |
 | Periods | `open_period`, `close_period`, `get_retrospective` |
 | Planning | `upsert_month`, `create_task`, `update_task`, `transition_task` |
 | Queries | `list_tasks`, `get_task`, `search_tasks`, `recent_activity` |

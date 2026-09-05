@@ -55,10 +55,11 @@ meta: {...}         # stamped by the server (missing on projects created before 
 years:
   "2026":           # 'YYYY' string keys
     overview:       # required per year
-      goal: ...     # all four fields required
-      now: ...
-      next: ...
-      later: ...
+      goal: ...     # required — the year in one line
+      now: ...      # optional — what is being worked on right now
+      target: ...   # optional — what that work is meant to reach
+      checklist:    # optional — ordered steps; ticked via set_check or the dashboard
+        - {text: ..., done: false}
       meta: {...}
     milestones:     # optional map, Q1-Q4 keys
       Q3:
