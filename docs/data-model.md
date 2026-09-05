@@ -124,19 +124,18 @@ open_period starts one)` when nothing has been opened yet (`service._require_per
 read it in the dashboard's task panel and an agent can pick it up cold:
 
 ```md
-## Why
-1-3 sentences: the need, with context/date. For a bug: symptom -> cause.
-## What
-- what changes, as observable behaviour (one bullet per user-visible unit)
-- Out of scope: ... (only if needed)
-## How
-- approach and files to touch (may be empty until work starts)
-## Done when
+## objective
+1-3 sentences: why this work exists and what will be observably different once it is
+done. For a bug: symptom -> cause. "Out of scope: ..." only if needed.
+## action
+- implementation-level approach and files to touch (may be empty until work starts)
+## criteria
 - verifiable completion conditions ("do X, see Y" — not "checked")
 ```
 
-Keep it under ~25 lines. Decisions go inline as `(YYYY-MM-DD decided)`; implementation
-detail belongs under How, not What. The template is not validated — the server only
+Title and content are written in English. Keep it under ~25 lines. Decisions go inline
+as `(YYYY-MM-DD decided)`. The rationale lives in the task only — commit messages list
+what changed and reference the task id. The template is not validated — the server only
 checks that `content` is a string — it is carried by the `create_task`/`update_task`
 tool descriptions and the server instructions.
 
