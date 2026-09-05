@@ -25,8 +25,18 @@ Agents read docs by task, not cover to cover. Each file answers one question ("h
 | `docs/operations.md` | if it is deployed | Host, launcher, deploy / restart / backup, incident notes. |
 | `docs/logging.md` | if it logs | Files, fields, events, query recipes. Start from [logging-spec](template_logging-spec.md). |
 | `docs/frontend.md` | if it has a UI | Pages, data loading, UI-only features, build. |
+| `docs/archive/` | optional | Superseded docs kept for reference. Not maintained, not indexed, not linked from live docs. |
 
 Add a domain doc only when a topic outgrows the file it lives in. Name files by topic, never by ticket.
+
+## Archive
+
+`docs/archive/` is where a doc goes when it stops being true but is still worth keeping. Rules:
+
+- Nothing in `archive/` is maintained: no translation, no header block, no link fixing, no content updates.
+- `INDEX.md` does not list its files. It carries one line: "Superseded docs live in `archive/`; they are not maintained."
+- Live docs never link into `archive/`. If a fact there is still needed, move the fact into a live doc.
+- To retire a doc, move it with `git mv` and add one line at the top: `> Archived YYYY-MM-DD: superseded by [x](../x.md)`. Change nothing else.
 
 ## Header convention
 
@@ -56,3 +66,4 @@ Every doc starts with this block. `When to read` is copied verbatim into `INDEX.
 2. Copy `template_INDEX.md` and the skeletons that apply into `docs/`, dropping the `template_` prefix.
 3. Move existing notes into the matching file, translate to English, add the header block.
 4. Delete sections and slots you did not fill. An empty heading is worse than none.
+5. Leave `docs/archive/` as it is. Only add the one-line pointer to `INDEX.md`.

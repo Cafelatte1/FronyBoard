@@ -13,3 +13,6 @@
 | [logging](logging.md) | <...> |
 | [frontend](frontend.md) | <...> |
 | [testing](testing.md) | <...> |
+
+<!-- Keep this line only if docs/archive/ exists. -->
+Superseded docs live in `archive/`; they are not maintained.
