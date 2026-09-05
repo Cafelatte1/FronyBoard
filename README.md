@@ -254,7 +254,7 @@ A project is two kinds of files — the roadmap, and one file per period.
 | Roadmap | `set_overview`, `upsert_milestone` |
 | Periods | `open_period`, `close_period`, `get_retrospective` |
 | Planning | `upsert_month`, `create_task`, `update_task`, `transition_task` |
-| Queries | `list_tasks` |
+| Queries | `list_tasks`, `get_task`, `search_tasks`, `recent_activity` |
 
 `update_task` and `transition_task` derive the project from the task id prefix
 (`DLY-042` → `DLY`), so their `key` parameter is optional. Re-calling

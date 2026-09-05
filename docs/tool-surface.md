@@ -1,11 +1,11 @@
 # MCP tool surface
 
-Why the 16 `@mcp.tool()` functions in `backend/src/aira/server.py` are named and
+Why the 19 `@mcp.tool()` functions in `backend/src/aira/server.py` are named and
 structured the way they are. Each tool's docstring is the description an MCP client
 shows an agent, and it is the source of truth for what that tool does and how to call
 it — read `server.py` directly. This page only covers what a docstring cannot say by
 itself: the shape of the surface and the constraints it was built under. The README's
-["Tools"](../README.md#tools) table is the same 16 tools grouped by area.
+["Tools"](../README.md#tools) table is the same 19 tools grouped by area.
 
 ## Shape
 
@@ -16,11 +16,16 @@ Grouped by lifecycle stage — the order a project actually moves through:
 - `open_period`, `close_period`, `get_retrospective` — period lifecycle
 - `upsert_month`, `create_task`, `update_task`, `transition_task` — in-period planning
 - `list_tasks`, `get_status`, `validate` — reads
+- `get_task`, `search_tasks`, `recent_activity` — agent-facing reads (v0.22.0 / AIR-064):
+  one record by id, the dashboard's text search over every project, and the mutation
+  history read back from `tools.jsonl`
 
 Several pairs are easy to confuse, so their docstrings cross-reference each other
 instead of relying on the name alone: `upsert_milestone` (a quarter, roadmap level)
 vs. `upsert_month` (M1/M2/M3 inside an open period); `get_status` vs. `get_roadmap`
 vs. `list_tasks` (progress/counts vs. the plan as written vs. task detail);
+`list_tasks` vs. `get_task` vs. `search_tasks` (one project's tasks vs. one id vs.
+text across projects);
 `transition_task` vs. `update_task` (status vs. everything else); `create_project`
 points forward to `open_period` for the rest of the setup flow.
 

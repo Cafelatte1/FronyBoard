@@ -55,7 +55,10 @@ mcp = MCPServer(
         "an agent reads to pick the task up cold, so follow the template in create_task "
         "(objective / action / criteria, under ~25 lines): objective says why and what will "
         "be observably different, action is implementation-level, criteria are verifiable. "
-        "Task titles and content are written in English."
+        "Task titles and content are written in English.\n\n"
+        "Reading: get_task for one id, search_tasks for text across projects, "
+        "recent_activity for what changed and who did it; list_projects already carries "
+        "a per-project summary."
     ),
 )
 
@@ -94,8 +97,9 @@ def list_projects(include_archived: bool = False) -> dict:
     """List every project (key, name, description, repo, status, meta) — how to find out
     which keys exist. Archived ones are left out unless `include_archived` is set.
 
-    Nothing about periods, milestones or tasks: get_roadmap for the plan, get_status for
-    where a project stands.
+    Each entry carries a `summary`: its open periods, task counts by status and
+    `last_activity` (the newest task update). No milestones or task detail: get_roadmap
+    for the plan, get_status for per-period progress, list_tasks for the tasks.
     """
     return service.list_projects(include_archived)
 
@@ -271,17 +275,23 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 @mcp.tool()
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
-               tags: list[str] | None = None) -> dict:
-    """List a project's tasks in full, optionally narrowed by period, status, month or tags.
-    Use get_status instead when the counts are all you need.
+               tags: list[str] | None = None, updated_since: str | None = None,
+               compact: bool = False) -> dict:
+    """List one project's tasks, optionally narrowed by period, status, month, tags or
+    recency. Use get_status when the counts are all you need, get_task when you know the
+    id, search_tasks to find tasks by text across projects.
 
     `period` is YYYYQn (all periods, closed ones included, when omitted), `status` is one of
     todo | in_progress | done | blocked | cancelled, `month` is a month id (M1/M2/M3), not
     YYYY-MM. `tags` narrows to the tasks carrying *all* of the given labels; pass one tag to
     match on it alone, and call again per tag when you want the union.
+    `updated_since` keeps tasks touched after a duration ("24h", "7d") or ISO timestamp.
+    `compact` returns id/title/status/month/tags/updated_at only — no content — which is
+    the right shape for skimming a whole period.
     Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
     """
-    return service.list_tasks(key, period, status, month, include_cancelled, tags)
+    return service.list_tasks(key, period, status, month, include_cancelled, tags,
+                              updated_since, compact)
 
 
 @mcp.tool()
@@ -294,6 +304,46 @@ def get_status(key: str) -> dict:
     No task detail — list_tasks for the tasks themselves, get_roadmap for the plan as written.
     """
     return service.get_status(key)
+
+
+@mcp.tool()
+def get_task(task_id: str) -> dict:
+    """Read one task in full by id (DLY-042) — the project comes from the prefix, so no key
+    is needed. Returns the record with its period. Use this instead of list_tasks whenever
+    you already know the id; search_tasks when you only know a word from it.
+    """
+    return service.get_task(task_id)
+
+
+@mcp.tool()
+def search_tasks(query: str, key: str | None = None, status: str | None = None,
+                 include_cancelled: bool = False, limit: int = 20) -> dict:
+    """Find tasks by text across all projects, with the dashboard's rules: case-insensitive
+    substring over project key, task id, title and content (not branch or tags); a
+    matching project key returns all of its tasks. Closed periods are included; cancelled
+    tasks only with `include_cancelled` (or `status='cancelled'`).
+
+    Hits are compact (no content), ordered by project, then in_progress -> blocked -> todo
+    -> done -> cancelled, then id; `match` says which field hit and a content-only hit adds
+    a ~60-character `snippet`. `key` narrows to one project, `limit` (default 20) caps the
+    hits while `count` still reports the total. Follow up with get_task for the full record.
+    """
+    return service.search_tasks(query, key, status, include_cancelled, limit)
+
+
+@mcp.tool()
+def recent_activity(key: str | None = None, since: str | None = None, limit: int = 50,
+                    writes_only: bool = True) -> dict:
+    """What changed recently and who did it: the tool calls recorded in tools.jsonl,
+    newest first — `ts`, `caller` (key:<name> / session:<user> / oauth:… / stdio), `tool`,
+    `project`, `task`, the argument names (prose fields appear as `<name>_len`) and `ok`.
+    This is the mutation history; task records themselves keep only timestamps.
+
+    `since` is a duration ("24h" default, "7d", "90m") or an ISO timestamp; `key` narrows
+    to one project; `limit` caps the rows (default 50) while `count` reports the total.
+    Read-only calls are dropped unless `writes_only=False`.
+    """
+    return service.recent_activity(key, since, limit, writes_only)
 
 
 @mcp.tool()
