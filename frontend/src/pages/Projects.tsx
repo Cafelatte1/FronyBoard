@@ -17,7 +17,8 @@ import {
   useIsPhone,
   type SortKey,
 } from "../shared";
-import type { BoardData, PeriodStatus, Roadmap, ServerTimezone, StatusResp, Task } from "../types";
+import { apiSend } from "../api";
+import type { BoardData, Overview, PeriodStatus, Roadmap, ServerTimezone, StatusResp, Task } from "../types";
 
 export default function Projects({
   data,
@@ -140,7 +141,92 @@ function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) =>
 }
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
-const NNL = ["now", "next", "later"] as const;
+
+/** "2026Q3" -> "3분기" — the year is read off the roadmap stepper above the period. */
+function quarterLabel(periodId: string): string {
+  const m = /Q([1-4])$/.exec(periodId);
+  return m ? `${m[1]}분기` : periodId;
+}
+
+/** The current year's now / target / checklist, shared by the web roadmap card and the
+    phone ⓘ sheet. Ticking an item is optimistic and persisted through the PATCH route
+    (= set_check); a failed request flips it back. Overrides reset when fresh data arrives. */
+function useFocus(projectKey: string | undefined, year: string | null, overview: Overview | undefined) {
+  const [override, setOverride] = useState<Record<string, boolean>>({});
+  useEffect(() => setOverride({}), [overview]);
+  const items = (overview?.checklist ?? []).map((c, index) => {
+    const k = `${year}:${index}`;
+    return { index, text: c.text, done: k in override ? override[k] : c.done };
+  });
+  const done = items.filter((c) => c.done).length;
+  const toggle = async (index: number) => {
+    if (!projectKey || !year) return;
+    const k = `${year}:${index}`;
+    const next = !items[index].done;
+    setOverride((o) => ({ ...o, [k]: next }));
+    try {
+      await apiSend(`/api/projects/${projectKey}/years/${year}/checklist/${index}`, "PATCH", { done: next });
+    } catch {
+      setOverride((o) => ({ ...o, [k]: !next }));
+    }
+  };
+  return {
+    now: overview?.now,
+    target: overview?.target,
+    items,
+    done,
+    total: items.length,
+    pct: items.length ? Math.round((done / items.length) * 100) : 0,
+    has: !!(overview?.now || overview?.target || items.length),
+    toggle,
+  };
+}
+type Focus = ReturnType<typeof useFocus>;
+
+/** 현재 · 목표 · 체크리스트 — one row on web (1 : 1 : 1.5), stacked in the phone sheet. */
+function FocusRow({ focus }: { focus: Focus }) {
+  return (
+    <div className="focus">
+      <div className="focus-block focus-now">
+        <span className="focus-label">현재</span>
+        <span className="focus-text">{focus.now ?? "—"}</span>
+      </div>
+      <div className="focus-block focus-target">
+        <span className="focus-label">목표</span>
+        <span className="focus-text">{focus.target ?? "—"}</span>
+      </div>
+      <div className="focus-block focus-list">
+        <span className="focus-list-head">
+          <span className="focus-label">체크리스트</span>
+          {focus.total > 0 && (
+            <>
+              <span className="bar focus-bar">
+                <span className="bar-fill" style={{ width: `${focus.pct}%` }} />
+              </span>
+              <span className="focus-ratio">
+                {focus.done}/{focus.total}
+              </span>
+            </>
+          )}
+        </span>
+        {focus.total > 0 ? (
+          <div className="checks">
+            {focus.items.map((c) => (
+              <button key={c.index} className={`check ${c.done ? "on" : ""}`} onClick={() => focus.toggle(c.index)} aria-pressed={c.done}>
+                <span className="check-box">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8 14.5 16 6" /></svg>
+                </span>
+                <span className="check-text">{c.text}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="focus-text muted">—</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Periods of a year, in order: the active one first if any, else the earliest. */
 function landingPeriod(year: string, status: StatusResp): string | null {
@@ -304,7 +390,7 @@ function ProjectDetail({
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
               </button>
               <span className="pdet-qmid">
-                <span className="pdet-period-id">{periodId}</span>
+                <span className="pdet-period-id">{quarterLabel(periodId)}</span>
                 <span className="pdet-qbar">
                   <span className="bar pdet-qbar-track">
                     <span className="bar-fill" style={{ width: `${periodRatio.pct}%` }} />
@@ -461,14 +547,11 @@ function PhoneRoadmap({
   const prev = yi > 0 ? years[yi - 1] : null;
   const next = yi >= 0 && yi < years.length - 1 ? years[yi + 1] : null;
   const ms = yd?.milestones ?? {};
+  const focus = useFocus(roadmap?.key, year, yd?.overview);
 
   return (
     <div className="pdet-card pdet-road">
       <div className="pdet-road-head">
-        <span className="pdet-road-title">
-          <span className="pdet-card-title">{year} 로드맵</span>
-          <span className="pdet-road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
-        </span>
         <span className="ynav">
           <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="이전 연도" aria-label="이전 연도">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
@@ -477,6 +560,10 @@ function PhoneRoadmap({
           <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="다음 연도" aria-label="다음 연도">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
           </button>
+        </span>
+        <span className="pdet-road-title">
+          <span className="pdet-card-title">로드맵</span>
+          <span className="pdet-road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
         </span>
       </div>
 
@@ -504,16 +591,7 @@ function PhoneRoadmap({
         })}
       </div>
 
-      {yd && year === currentYear && (
-        <div className="pdet-nnl">
-          {NNL.map((k, i) => (
-            <span key={k} className={`pdet-nnl-item nnl-${i}`}>
-              <span className="pdet-nnl-label">{k}</span>
-              <span className="pdet-nnl-text">{yd.overview[k]}</span>
-            </span>
-          ))}
-        </div>
-      )}
+      {yd && year === currentYear && focus.has && <FocusRow focus={focus} />}
     </div>
   );
 }
@@ -545,7 +623,7 @@ function PeriodChrome({
           <button className="ynav-btn lg" disabled={!older} onClick={() => older && onPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
           </button>
-          <span className="pstep-id">{name}</span>
+          <span className="pstep-id">{quarterLabel(name)}</span>
           <button className="ynav-btn lg" disabled={!newer} onClick={() => newer && onPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
           </button>
@@ -585,7 +663,7 @@ function PeriodChrome({
   );
 }
 
-/** Year goal → quarter timeline (dots are buttons) → NOW/NEXT/LATER on the active year. */
+/** Year stepper + goal → quarter timeline (dots are buttons) → 현재/목표/체크리스트 on the active year. */
 function RoadmapCard({
   roadmap,
   status,
@@ -620,13 +698,10 @@ function RoadmapCard({
   const ms = yd?.milestones ?? {};
   const activeIdx = QUARTERS.findIndex((q) => ms[q]?.status === "active");
   const lit = (j: number) => j <= activeIdx;
+  const focus = useFocus(roadmap?.key, year, yd?.overview);
   return (
     <div className="card">
       <div className="road-head">
-        <span className="road-title">
-          <span className="card-title">{year} 로드맵</span>
-          <span className="road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
-        </span>
         <span className="ynav">
           <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="이전 연도" aria-label="이전 연도">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
@@ -636,6 +711,8 @@ function RoadmapCard({
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
           </button>
         </span>
+        <span className="card-title">로드맵</span>
+        <span className="road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
       </div>
 
       <div className="qtl">
@@ -665,16 +742,7 @@ function RoadmapCard({
         })}
       </div>
 
-      {yd && year === currentYear && (
-        <div className="nnl">
-          {NNL.map((k, i) => (
-            <div key={k} className={`nnl-item nnl-${i}`}>
-              <div className="nnl-label">{k}</div>
-              <div className="nnl-text">{yd.overview[k]}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {yd && year === currentYear && focus.has && <FocusRow focus={focus} />}
     </div>
   );
 }

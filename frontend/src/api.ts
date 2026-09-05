@@ -44,7 +44,7 @@ export async function api<T>(path: string): Promise<T> {
   return request(path, {});
 }
 
-export async function apiSend<T>(path: string, method: "POST" | "DELETE", body?: unknown): Promise<T> {
+export async function apiSend<T>(path: string, method: "POST" | "DELETE" | "PATCH", body?: unknown): Promise<T> {
   return request(path, {
     method,
     ...(body !== undefined && {

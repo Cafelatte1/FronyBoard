@@ -1369,44 +1369,145 @@ svg.logo-mark {
   white-space: nowrap;
 }
 
-.nnl {
+/* 현재 · 목표 · 체크리스트 — the active year's focus row under the roadmap timeline */
+.focus {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
   gap: var(--gap);
+  align-items: stretch;
 }
 
-.nnl-item {
+.focus-block {
   padding: 12px 14px;
   border-radius: var(--r-lg);
   background: var(--surface-raised);
   border-left: 3px solid var(--border);
 }
 
-.nnl-item.nnl-0 {
+.focus-now {
   border-left-color: var(--accent);
 }
 
-.nnl-item.nnl-1 {
+.focus-target {
   border-left-color: var(--accent-subtle);
 }
 
-.nnl-label {
+.focus-label {
+  display: block;
   font-size: var(--t-badge);
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.4px;
-  text-transform: uppercase;
 }
 
-.nnl-0 .nnl-label {
+.focus-now .focus-label {
   color: var(--on-accent-subtle);
 }
 
-.nnl-text {
+.focus-text {
+  display: block;
   margin-top: 5px;
   font-size: var(--t-caption);
   line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+
+.focus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focus-list-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.focus-list-head .focus-label {
+  flex: none;
+}
+
+.focus-bar {
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  background: var(--surface);
+}
+
+.focus-ratio {
+  flex: none;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* checklist items: two columns, each a button that flips the item (persisted) */
+.checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 10px;
+}
+
+.check {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  padding: 3px 5px;
+  margin: 0 -5px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text);
+}
+
+.check:hover {
+  background: var(--surface);
+}
+
+.check-box {
+  flex: none;
+  margin-top: 1px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.check-box svg {
+  width: 9px;
+  height: 9px;
+}
+
+.check.on .check-box {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.check-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+
+.check.on .check-text {
+  color: var(--text-muted);
 }
 
 /* --------------------------------------------------------------- projects */
@@ -1418,15 +1519,13 @@ svg.logo-mark {
   gap: 12px;
 }
 
-.road-title {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
+.road-head .card-title {
+  flex: none;
 }
 
 .road-goal {
+  flex: 1;
+  min-width: 0;
   display: block;
   font-size: var(--t-caption);
   color: var(--text-muted);
@@ -1635,7 +1734,6 @@ svg.logo-mark {
   text-align: center;
   font-size: var(--t-subtitle);
   font-weight: 700;
-  font-family: var(--font-mono);
 }
 
 .pstep-goal {
@@ -2882,7 +2980,6 @@ button.task-grid:hover {
   .project-grid-3,
   .project-grid-2,
   .month-grid,
-  .nnl,
   .server-grid {
     grid-template-columns: 1fr;
   }
@@ -3308,11 +3405,9 @@ button.task-grid:hover {
   }
 
   .pdet-period-id {
-    font-family: var(--font-mono);
     font-size: var(--t-caption);
     font-weight: 700;
     letter-spacing: 0.02em;
-    font-variant-numeric: tabular-nums;
   }
 
   /* ---- the info sheet behind the (i) button ---- */
@@ -3583,40 +3678,46 @@ button.task-grid:hover {
   .pdet-q.q-none .pdet-q-goal,
   .pdet-q.q-planned .pdet-q-goal { color: var(--text-disabled); }
 
-  .pdet-nnl {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-2);
+  /* the focus row stacks into three left-barred blocks; checklist rows are 36px touch targets */
+  .pdet-road .focus {
+    margin-top: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
     padding-top: 2px;
   }
 
-  .pdet-nnl-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  .pdet-road .focus-block {
     padding: 2px 0 2px 11px;
-    border-left: 2px solid var(--border);
+    border-radius: 0;
+    background: transparent;
   }
 
-  .pdet-nnl-item.nnl-0 { border-left-color: var(--accent); }
-  .pdet-nnl-item.nnl-1 { border-left-color: var(--accent-subtle); }
-
-  .pdet-nnl-label {
-    font-family: var(--font-mono);
-    font-size: var(--t-badge);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .pdet-road .focus-text {
+    margin-top: 2px;
+    font-size: var(--t-meta);
     color: var(--text-muted);
   }
 
-  .pdet-nnl-item.nnl-0 .pdet-nnl-label { color: var(--on-accent-subtle); }
+  .pdet-road .checks {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
 
-  .pdet-nnl-text {
-    font-size: var(--t-caption);
-    line-height: var(--lh-body);
-    text-wrap: pretty;
-    color: var(--text-muted);
+  .pdet-road .check {
+    padding: 6px;
+    margin: 0 -6px;
+    min-height: 36px;
+    box-sizing: border-box;
+  }
+
+  .pdet-road .check-box {
+    width: 17px;
+    height: 17px;
+  }
+
+  .pdet-road .check-box svg {
+    width: 10px;
+    height: 10px;
   }
 
   .pdet-month {
