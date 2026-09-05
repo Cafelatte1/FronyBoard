@@ -14,7 +14,7 @@ Agents read docs by task, not cover to cover. Each file answers one question ("h
 
 | File | Every repo | Holds |
 |---|---|---|
-| `CLAUDE.md` (repo root) | yes | The 30-second brief: what, where, commands, deploy, FronyBoard key. Links to `docs/INDEX.md`. The same text works as `AGENTS.md`. |
+| `CLAUDE.md` / `AGENTS.md` (repo root) | yes | The 30-second brief: what, where, commands, deploy, FronyBoard key. Links to `docs/INDEX.md`. Same content under both names (`template_CLAUDE.md`, `template_AGENTS.md`); keep them identical. |
 | `docs/INDEX.md` | yes | One row per doc: name + when to read. |
 | `docs/architecture.md` | yes | Components, request/data flow, where things live, decisions not obvious from the code. |
 | `docs/testing.md` | yes | How to run, layout, fixtures, known failures. |
@@ -62,7 +62,7 @@ Every doc starts with this block. `When to read` is copied verbatim into `INDEX.
 
 ## Adopting in a repo
 
-1. Copy `template_CLAUDE.md` to the repo root as `CLAUDE.md` and fill the `<...>` slots (name it `AGENTS.md` for tools that read that name).
+1. Copy `template_CLAUDE.md` to the repo root as `CLAUDE.md` and `template_AGENTS.md` as `AGENTS.md`, fill the `<...>` slots identically in both.
 2. Copy `template_INDEX.md` and the skeletons that apply into `docs/`, dropping the `template_` prefix.
 3. Move existing notes into the matching file, translate to English, add the header block.
 4. Delete sections and slots you did not fill. An empty heading is worse than none.
