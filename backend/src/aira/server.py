@@ -53,8 +53,9 @@ mcp = MCPServer(
         "cancelled drops a task, update_project(status='archived') retires a project.\n\n"
         "Task content: `content` is markdown that a human reads in a narrow side panel and "
         "an agent reads to pick the task up cold, so follow the template in create_task "
-        "(Why / What / How / Done when, under ~25 lines) and keep What observable and How "
-        "implementation-level."
+        "(objective / action / criteria, under ~25 lines): objective says why and what will "
+        "be observably different, action is implementation-level, criteria are verifiable. "
+        "Task titles and content are written in English."
     ),
 )
 
@@ -201,21 +202,22 @@ def create_task(key: str, period: str, title: str, month: str,
     wording already in use on the project (list_tasks shows it) instead of coining
     a new spelling for the same thing.
 
-    `content` is markdown, read by a human in a narrow panel and by an agent picking the
-    task up cold. Use this template (keep it under ~25 lines):
+    `title` is a short English imperative ("Add multi-select status filter").
 
-        ## Why
-        1-3 sentences: the need, with context/date. For a bug: symptom -> cause.
-        ## What
-        - what changes, as observable behaviour (one bullet per user-visible unit)
-        - Out of scope: ... (only if needed)
-        ## How
-        - approach and files to touch (may be left empty until work starts)
-        ## Done when
+    `content` is markdown, read by a human in a narrow panel and by an agent picking the
+    task up cold. Write it in English and use this template (keep it under ~25 lines):
+
+        ## objective
+        1-3 sentences: why this work exists and what will be observably different once
+        it is done. For a bug: symptom -> cause. "Out of scope: ..." only if needed.
+        ## action
+        - implementation-level approach and files to touch (may be left empty until
+          work starts; fill it in with update_task once the approach is known)
+        ## criteria
         - verifiable completion conditions ("do X, see Y" — not "checked")
 
-    Record decisions inline as "(YYYY-MM-DD decided)"; put implementation detail under
-    How, not What. The same Why/What/How later seeds the commit message.
+    Record decisions inline as "(YYYY-MM-DD decided)". The rationale lives here and
+    only here: commit messages list what changed and reference the task id.
     """
     return service.create_task(key, period, title, month, week, content, prd, tags)
 
@@ -229,8 +231,8 @@ def update_task(task_id: str, title: str | None = None,
     `branch` records the working branch name, `month` is a month id (M1/M2/M3) that exists
     in the task's period, `week` is 1-5.
 
-    `content` replaces the whole markdown body — keep the create_task template (Why / What /
-    How / Done when); fill in How once the approach is known.
+    `content` replaces the whole markdown body — keep the create_task template (objective /
+    action / criteria); fill in action once the approach is known.
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
     not just the new ones.
