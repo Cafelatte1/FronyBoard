@@ -1446,12 +1446,12 @@ svg.logo-mark {
 }
 
 /* checklist items: one column, open items only by default; each row flips the item
-   (persisted). Past ~5 rows the list scrolls inside the card instead of growing it. */
+   (persisted). Past ~8 rows the list scrolls inside the card instead of growing it. */
 .checks {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  max-height: 132px;
+  max-height: 198px;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
