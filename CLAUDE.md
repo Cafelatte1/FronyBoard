@@ -8,7 +8,7 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 ## Layout
 
 - `backend/` — MCP server (uv project, Python)
-  - `src/aira/store.py` — file IO, data root
+  - `src/aira/store.py` — SQLite store (`fronyboard.db`), data root, YAML migration
   - `src/aira/validation.py` — schema and rule gate; runs before every mutation, an error rejects the write
   - `src/aira/service.py` — operations; per-project lock, timestamps stamped by the server
   - `src/aira/server.py` — MCP tool surface + CLI (stdio / `serve`)

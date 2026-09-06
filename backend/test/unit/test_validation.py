@@ -22,20 +22,14 @@ def test_planned_milestone_without_period_file_is_a_warning():
     assert any("planned period not opened yet: 2026Q4" in w for w in report.warnings)
 
 
-def test_orphan_period_file_is_a_warning():
+def test_orphan_period_record_is_a_warning():
     key = bootstrap()
-    store.save_yaml(store.project_dir(key) / "2025Q1.yaml", {"months": [], "tasks": []})
+    state = store.load_state(key)
+    state.periods["2025Q1"] = store.PeriodState(data={"months": [], "tasks": []})
+    store.save_period(state, "2025Q1")
     report = _report(key)
     assert not report.errors
     assert any("orphan" in w and "2025Q1" in w for w in report.warnings)
-
-
-def test_stray_yaml_file_is_a_warning():
-    key = bootstrap()
-    store.save_yaml(store.project_dir(key) / "notes.yaml", {"anything": True})
-    report = _report(key)
-    assert not report.errors
-    assert any("does not look like a period file" in w for w in report.warnings)
 
 
 def test_done_milestone_requires_result():
@@ -52,7 +46,7 @@ def test_active_milestone_without_period_file_is_an_error():
     state.roadmap["years"]["2026"]["milestones"]["Q4"] = {
         "goal": "v2", "status": "active", "meta": store.new_meta()}
     report = validation.validate_state(state)
-    assert any("2026Q4 is active but its period file is missing" in e
+    assert any("2026Q4 is active but its period record is missing" in e
                for e in report.errors)
 
 

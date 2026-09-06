@@ -21,7 +21,7 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 | Auth | `backend/src/aira/auth.py`, `backend/src/aira/fauth.py` | Bearer middleware; every token is verified by FronyAuth introspection (`FRONY_AUTH_URL`, `FRONY_SERVICE_KEY`) |
 | Service | `backend/src/aira/service.py` | One function per operation; a per-project lock; stamps `meta.created/updated`; runs the validation gate before every write |
 | Validation | `backend/src/aira/validation.py` | Schema and rule checks. An error rejects the write; a warning is returned alongside the result |
-| Store | `backend/src/aira/store.py` | Data-root resolution, YAML load/save, `meta` helpers |
+| Store | `backend/src/aira/store.py` | Data-root resolution, SQLite (`fronyboard.db`) load/save of the roadmap and period records as JSON, `meta` helpers, the one-shot YAML migration |
 | Logging | `backend/src/aira/log.py` | loguru sinks: `server.jsonl` (process events) and `tools.jsonl` (one line per tool call) |
 | Dashboard | `frontend/` | React + Vite SPA. `frontend/dist` is committed and served by the backend, so deploy is one process |
 
@@ -31,7 +31,7 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 2. The bearer middleware extracts the token and asks FronyAuth whether it is valid. The caller identity (`key:<name>`, `session:<user>`, …) is attached to the request.
 3. A tool wrapper in `server.py`, or a route in `web.py`, calls the matching `service.*` function.
 4. `service` takes the project lock, loads state from disk, applies the change and runs `validation.validate_state`. Errors raise `AiraError` and nothing is written.
-5. `store` saves YAML. The wrapper logs one line to `tools.jsonl` and returns the result plus any warnings.
+5. `store` upserts the changed record into SQLite. The wrapper logs one line to `tools.jsonl` and returns the result plus any warnings.
 
 Stdio mode (`aira` with no subcommand) runs the same tool surface for a local MCP client: no HTTP, no auth, same data root.
 
@@ -41,7 +41,7 @@ One always-on Windows home server runs `aira serve` on `:8642` under Task Schedu
 
 ## Decisions
 
-- **Files, not a database.** One YAML tree per project keeps the data diffable and the server a single process with no schema migrations to run. Concurrency is a per-project lock, not transactions.
+- **A document store in SQLite** (v0.25.0, AIR-073). Until v0.24 each project was a YAML tree; the same records now sit as JSON in two tables, so the service and validation layers were untouched while writes became atomic and backup became one file. Not normalised on purpose: at ~15 projects a relational schema would cost a rewrite of the service layer for no visible gain. Concurrency is still the per-project lock.
 - **Server-issued ids and timestamps.** Agents must not invent either; it keeps the record trustworthy.
 - **Soft delete only.** Tasks are cancelled, projects archived. History is input to the retrospective.
 - **Auth delegated to FronyAuth** (v0.18.0). One place issues keys and dashboard logins for every Frony service; aira holds no credential store.

@@ -1,6 +1,6 @@
 # Data model
 
-**When to read**: when changing the roadmap.yaml / period-file schema or the validation rules
+**When to read**: when changing the roadmap / period record schema, the storage layout or the validation rules
 **Code**: `backend/src/aira/validation.py`, `backend/src/aira/store.py`
 **Related**: [tool-surface](tool-surface.md), [auth](auth.md), [http-api](http-api.md)
 
@@ -13,25 +13,33 @@ this page documents what the validation gate (`validation.py`) actually
 enforces. Validation runs before every mutation — errors block the write —
 and is also exposed as the `validate` MCP tool.
 
-A project is **two kinds of files**: one `roadmap.yaml`, plus one YAML file
-per opened period.
+A project is **two kinds of records**: one roadmap, plus one period record per opened
+period. Since v0.25.0 (AIR-073) they live in one SQLite database as JSON documents; the
+record shapes below are unchanged from the YAML era.
 
-## File layout
+## Storage layout
 
 ```
 <data root>/
 ├── auth.yaml               dashboard admin (hash only — API keys live one level up, see below)
-└── projects/
-    └── {KEY}/              project folder, named by its key
-        ├── roadmap.yaml    yearly overview + quarterly milestones
-        └── 2026Q3.yaml     one file per opened period: months + tasks + result
+├── fronyboard.db           SQLite, WAL mode
+│   ├── projects(key, status, roadmap)    roadmap = the "roadmap" record below, as JSON
+│   └── periods(key, name, data)          data = one "period" record, name = 2026Q3
+└── projects/               pre-v0.25 YAML tree — read-only backup, never read by the server
 ```
+
+Timestamps inside the JSON are stored as `{"__dt__": "<iso>"}` and come back as naive-UTC
+`datetime` values, so validation and `updated_since` see the same types as before. Every
+write is one `INSERT … ON CONFLICT DO UPDATE`, so a record is never half-written.
+
+`aira migrate [--dry-run] [--source DIR]` copies a YAML tree into the database (rows are
+overwritten, files untouched). It ran once on the home server at the v0.25.0 deploy.
 
 ## Identifiers
 
 | id | format | scope |
 |---|---|---|
-| project key | `[A-Z]{2,5}` (e.g. `AIR`) | global; folder name must match `roadmap.yaml key` |
+| project key | `[A-Z]{2,5}` (e.g. `AIR`) | global; the `projects.key` column must match the record's `key` |
 | period | `YYYYQ#` (e.g. `2026Q3`) | file name; must match a roadmap milestone `{year}{quarter}` |
 | month | `M1`, `M2`, … | per period |
 | task | `{KEY}-NNN`, 3+ digits (e.g. `AIR-012`) | **project-global sequence — unique across all periods, never reused** |
@@ -49,7 +57,7 @@ The server stamps them; agents never write them.
 | `started_at` | tasks | stamped on the first `in_progress` transition |
 | `completed_at` | tasks | required iff status is `done` (stamped on `done`, removed when a task leaves `done`) |
 
-## roadmap.yaml
+## Roadmap record (`projects.roadmap`)
 
 ```yaml
 key: AIR            # must match the folder name
@@ -86,7 +94,7 @@ file without a matching milestone is an orphan (warning). A `done` milestone
 requires the period's `result` field — the retrospective is what closes a
 period.
 
-## Period file ({YYYYQ#}.yaml)
+## Period record (`periods.data`, name = {YYYY}Q#)
 
 ```yaml
 months:

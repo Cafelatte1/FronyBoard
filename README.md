@@ -8,8 +8,8 @@ part with something an agent can use natively:
 
 | Jira | FronyBoard |
 |---|---|
-| Database | Plain files in a dedicated data directory |
-| Records | YAML / Markdown |
+| Database | One SQLite file in a dedicated data directory |
+| Records | JSON documents (roadmap, period) + Markdown |
 | API | MCP tools |
 | Workflow engine | Schema + rule validation, run as a gate before every write |
 | State transition | An MCP tool call (`transition_task`) |
@@ -212,15 +212,15 @@ Clients then connect with the server's Tailscale name (see "Remote" above).
 ## Model
 
 ```
-projects/
-└── {KEY}/                  one folder per project, named by its key (e.g. DLY)
-    ├── roadmap.yaml        yearly overview (goal / now / target / checklist) + quarterly milestones
-    └── {YYYY}{Q#}.yaml     one file per opened period (e.g. 2026Q3.yaml):
-                            monthly milestones (M1, M2, ...) + tasks ({KEY}-001, ...)
-                            + `result` (retrospective, written when the period closes)
+fronyboard.db
+├── projects   one row per project (key e.g. DLY): the roadmap record —
+│              yearly overview (goal / now / target / checklist) + quarterly milestones
+└── periods    one row per opened period (e.g. 2026Q3): monthly milestones (M1, M2, ...)
+               + tasks ({KEY}-001, ...) + `result` (retrospective, written when the period closes)
 ```
 
-A project is two kinds of files — the roadmap, and one file per period.
+A project is two kinds of records — the roadmap, and one record per period. Both are
+JSON documents; the shapes are in [docs/data-model.md](docs/data-model.md).
 
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
   periods and are never reused. They are the only link between FronyBoard and a codebase:

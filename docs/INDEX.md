@@ -7,7 +7,7 @@ Every doc opens with **When to read / Code / Related**; the middle column below 
 | Doc | When to read |
 |---|---|
 | [architecture](architecture.md) | when adding a component, changing how an MCP call or dashboard request reaches disk, or asking why the server is shaped this way |
-| [data-model](data-model.md) | when changing the roadmap.yaml / period-file schema or the validation rules |
+| [data-model](data-model.md) | when changing the roadmap / period record schema, the storage layout or the validation rules |
 | [tool-surface](tool-surface.md) | when adding, renaming or regrouping an `@mcp.tool()` or editing the server `instructions=` block |
 | [http-api](http-api.md) | when adding or changing an `/api/*` route the dashboard calls |
 | [auth](auth.md) | when changing how a request is authenticated (API key, dashboard session, OAuth) or which access channel serves it |
