@@ -114,3 +114,42 @@ describe("project detail task table", () => {
     expect(screen.getAllByText(/^task \d+$/)).toHaveLength(10);
   });
 });
+
+describe("roadmap checklist", () => {
+  const withChecklist = (items: { text: string; done: boolean }[]) => {
+    const data = makeBoard([makeTask()]);
+    data.roadmaps.DLY.years["2026"].overview.checklist = items;
+    return data;
+  };
+
+  it("hides done items by default and reveals them from the toggle", async () => {
+    const data = withChecklist([
+      { text: "design", done: true },
+      { text: "build", done: false },
+      { text: "ship", done: true },
+    ]);
+    render(<Projects data={data} openKey="DLY" {...noop} />);
+    expect(screen.getByText("build")).toBeInTheDocument();
+    expect(screen.queryByText("design")).not.toBeInTheDocument();
+    expect(screen.getByText("2/3")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "완료 2개 보기" }));
+    expect(screen.getByText("design")).toBeInTheDocument();
+    expect(screen.getByText("ship")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "완료 2개 숨기기" }));
+    expect(screen.queryByText("design")).not.toBeInTheDocument();
+  });
+
+  it("says so when every item is done", () => {
+    render(<Projects data={withChecklist([{ text: "design", done: true }])} openKey="DLY" {...noop} />);
+    expect(screen.getByText("남은 항목이 없습니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "완료 1개 보기" })).toBeInTheDocument();
+  });
+
+  it("offers no toggle while nothing is done", () => {
+    render(<Projects data={withChecklist([{ text: "build", done: false }])} openKey="DLY" {...noop} />);
+    expect(screen.getByText("build")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /완료 \d+개/ })).not.toBeInTheDocument();
+  });
+});
+
