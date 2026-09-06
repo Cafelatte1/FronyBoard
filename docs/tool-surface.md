@@ -61,3 +61,5 @@ individual tool docstrings for this reason, and the lifecycle order and soft-del
 in both places on purpose. (The task-content template was always in `create_task`; `instructions=`
 only points at it.) When adding guidance that must reach every client, put it in the relevant tool's
 docstring, not in `instructions=` alone.
+
+Language (v0.23.2): task titles and content are English; planning prose read on the dashboard — project description, yearly overview, milestones, month goals, retrospectives — is Korean. Stated once in `instructions=` and again in each writing tool's docstring (`create_project`, `update_project`, `set_overview`, `upsert_milestone`, `upsert_month`, `close_period`).
