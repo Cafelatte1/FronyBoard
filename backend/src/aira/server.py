@@ -387,6 +387,7 @@ def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: 
     """
     import uvicorn
     from mcp.server.transport_security import TransportSecuritySettings
+    from starlette.middleware.gzip import GZipMiddleware
 
     resource_metadata_url = None
     if public_url:
@@ -400,8 +401,11 @@ def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: 
     web.attach(app)
     _boot("http", host=f"{host}:{port}", public_url=public_url, fauth=fauth.base_url())
     try:
+        # gzip sits inside auth so /mcp streams are untouched (minimum_size keeps them out)
+        # and the board JSON (~130 KB) shrinks ~5x for the dashboard.
         uvicorn.run(auth.with_mcp_cors(
-                        auth.BearerAuthMiddleware(app, protected=("/mcp", "/api"),
+                        auth.BearerAuthMiddleware(GZipMiddleware(app, minimum_size=2048),
+                                                  protected=("/mcp", "/api"),
                                                   open_paths=("/api/login",),
                                                   resource_metadata_url=resource_metadata_url)),
                     host=host, port=port, log_config=None)

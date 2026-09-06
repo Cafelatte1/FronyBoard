@@ -114,6 +114,23 @@ filtered. Query parameters, all optional:
  "count": 1}
 ```
 
+### GET /api/board
+
+The whole board in one response (v0.26.0, AIR-072): what the dashboard used to
+assemble from `/api/server`, `/api/projects` and three calls per project. Responses
+over 2 KB are gzip-compressed when the client accepts it.
+
+```json
+{"server":   {... same as GET /api/server ...},
+ "projects": [... same as GET /api/projects ...],
+ "statuses": {"AIR": {... GET /api/projects/AIR/status ...}},
+ "roadmaps": {"AIR": {... the "roadmap" object of GET /api/projects/AIR/roadmap ...}},
+ "tasks":    {"AIR": [... GET /api/projects/AIR/tasks?include_cancelled=true, content included ...]}}
+```
+
+The per-project routes stay for tools and tests; the SPA calls only this one on load
+and on its one-minute refresh.
+
 ## Server
 
 ### GET /api/server

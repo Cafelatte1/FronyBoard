@@ -87,7 +87,23 @@ def _tasks(request):
         request.path_params["key"],
         period=q.get("period"), status=q.get("status"), month=q.get("month"),
         include_cancelled=q.get("include_cancelled") in ("1", "true"),
+        include_content=True,
     )
+
+
+async def _board(request):
+    """Everything the dashboard needs in one round trip (AIR-072): server facts, the
+    project list and, per project, status / roadmap / every task including cancelled ones
+    and content. Replaces the 2 + 3n calls the SPA used to make on load."""
+    info = await _server_info()
+    projects = service.list_projects()["projects"]
+    board = {"server": info, "projects": projects, "statuses": {}, "roadmaps": {}, "tasks": {}}
+    for p in projects:
+        key = p["key"]
+        board["statuses"][key] = service.get_status(key)
+        board["roadmaps"][key] = service.get_roadmap(key)["roadmap"]
+        board["tasks"][key] = service.list_tasks(key, include_cancelled=True, include_content=True)["tasks"]
+    return JSONResponse(board)
 
 
 async def _set_check(request):
@@ -116,6 +132,10 @@ async def _set_check(request):
 
 
 async def _server(request):
+    return JSONResponse(await _server_info())
+
+
+async def _server_info() -> dict:
     projects = service.list_projects()["projects"]
     open_periods = []
     for p in projects:
@@ -131,7 +151,7 @@ async def _server(request):
         api_keys = len(await fauth.keys())
     except fauth.Unavailable:
         api_keys = None  # FronyAuth down — still answer, deploys verify against this route
-    return JSONResponse({
+    return {
         "version": ver,
         "started_at": str(_started_at),
         "data_root": str(store.data_root()),
@@ -139,7 +159,7 @@ async def _server(request):
         "open_periods": open_periods,
         "api_keys": api_keys,
         "timezone": _timezone(),
-    })
+    }
 
 
 def _session_token(request) -> str | None:
@@ -227,6 +247,7 @@ def api_routes() -> list[Route]:
         Route("/api/login", _login, methods=["POST"]),
         Route("/api/logout", _logout, methods=["POST"]),
         Route("/api/server", _server),
+        Route("/api/board", _board),
         Route("/api/keys", _keys, methods=["GET", "POST"]),
         Route("/api/keys/{name}", _delete_key, methods=["DELETE"]),
         Route("/api/projects", _projects),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Unauthorized, api } from "./api";
-import type { BoardData, MonthInfo, ProjectRef, Roadmap, ServerInfo, ServerTimezone, StatusResp, Task } from "./types";
+import type { BoardData, MonthInfo, ProjectRef, ServerTimezone, StatusResp, Task } from "./types";
 
 // ---------------------------------------------------------------- data hooks
 
@@ -34,27 +34,10 @@ export function useBoardData(onAuthFail: () => void) {
 
   const reload = useCallback(() => {
     return (async () => {
-      const [server, projectsResp] = await Promise.all([
-        api<ServerInfo>("/api/server"),
-        api<{ projects: BoardData["projects"] }>("/api/projects"),
-      ]);
-      const projects = projectsResp.projects;
-      const statuses: Record<string, StatusResp> = {};
-      const tasks: Record<string, Task[]> = {};
-      const roadmaps: Record<string, Roadmap> = {};
-      await Promise.all(
-        projects.map(async (p) => {
-          const [s, t, r] = await Promise.all([
-            api<StatusResp>(`/api/projects/${p.key}/status`),
-            api<{ tasks: Task[] }>(`/api/projects/${p.key}/tasks?include_cancelled=true`),
-            api<{ roadmap: Roadmap }>(`/api/projects/${p.key}/roadmap`),
-          ]);
-          statuses[p.key] = s;
-          tasks[p.key] = t.tasks;
-          roadmaps[p.key] = r.roadmap;
-        }),
-      );
-      setData({ projects, statuses, tasks, roadmaps, server });
+      // One round trip for the whole board (AIR-072): the server assembles what used to
+      // be 2 + 3n requests, and the SPA keeps it in memory as before.
+      const board = await api<BoardData>("/api/board");
+      setData(board);
       setFetchedAt(new Date());
       setError(null);
     })().catch((e) => {
