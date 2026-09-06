@@ -1445,11 +1445,37 @@ svg.logo-mark {
   font-variant-numeric: tabular-nums;
 }
 
-/* checklist items: two columns, each a button that flips the item (persisted) */
+/* checklist items: one column, open items only by default; each row flips the item
+   (persisted). Past ~5 rows the list scrolls inside the card instead of growing it. */
 .checks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 132px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.focus-empty {
+  padding: 6px 0 2px;
+  font-size: var(--t-caption);
+  color: var(--text-muted);
+}
+
+.focus-toggle {
+  font: inherit;
+  cursor: pointer;
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  color: var(--on-accent-subtle);
+}
+
+.focus-toggle:hover {
+  text-decoration: underline;
 }
 
 .check {
@@ -1464,6 +1490,7 @@ svg.logo-mark {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  flex: none;
   color: var(--text);
 }
 
@@ -1503,11 +1530,13 @@ svg.logo-mark {
   min-width: 0;
   font-size: var(--t-caption);
   line-height: var(--lh-body);
-  text-wrap: pretty;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .check.on .check-text {
   color: var(--text-muted);
+  text-decoration: line-through;
 }
 
 /* --------------------------------------------------------------- projects */
@@ -3699,8 +3728,17 @@ button.task-grid:hover {
   }
 
   .pdet-road .checks {
-    grid-template-columns: minmax(0, 1fr);
     gap: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .pdet-road .focus-empty {
+    padding: 4px 0;
+  }
+
+  .pdet-road .focus-toggle {
+    padding: 7px 0 2px;
   }
 
   .pdet-road .check {

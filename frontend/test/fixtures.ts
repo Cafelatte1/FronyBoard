@@ -57,7 +57,7 @@ export function makeBoard(tasks: Task[] = []): BoardData {
         key: "DLY",
         years: {
           "2026": {
-            overview: { goal: "ship it", now: "build core", next: "validate habit", later: "expand" },
+            overview: { goal: "ship it", now: "build core", target: "validate habit" },
             milestones: { Q3: { goal: "MVP", status: "active" } },
           },
         },

@@ -150,9 +150,12 @@ function quarterLabel(periodId: string): string {
 
 /** The current year's now / target / checklist, shared by the web roadmap card and the
     phone ⓘ sheet. Ticking an item is optimistic and persisted through the PATCH route
-    (= set_check); a failed request flips it back. Overrides reset when fresh data arrives. */
+    (= set_check); a failed request flips it back. Overrides reset when fresh data arrives.
+    Done items are hidden until `showAll` is flipped; that flag lives in component state, so a
+    reload hides them again and the web card and the phone sheet toggle independently (AIR-071). */
 function useFocus(projectKey: string | undefined, year: string | null, overview: Overview | undefined) {
   const [override, setOverride] = useState<Record<string, boolean>>({});
+  const [showAll, setShowAll] = useState(false);
   useEffect(() => setOverride({}), [overview]);
   const items = (overview?.checklist ?? []).map((c, index) => {
     const k = `${year}:${index}`;
@@ -173,12 +176,14 @@ function useFocus(projectKey: string | undefined, year: string | null, overview:
   return {
     now: overview?.now,
     target: overview?.target,
-    items,
+    items: showAll ? items : items.filter((c) => !c.done),
     done,
     total: items.length,
     pct: items.length ? Math.round((done / items.length) * 100) : 0,
     has: !!(overview?.now || overview?.target || items.length),
     toggle,
+    showAll,
+    toggleAll: () => setShowAll((v) => !v),
   };
 }
 type Focus = ReturnType<typeof useFocus>;
@@ -210,16 +215,24 @@ function FocusRow({ focus }: { focus: Focus }) {
           )}
         </span>
         {focus.total > 0 ? (
-          <div className="checks">
-            {focus.items.map((c) => (
-              <button key={c.index} className={`check ${c.done ? "on" : ""}`} onClick={() => focus.toggle(c.index)} aria-pressed={c.done}>
-                <span className="check-box">
-                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8 14.5 16 6" /></svg>
-                </span>
-                <span className="check-text">{c.text}</span>
+          <>
+            <div className="checks">
+              {focus.items.map((c) => (
+                <button key={c.index} className={`check ${c.done ? "on" : ""}`} onClick={() => focus.toggle(c.index)} aria-pressed={c.done}>
+                  <span className="check-box">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5 8 14.5 16 6" /></svg>
+                  </span>
+                  <span className="check-text">{c.text}</span>
+                </button>
+              ))}
+              {focus.items.length === 0 && <span className="focus-empty">남은 항목이 없습니다.</span>}
+            </div>
+            {focus.done > 0 && (
+              <button className="focus-toggle" onClick={focus.toggleAll}>
+                {focus.showAll ? `완료 ${focus.done}개 숨기기` : `완료 ${focus.done}개 보기`}
               </button>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <span className="focus-text muted">—</span>
         )}
