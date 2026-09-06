@@ -13,7 +13,10 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
   - `src/aira/service.py` — operations; per-project lock, timestamps stamped by the server
   - `src/aira/server.py` — MCP tool surface + CLI (stdio / `serve`)
   - `src/aira/web.py` — `/api/*` JSON for the dashboard, static serving of `frontend/dist`
-- `frontend/` — FronyBoard dashboard (React + Vite). Build output is served by the backend, so there is one deploy.
+  - `test/unit/`, `test/integration/` — pytest; integration drives the ASGI app with a fake FronyAuth
+- `frontend/` — FronyBoard dashboard (React + Vite). Build output is served by the backend, so there is one deploy. `test/` is vitest.
+- `scripts/` — server-side PowerShell: `deploy.ps1`, `register-task.ps1`, `aira-server.cmd.example` (the real launcher is git-ignored), `bootstrap-server.ps1`, `configure_mcp_settings.ps1`
+- Folder rules for every Frony repo: `docs/templates/template_LAYOUT.md`.
 
 ## Commands (from the repo root)
 
