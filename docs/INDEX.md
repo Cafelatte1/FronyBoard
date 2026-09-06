@@ -21,6 +21,7 @@ Every doc opens with **When to read / Code / Related**; the middle column below 
 | Doc | When to read |
 |---|---|
 | [templates/README](templates/template_README.md) | when setting up or auditing the `docs/` folder of a Frony service repo |
+| [templates/LAYOUT](templates/template_LAYOUT.md) | when starting a new Frony service repo, adding a top-level folder, or moving tests / scripts / manifests |
 | [templates/CLAUDE](templates/template_CLAUDE.md), [templates/AGENTS](templates/template_AGENTS.md) | when writing a repo's `CLAUDE.md` / `AGENTS.md` (same content, two names) |
 | [templates/logging-spec](templates/template_logging-spec.md) | when a Frony service adopts the shared JSON Lines logging or changes its sink configuration |
 | `templates/*.md` (skeletons) | when starting one of the docs above in another repo |

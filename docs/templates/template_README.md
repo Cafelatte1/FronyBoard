@@ -2,7 +2,7 @@
 
 **When to read**: when setting up or auditing the `docs/` folder of a Frony service repo (project-aira, project-shop, project-wallet, project-file)
 **Code**: —
-**Related**: [INDEX](template_INDEX.md), [CLAUDE](template_CLAUDE.md), [logging-spec](template_logging-spec.md)
+**Related**: [INDEX](template_INDEX.md), [CLAUDE](template_CLAUDE.md), [LAYOUT](template_LAYOUT.md) (repo folder structure), [logging-spec](template_logging-spec.md)
 
 ---
 
