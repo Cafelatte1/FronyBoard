@@ -8,32 +8,30 @@
 
 ## Backend (pytest)
 
-`uv run --directory backend pytest` — `[tool.pytest.ini_options] testpaths = ["tests"]`
-in `backend/pyproject.toml` collects only `backend/test/`.
+`uv run --directory backend pytest` — `[tool.pytest.ini_options] testpaths = ["test"]`
+in `backend/pyproject.toml`. Layout follows `docs/templates/template_LAYOUT.md`:
+`test/unit/` needs no HTTP layer and no fake FronyAuth; `test/integration/` drives the
+Starlette app through `asgi_request` with the fake FronyAuth from `conftest.py`.
 Currently 10 files, 79 tests.
 
 | file | covers |
 |---|---|
-| `test_store.py` | file IO |
-| `test_validation.py` | schema and rule gate |
-| `test_service.py` | operations (24 — the largest) |
-| `test_concurrency.py` | per-project lock |
-| `test_server.py` | MCP tool surface |
-| `test_auth.py` | API keys, sessions, lockout |
-| `test_oauth.py` | OAuth flow — asserts status codes, the `class='result <kind>'` marker and the handoff URL instead of page copy |
-| `test_oauth_pages.py` | OAuth page (`oauth_pages.py`) rendering and copy — the only file that asserts these strings |
-| `test_web.py` | `/api/*` JSON routes |
-| `test_log.py` | `tools.jsonl` / `server.jsonl` |
-
-The split between `test_oauth.py` and `test_oauth_pages.py` is deliberate: when page
-copy changes only `test_oauth_pages.py` breaks, while the flow (status codes,
-redirects, token issuance) is guarded separately by `test_oauth.py` (`backend/test/test_oauth_pages.py:1-6`).
+| `unit/test_store.py` | file IO |
+| `unit/test_validation.py` | schema and rule gate |
+| `unit/test_service.py` | operations (the largest) |
+| `unit/test_concurrency.py` | per-project lock |
+| `unit/test_server.py` | MCP tool wrappers called directly |
+| `unit/test_reads.py` | `get_task`, `search_tasks`, `recent_activity`, `list_tasks` filters |
+| `unit/test_log.py` | `tools.jsonl` / `server.jsonl` |
+| `integration/test_auth.py` | bearer middleware, FronyAuth introspection, sessions |
+| `integration/test_web.py` | `/api/*` JSON routes |
+| `integration/test_overview.py` | yearly overview + `set_check` + the dashboard PATCH route |
 
 ### ASGI request helper
 
 The logic for pushing a single HTTP request through an ASGI app is unified into one helper in `backend/test/conftest.py`:
 `asgi_request(app, method, path, query="", headers=None, json_body=None, form=None, scheme="https") -> (status, headers, body)`
-— `test_web.py`, `test_oauth.py` and `test_auth.py` all pull it in
+— every file in `test/integration/` pulls it in
 (`from conftest import asgi_request`). When adding a new ASGI route test, reuse this
 function; do not rebuild one per app.
 

@@ -194,16 +194,13 @@ from GitHub, never by editing in place.
    `FRONY_SERVICE_KEY` in its launcher. A new machine bootstraps ssh/git/uv
    with `scripts\bootstrap-server.ps1` (run once, as admin).
 
-3. Keep it running across reboots with Task Scheduler (`taskschd.msc` → Create
-   Task): trigger **At startup**, action = path from `(Get-Command uv).Source`
-   with arguments `run --directory <path-to-project-aira>\backend aira serve`, and check
-   **Run whether user is logged on or not**. If the task runs as SYSTEM, its
-   `%LOCALAPPDATA%` points into the system profile — set `AIRA_DATA_DIR` to the
-   intended absolute path (e.g.
-   `C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`), for instance in a
-   small launcher `.cmd` the task runs instead. Set `AIRA_TZ=Asia/Seoul` there
-   too — the dashboard shows timestamps in the server's zone, and Windows cannot
-   name its own zone otherwise.
+3. Keep it running across reboots: copy `scripts\aira-server.cmd.example` to
+   `C:\Users\<user>\aira-server.cmd`, fill in `FRONY_SERVICE_KEY`, then run
+   `scripts\register-task.ps1` from an elevated PowerShell. It creates the
+   "AIRA Server" task (at startup, as SYSTEM) that runs the launcher. The
+   launcher pins `AIRA_DATA_DIR` because SYSTEM's `%LOCALAPPDATA%` is the
+   system profile, and sets `AIRA_TZ=Asia/Seoul` so the dashboard shows the
+   server's zone. See [docs/operations.md](docs/operations.md), First-time setup.
 4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
    then on the server run `powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z`
    — it stops the task (`uv sync` cannot replace a running `aira.exe`), checks

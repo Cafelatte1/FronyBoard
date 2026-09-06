@@ -1,7 +1,7 @@
 # Operations runbook — home server
 
 **When to read**: when deploying, restarting, backing up or diagnosing the home-server instance
-**Code**: `scripts/deploy.ps1`, `aira-server.cmd`
+**Code**: `scripts/deploy.ps1`, `scripts/register-task.ps1`, `scripts/aira-server.cmd.example`
 **Related**: [auth](auth.md), [logging](logging.md), [http-api](http-api.md)
 
 ---
@@ -10,6 +10,17 @@ Day-2 operations for the always-on Windows server. First-time install lives in
 the README ("Deploy — Windows home server"); this page is what you need after
 that. The server runs as the Task Scheduler task **"AIRA Server"** and deploys
 **release tags only** — pushing to main changes nothing on the server.
+
+## First-time setup
+
+Two files make the server self-starting, both in `scripts/`:
+
+1. Copy `scripts\aira-server.cmd.example` to `C:\Users\flash\aira-server.cmd` and fill
+   `FRONY_SERVICE_KEY` (from `fauth keygen board-server`). The real `.cmd` is git-ignored;
+   every env var the server needs lives there and nowhere else.
+2. In an elevated PowerShell run `scripts\register-task.ps1`. It registers the "AIRA Server"
+   task: at startup, as SYSTEM, no time limit, re-checked every 10 minutes, pointing at
+   the launcher. Re-run it any time to reset the task to this shape.
 
 ## Deploying a release
 
