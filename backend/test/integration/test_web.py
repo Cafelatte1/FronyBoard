@@ -35,6 +35,29 @@ def test_projects_and_status():
     assert body["roadmap"]["years"]["2026"]["overview"]["goal"] == "ship it"
 
 
+def test_board_bundles_everything_the_dashboard_loads(fake_fauth):
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="keep", month="M1", content="## objective\nwhy")
+    service.create_task(key, "2026Q3", title="gone", month="M1")
+    service.transition_task(key, "DLY-002", "cancelled", reason="no")
+    status, body = _get("/api/board")
+    assert status == 200
+    assert set(body) == {"server", "projects", "statuses", "roadmaps", "tasks"}
+    assert body["server"]["projects"] == 1 and body["server"]["timezone"]
+    assert [p["key"] for p in body["projects"]] == ["DLY"]
+    assert body["statuses"]["DLY"]["periods"]["2026Q3"]["months"][0]["id"] == "M1"
+    assert body["roadmaps"]["DLY"]["years"]["2026"]["overview"]["goal"] == "ship it"
+    assert [t["id"] for t in body["tasks"]["DLY"]] == ["DLY-001", "DLY-002"]  # cancelled included
+    assert body["tasks"]["DLY"][0]["content"].startswith("## objective")  # content included
+
+
+def test_tasks_route_keeps_content_for_the_panel():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="keep", month="M1", content="body")
+    status, body = _get("/api/projects/DLY/tasks")
+    assert status == 200 and body["tasks"][0]["content"] == "body"
+
+
 def test_tasks_filters_and_cancelled_toggle():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="keep", month="M1")
