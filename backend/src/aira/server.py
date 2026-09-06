@@ -18,6 +18,7 @@ Register a remote server in Claude Code:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 
 from mcp.server.mcpserver import MCPServer
@@ -431,7 +432,16 @@ def main() -> None:
     serve_p.add_argument("--public-mcp-path", default=os.environ.get("AIRA_PUBLIC_MCP_PATH") or "/mcp",
                          help="path of the MCP endpoint under --public-url, e.g. /board/mcp; "
                               "default: AIRA_PUBLIC_MCP_PATH or /mcp")
+    mig_p = sub.add_parser("migrate", help="copy the pre-v0.25 YAML tree into fronyboard.db (once)")
+    mig_p.add_argument("--source", default=None, help="projects/ folder; default <data root>/projects")
+    mig_p.add_argument("--dry-run", action="store_true", help="list what would be copied, write nothing")
     args = parser.parse_args()
+
+    if args.command == "migrate":
+        from pathlib import Path
+        report = store.migrate_yaml(Path(args.source) if args.source else None, dry_run=args.dry_run)
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return
 
     if args.command == "serve":
         log.setup()

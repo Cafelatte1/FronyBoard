@@ -33,21 +33,20 @@ def test_full_lifecycle():
     assert status["periods"]["2026Q3"]["closed"] is True
 
 
-def test_period_lives_in_a_single_file():
+def test_period_is_one_record():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="a", month="M1")
-    pdir = store.project_dir(key)
-    assert (pdir / "2026Q3.yaml").is_file()
-    assert sorted(p.name for p in pdir.iterdir()) == ["2026Q3.yaml", "roadmap.yaml"]
-    data = store.load_yaml(pdir / "2026Q3.yaml")
+    state = store.load_state(key)
+    assert sorted(state.periods) == ["2026Q3"]
+    data = state.periods["2026Q3"].data
     assert [m["id"] for m in data["months"]] == ["M1"]
     assert [t["id"] for t in data["tasks"]] == ["DLY-001"]
 
 
-def test_close_period_stores_result_in_period_file():
+def test_close_period_stores_result_in_period_record():
     key = bootstrap()
     service.close_period(key, "2026Q3", "# result\n\n- fine")
-    data = store.load_yaml(store.project_dir(key) / "2026Q3.yaml")
+    data = store.load_state(key).periods["2026Q3"].data
     assert data["result"].startswith("# result")
     assert service.get_status(key)["periods"]["2026Q3"]["closed"] is True
 
@@ -212,9 +211,8 @@ def test_content_round_trips_as_multiline_markdown():
     key = bootstrap()
     content = "- step one\n- step two\n- step three"
     service.create_task(key, "2026Q3", title="x", month="M1", content=content)
-    text = (store.project_dir(key) / "2026Q3.yaml").read_text(encoding="utf-8")
-    assert "content: |-" in text or "content: |" in text
     assert service.list_tasks(key, include_content=True)["tasks"][0]["content"] == content
+    assert service.get_task(f"{key}-001")["task"]["content"] == content
 
 
 def test_list_projects():

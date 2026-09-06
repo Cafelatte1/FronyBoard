@@ -32,10 +32,9 @@ _ARCHIVE_EXEMPT = {"create_project", "update_project"}
 
 
 def _refuse_archived(key: str) -> None:
-    path = store.project_dir(key) / "roadmap.yaml"
-    if not path.exists():
+    roadmap = store.load_roadmap(key)
+    if roadmap is None:
         return  # let the operation raise its own "unknown project" error
-    roadmap = store.load_yaml(path) or {}
     if roadmap.get("status") == "archived":
         raise AiraError(f"project '{key}' is archived — update_project(status='active') to reactivate it first")
 
@@ -90,9 +89,8 @@ def create_project(key: str, name: str | None = None, description: str | None = 
                    repo: str | None = None) -> dict:
     if not validation.PROJECT_KEY.fullmatch(key or ""):
         raise AiraError(f"project key must be 2-5 uppercase letters, got {key!r}")
-    pdir = store.project_dir(key)
-    if pdir.exists():
-        raise AiraError(f"project '{key}' already exists at {pdir}")
+    if store.project_exists(key):
+        raise AiraError(f"project '{key}' already exists")
     roadmap: dict = {"key": key}
     if name:
         roadmap["name"] = name
@@ -106,7 +104,7 @@ def create_project(key: str, name: str | None = None, description: str | None = 
     state = ProjectState(key=key, roadmap=roadmap)
     warnings = _gate(state)
     store.save_roadmap(state)
-    return _ok({"created": key, "path": str(pdir)}, warnings)
+    return _ok({"created": key}, warnings)
 
 
 @_locked
@@ -131,15 +129,7 @@ def _project_summary(key: str, roadmap: dict) -> dict:
 
 
 def _project_keys(include_archived: bool = False) -> list[str]:
-    root = store.projects_dir()
-    keys = []
-    if root.is_dir():
-        for entry in sorted(root.iterdir()):
-            if entry.is_dir() and (entry / "roadmap.yaml").exists():
-                roadmap = store.load_yaml(entry / "roadmap.yaml") or {}
-                if include_archived or (roadmap.get("status") or "active") != "archived":
-                    keys.append(entry.name)
-    return keys
+    return store.project_keys(include_archived)
 
 
 def _activity_summary(state: ProjectState) -> dict:

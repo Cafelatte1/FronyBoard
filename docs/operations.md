@@ -172,10 +172,13 @@ There is one credential; setting it replaces the previous one.
 ## Backup
 
 Everything lives in the data root (`C:\Users\<user>\AppData\Local\Frony\FronyBoard\data`,
-as set via `AIRA_DATA_DIR` in the launcher script): `projects/` (all plan data) and `auth.yaml`
-(admin hash) — plus the Frony-wide files one level up, `Frony\auth.yaml` (API keys) and
-`Frony\oauth.yaml` (hosted-app clients/tokens). Copy `Frony\` and the backup is complete — the
-repo checkout is reproducible from git and holds no state.
+as set via `AIRA_DATA_DIR` in the launcher script): `fronyboard.db` (all plan data; copy it
+with its `-wal` / `-shm` siblings, or run `sqlite3 fronyboard.db ".backup out.db"` for a
+consistent snapshot while the server runs) and `auth.yaml` (admin hash) — plus the Frony-wide
+files one level up, `Frony\auth.yaml` (API keys) and `Frony\oauth.yaml` (hosted-app
+clients/tokens). Copy `Frony\` and the backup is complete — the repo checkout is reproducible
+from git and holds no state. `projects/` is the pre-v0.25 YAML tree, kept as a read-only
+backup; delete it when you no longer want it.
 
 ## Known failure modes
 

@@ -2,7 +2,7 @@
 
 Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,
-status enums, the task.month reference, period key <-> file consistency,
+status enums, the task.month reference, milestone <-> period consistency,
 id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
 ordering (updated_at >= created_at).
 """
@@ -87,31 +87,31 @@ def _check_roadmap(state: ProjectState, r: Report) -> dict[str, str]:
     """Validate roadmap and return {period folder name: milestone status}."""
     roadmap = state.roadmap
     if not isinstance(roadmap, dict):
-        r.err("roadmap.yaml: top-level map required")
+        r.err("roadmap: top-level map required")
         return {}
     key = roadmap.get("key")
     if not isinstance(key, str) or not PROJECT_KEY.fullmatch(key):
-        r.err(f"roadmap.yaml: key must be 2-5 uppercase letters ({key!r})")
+        r.err(f"roadmap: key must be 2-5 uppercase letters ({key!r})")
     elif key != state.key:
-        r.err(f"roadmap.yaml: key {key!r} does not match project folder '{state.key}'")
+        r.err(f"roadmap: key {key!r} does not match the project row '{state.key}'")
     for field in ("name", "description", "repo"):
         if roadmap.get(field) is not None and not isinstance(roadmap[field], str):
-            r.err(f"roadmap.yaml: {field} must be a string")
+            r.err(f"roadmap: {field} must be a string")
     if roadmap.get("status") is not None and roadmap["status"] not in PROJECT_STATUS:
-        r.err(f"roadmap.yaml: status must be one of {sorted(PROJECT_STATUS)}")
+        r.err(f"roadmap: status must be one of {sorted(PROJECT_STATUS)}")
     if roadmap.get("meta") is not None:  # projects created before v0.6 carry no meta
-        _check_meta(roadmap, "roadmap.yaml", r)
+        _check_meta(roadmap, "roadmap", r)
 
     years = roadmap.get("years")
     if years is None:
         return {}
     if not isinstance(years, dict):
-        r.err("roadmap.yaml: years must be a map")
+        r.err("roadmap: years must be a map")
         return {}
 
     expected: dict[str, str] = {}
     for year, ydata in years.items():
-        where = f"roadmap.yaml years.{year}"
+        where = f"roadmap years.{year}"
         if not re.fullmatch(r"\d{4}", str(year)):
             r.err(f"{where}: year key must be a 'YYYY' string")
         overview = (ydata or {}).get("overview")
@@ -154,15 +154,15 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
     if status == "done" and not period.has_result:
         r.err(f"{name}: milestone is done but `result` is missing — the retrospective closes a period")
     if data.get("result") is not None and not isinstance(data["result"], str):
-        r.err(f"{name}.yaml: result must be a markdown string")
+        r.err(f"{name}: result must be a markdown string")
 
     month_ids = set()
     months = data.get("months")
     if months is None:
-        r.err(f"{name}.yaml: missing months")
+        r.err(f"{name}: missing months")
     else:
         for m in months:
-            where = f"{name}.yaml months[{m.get('id')}]"
+            where = f"{name} months[{m.get('id')}]"
             if not MONTH_ID.fullmatch(str(m.get("id", ""))):
                 r.err(f"{where}: id must look like M1, M2, ...")
             if m.get("id") in month_ids:
@@ -178,7 +178,7 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
 
     for t in data.get("tasks") or []:
         tid = t.get("id")
-        where = f"{name}.yaml tasks[{tid}]"
+        where = f"{name} tasks[{tid}]"
         if not task_id_re.fullmatch(str(tid or "")):
             r.err(f"{where}: id must match '{task_id_re.pattern}'")
         if tid in all_task_ids:
@@ -225,15 +225,15 @@ def validate_state(state: ProjectState) -> Report:
 
     actual = {name for name in state.periods if PERIOD_NAME.fullmatch(name)}
     for stray in sorted(set(state.periods) - actual):
-        r.warn(f"file '{stray}.yaml' does not look like a period file (YYYYQ#.yaml) — ignored")
+        r.warn(f"period '{stray}' is not named YYYYQ# — ignored")
     for missing in sorted(set(expected) - actual):
-        # A planned period may not be opened yet — only active/done require a file.
+        # A planned period may not be opened yet — only active/done require a record.
         if expected[missing] == "planned":
-            r.warn(f"planned period not opened yet: {missing}.yaml")
+            r.warn(f"planned period not opened yet: {missing}")
         else:
-            r.err(f"milestone {missing} is {expected[missing]} but its period file is missing")
+            r.err(f"milestone {missing} is {expected[missing]} but its period record is missing")
     for orphan in sorted(actual - set(expected)):
-        r.warn(f"period file without a roadmap milestone (orphan): {orphan}.yaml")
+        r.warn(f"period without a roadmap milestone (orphan): {orphan}")
 
     all_task_ids: set = set()
     for name in sorted(actual & set(expected)):

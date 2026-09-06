@@ -70,7 +70,7 @@ Archived projects are left out unless `?include_archived=true`.
 
 ### GET /api/projects/{key}/roadmap
 
-The project's `roadmap.yaml` as JSON plus the list of period folder names:
+The project's roadmap record plus the list of its period names:
 
 ```json
 {"roadmap": {"key": "AIR", "name": "FronyBoard", "years": {"2026": {"overview": {...}, "milestones": {"Q3": {...}}}}},
