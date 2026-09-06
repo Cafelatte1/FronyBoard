@@ -94,11 +94,13 @@ def test_search_across_projects_key_filter_limit_and_empty_query():
 
 # ---------------------------------------------------------------- list_tasks / list_projects
 
-def test_list_tasks_compact_and_updated_since():
+def test_list_tasks_omits_prose_unless_asked_and_filters_updated_since():
     key = _seed()
-    compact = service.list_tasks(key, compact=True)["tasks"]
-    assert compact and all("content" not in t for t in compact)
-    assert set(compact[0]) == {"period", "id", "title", "status", "month", "tags", "updated_at"}
+    rows = service.list_tasks(key)["tasks"]
+    assert rows and all("content" not in t and "prd" not in t for t in rows)
+    assert rows[0]["meta"]["created_at"] and rows[0]["title"] == "Add login flow"
+    full = service.list_tasks(key, include_content=True)["tasks"]
+    assert full[0]["content"].startswith("## objective")
 
     assert service.list_tasks(key, updated_since="1h")["count"] == 2
     assert service.list_tasks(key, updated_since="2999-01-01T00:00:00")["count"] == 0
@@ -153,9 +155,35 @@ def test_recent_activity_reads_current_and_rotated_files_newest_first(logs):
     assert service.recent_activity(since="7d")["count"] == 3
     capped = service.recent_activity(limit=1)
     assert capped["count"] == 2 and capped["truncated"] and len(capped["activity"]) == 1
+    assert "log_dir" not in got
+    row = got["activity"][0]
+    assert set(row) == {"ts", "tool", "caller", "project", "task", "args"}  # no req / ms / warnings / ok
+
+
+def test_recent_activity_shows_ok_only_when_false(logs):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    (logs / "tools.jsonl").write_text(
+        _row(now, "create_task", ok=False, error="rejected") + "\n", encoding="utf-8")
+    row = service.recent_activity()["activity"][0]
+    assert row["ok"] is False and "error" not in row
 
 
 def test_recent_activity_without_logs_is_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("AIRA_LOG_DIR", str(tmp_path / "nowhere"))
     got = service.recent_activity()
     assert got["activity"] == [] and got["count"] == 0
+
+
+# ---------------------------------------------------------------- write echoes / roadmap meta
+
+def test_writes_echo_without_prose_and_roadmap_hides_meta():
+    key = bootstrap()
+    made = service.create_task(key, "2026Q3", title="t", month="M1", content="body", prd="spec")["task"]
+    assert "content" not in made and "prd" not in made and made["id"] == f"{key}-001"
+    upd = service.update_task(key, f"{key}-001", content="new body")["task"]
+    assert "content" not in upd and upd["meta"]["updated_at"]
+    assert service.get_task(f"{key}-001")["task"]["content"] == "new body"
+
+    plan = service.get_roadmap(key)["roadmap"]
+    assert "meta" not in plan and "meta" not in plan["years"]["2026"]["overview"]
+    assert "meta" in service.get_roadmap(key, include_meta=True)["roadmap"]["years"]["2026"]["overview"]

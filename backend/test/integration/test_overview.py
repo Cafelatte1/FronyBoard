@@ -11,7 +11,7 @@ from conftest import asgi_request, bootstrap
 
 
 def _overview(key, year="2026"):
-    return service.get_roadmap(key)["roadmap"]["years"][year]["overview"]
+    return service.get_roadmap(key, include_meta=True)["roadmap"]["years"][year]["overview"]
 
 
 def _write_legacy(key):

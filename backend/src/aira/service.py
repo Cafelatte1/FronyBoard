@@ -168,9 +168,19 @@ def list_projects(include_archived: bool = False) -> dict:
     return _jsonable({"projects": projects, "data_root": str(store.data_root())})
 
 
-def get_roadmap(key: str) -> dict:
+def _without_meta(value):
+    """Drop every nested `meta` block — agents reading a plan never need the timestamps."""
+    if isinstance(value, dict):
+        return {k: _without_meta(v) for k, v in value.items() if k != "meta"}
+    if isinstance(value, list):
+        return [_without_meta(v) for v in value]
+    return value
+
+
+def get_roadmap(key: str, include_meta: bool = False) -> dict:
     state = store.load_state(key)
-    return _jsonable({"roadmap": state.roadmap, "periods": sorted(state.periods)})
+    roadmap = state.roadmap if include_meta else _without_meta(state.roadmap)
+    return _jsonable({"roadmap": roadmap, "periods": sorted(state.periods)})
 
 
 # ----------------------------------------------------------------- roadmap
@@ -414,11 +424,18 @@ def create_task(key: str, period: str, title: str, month: str,
     state.periods[period].data.setdefault("tasks", []).append(task)
     warnings = _gate(state)
     store.save_period(state, period)
-    return _ok({"period": period, "task": task}, warnings)
+    return _ok({"period": period, "task": _without_prose(task)}, warnings)
 
 
 # Optional task fields; an "empty" value (0 / "" / []) passed to update_task removes them.
 _CLEARABLE = {"week", "content", "prd", "branch", "tags"}
+_PROSE = ("content", "prd")
+
+
+def _without_prose(task: dict) -> dict:
+    """The task record minus its markdown bodies. Writes echo this shape (the caller already
+    has the text) and list_tasks returns it by default; get_task carries the full record."""
+    return {k: v for k, v in task.items() if k not in _PROSE}
 
 
 @_locked
@@ -443,7 +460,7 @@ def update_task(key: str, task_id: str, title: str | None = None,
     store.touch_meta(task)
     warnings = _gate(state)
     store.save_period(state, period)
-    return _ok({"period": period, "task": task}, warnings)
+    return _ok({"period": period, "task": _without_prose(task)}, warnings)
 
 
 @_locked
@@ -479,7 +496,7 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
                tags: list[str] | None = None, updated_since: str | None = None,
-               compact: bool = False) -> dict:
+               include_content: bool = False) -> dict:
     state = store.load_state(key)
     if period is not None:
         _require_period(state, period)
@@ -503,7 +520,7 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
                 u = (t.get("meta") or {}).get("updated_at")
                 if not isinstance(u, datetime.datetime) or u < cutoff:
                     continue
-            results.append(_compact(pname, t) if compact else {"period": pname, **t})
+            results.append({"period": pname, **(t if include_content else _without_prose(t))})
     return _jsonable({"tasks": results, "count": len(results)})
 
 
@@ -655,12 +672,24 @@ def recent_activity(key: str | None = None, since: str | None = None, limit: int
                 continue
             if writes_only and r.get("tool") in _READ_TOOLS:
                 continue
-            rows.append((ts, r))
+            rows.append((ts, _activity_row(r)))
         if newest is not None and newest < cutoff:
             break
     rows.sort(key=lambda x: x[0], reverse=True)
     return {"activity": [r for _, r in rows[:limit]], "count": len(rows),
-            "truncated": len(rows) > limit, "since": cutoff.isoformat(), "log_dir": str(root)}
+            "truncated": len(rows) > limit, "since": cutoff.isoformat()}
+
+
+_ACTIVITY_FIELDS = ("ts", "tool", "caller", "project", "task", "args")
+
+
+def _activity_row(r: dict) -> dict:
+    """What an agent needs from a tools.jsonl line: who did what, where, when. Request ids,
+    timings and warning counts stay in the log; `ok` is shown only when the call failed."""
+    row = {k: r[k] for k in _ACTIVITY_FIELDS if k in r}
+    if r.get("ok") is False:
+        row["ok"] = False
+    return row
 
 
 def get_status(key: str) -> dict:
