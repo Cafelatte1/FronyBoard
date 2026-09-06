@@ -108,14 +108,14 @@ def list_projects(include_archived: bool = False) -> dict:
 
 
 @mcp.tool()
-def get_roadmap(key: str) -> dict:
+def get_roadmap(key: str, include_meta: bool = False) -> dict:
     """Read a project's plan as written: yearly overviews (goal, now, target, checklist),
     quarterly milestones, and the names of its periods.
 
     Goals only, no counts — get_status for progress and the current period, list_tasks for
-    the tasks themselves.
+    the tasks themselves. Timestamps (`meta`) are left out unless `include_meta` is set.
     """
-    return service.get_roadmap(key)
+    return service.get_roadmap(key, include_meta)
 
 
 @mcp.tool()
@@ -224,6 +224,8 @@ def create_task(key: str, period: str, title: str, month: str,
     a new spelling for the same thing.
 
     `title` is a short English imperative ("Add multi-select status filter").
+    Returns the stored record without `content`/`prd` (you already have them); get_task
+    reads the full record back.
 
     `content` is markdown, read by a human in a narrow panel and by an agent picking the
     task up cold. Write it in English and use this template (keep it under ~25 lines):
@@ -256,7 +258,7 @@ def update_task(task_id: str, title: str | None = None,
     action / criteria); fill in action once the approach is known.
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
-    not just the new ones.
+    not just the new ones. Returns the record without `content`/`prd`.
 
     Omitted fields are left as they are. To remove an optional field pass an empty value:
     `week=0`, `content=""`, `prd=""`, `branch=""`, `tags=[]` (title and month cannot
@@ -293,7 +295,7 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
                tags: list[str] | None = None, updated_since: str | None = None,
-               compact: bool = False) -> dict:
+               include_content: bool = False) -> dict:
     """List one project's tasks, optionally narrowed by period, status, month, tags or
     recency. Use get_status when the counts are all you need, get_task when you know the
     id, search_tasks to find tasks by text across projects.
@@ -303,12 +305,12 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
     YYYY-MM. `tags` narrows to the tasks carrying *all* of the given labels; pass one tag to
     match on it alone, and call again per tag when you want the union.
     `updated_since` keeps tasks touched after a duration ("24h", "7d") or ISO timestamp.
-    `compact` returns id/title/status/month/tags/updated_at only — no content — which is
-    the right shape for skimming a whole period.
+    Rows carry everything but the markdown bodies (`content`, `prd`); pass
+    `include_content=True` to get them, or get_task for one task.
     Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
     """
     return service.list_tasks(key, period, status, month, include_cancelled, tags,
-                              updated_since, compact)
+                              updated_since, include_content)
 
 
 @mcp.tool()
@@ -352,9 +354,10 @@ def search_tasks(query: str, key: str | None = None, status: str | None = None,
 def recent_activity(key: str | None = None, since: str | None = None, limit: int = 50,
                     writes_only: bool = True) -> dict:
     """What changed recently and who did it: the tool calls recorded in tools.jsonl,
-    newest first — `ts`, `caller` (key:<name> / session:<user> / oauth:… / stdio), `tool`,
-    `project`, `task`, the argument names (prose fields appear as `<name>_len`) and `ok`.
-    This is the mutation history; task records themselves keep only timestamps.
+    newest first — `ts`, `tool`, `caller` (key:<name> / session:<user> / oauth:… / stdio),
+    `project`, `task` and `args` (argument names; prose fields appear as `<name>_len`);
+    `ok: false` marks a rejected call. This is the mutation history; task records
+    themselves keep only timestamps.
 
     `since` is a duration ("24h" default, "7d", "90m") or an ISO timestamp; `key` narrows
     to one project; `limit` caps the rows (default 50) while `count` reports the total.

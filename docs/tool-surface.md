@@ -26,6 +26,12 @@ Grouped by lifecycle stage — the order a project actually moves through:
   one record by id, the dashboard's text search over every project, and the mutation
   history read back from `tools.jsonl`
 
+Response shapes are lean by default (v0.23.3 / AIR-070): `list_tasks` rows and the echo from
+`create_task` / `update_task` omit the markdown bodies (`content`, `prd`) — `include_content=True`
+or `get_task` brings them; `get_roadmap` drops every `meta` block unless `include_meta=True`;
+`recent_activity` rows carry only `ts / tool / caller / project / task / args`, plus `ok: false`
+on a rejected call. The full records stay on disk and in the log; only the wire shape shrank.
+
 Several pairs are easy to confuse, so their docstrings cross-reference each other instead of relying
 on the name alone: `upsert_milestone` (a quarter, roadmap level) vs. `upsert_month` (M1/M2/M3 inside
 an open period); `get_status` vs. `get_roadmap` vs. `list_tasks` (progress/counts vs. the plan as

@@ -214,7 +214,7 @@ def test_content_round_trips_as_multiline_markdown():
     service.create_task(key, "2026Q3", title="x", month="M1", content=content)
     text = (store.project_dir(key) / "2026Q3.yaml").read_text(encoding="utf-8")
     assert "content: |-" in text or "content: |" in text
-    assert service.list_tasks(key)["tasks"][0]["content"] == content
+    assert service.list_tasks(key, include_content=True)["tasks"][0]["content"] == content
 
 
 def test_list_projects():
