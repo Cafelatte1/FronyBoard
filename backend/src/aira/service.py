@@ -148,14 +148,31 @@ def _activity_summary(state: ProjectState) -> dict:
             "task_counts": counts, "last_activity": last}
 
 
+def _project_entry(state: ProjectState) -> dict:
+    entry = _project_summary(state.key, state.roadmap)
+    entry["summary"] = _activity_summary(state)
+    return entry
+
+
 def list_projects(include_archived: bool = False) -> dict:
-    projects = []
-    for key in _project_keys(include_archived):
-        state = store.load_state(key)
-        entry = _project_summary(key, state.roadmap)
-        entry["summary"] = _activity_summary(state)
-        projects.append(entry)
+    projects = [_project_entry(store.load_state(key)) for key in _project_keys(include_archived)]
     return _jsonable({"projects": projects, "data_root": str(store.data_root())})
+
+
+def board(include_content: bool = False) -> dict:
+    """Everything the dashboard shows, with each project loaded once (AIR-072): the
+    list_projects entries plus, per project, get_status / the roadmap without meta /
+    every task including cancelled ones. Loading through the per-project reads cost
+    five loads and five JSON decodes per project."""
+    projects, statuses, roadmaps, tasks = [], {}, {}, {}
+    for key in _project_keys():
+        state = store.load_state(key)
+        projects.append(_project_entry(state))
+        statuses[key] = _status(state)
+        roadmaps[key] = _without_meta(state.roadmap)
+        tasks[key] = _tasks(state, include_cancelled=True, include_content=include_content)
+    return _jsonable({"projects": projects, "statuses": statuses, "roadmaps": roadmaps,
+                      "tasks": tasks})
 
 
 def _without_meta(value):
@@ -490,6 +507,15 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
     state = store.load_state(key)
     if period is not None:
         _require_period(state, period)
+    results = _tasks(state, period, status, month, include_cancelled, tags, updated_since,
+                     include_content)
+    return _jsonable({"tasks": results, "count": len(results)})
+
+
+def _tasks(state: ProjectState, period: str | None = None, status: str | None = None,
+           month: str | None = None, include_cancelled: bool = False,
+           tags: list[str] | None = None, updated_since: str | None = None,
+           include_content: bool = False) -> list:
     wanted = set(_clean_tags(tags))   # a task must carry all of them
     cutoff = _naive_utc(_since(updated_since)) if updated_since else None
     results = []
@@ -511,7 +537,7 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
                 if not isinstance(u, datetime.datetime) or u < cutoff:
                     continue
             results.append({"period": pname, **(t if include_content else _without_prose(t))})
-    return _jsonable({"tasks": results, "count": len(results)})
+    return results
 
 
 # ---------------------------------------------------------------- reads
@@ -683,7 +709,10 @@ def _activity_row(r: dict) -> dict:
 
 
 def get_status(key: str) -> dict:
-    state = store.load_state(key)
+    return _jsonable(_status(store.load_state(key)))
+
+
+def _status(state: ProjectState) -> dict:
     periods = {}
     for pname in sorted(state.periods):
         p = state.periods[pname]
@@ -708,7 +737,7 @@ def get_status(key: str) -> dict:
             "in_progress": [t["id"] for t in p.data.get("tasks") or []
                             if t.get("status") == "in_progress"],
         }
-    return _jsonable({"project": state.key, "name": state.roadmap.get("name"), "periods": periods})
+    return {"project": state.key, "name": state.roadmap.get("name"), "periods": periods}
 
 
 def validate(key: str) -> dict:

@@ -98,16 +98,8 @@ async def _board(request):
     `?content=0` leaves task content out (~30 KB instead of ~190 KB gzipped): the SPA
     paints from that first and fetches the full board right after."""
     with_content = request.query_params.get("content") not in ("0", "false")
-    info = await _server_info()
-    projects = service.list_projects()["projects"]
-    board = {"server": info, "projects": projects, "statuses": {}, "roadmaps": {}, "tasks": {}}
-    for p in projects:
-        key = p["key"]
-        board["statuses"][key] = service.get_status(key)
-        board["roadmaps"][key] = service.get_roadmap(key)["roadmap"]
-        board["tasks"][key] = service.list_tasks(key, include_cancelled=True,
-                                                 include_content=with_content)["tasks"]
-    return JSONResponse(board)
+    board = service.board(include_content=with_content)
+    return JSONResponse({"server": await _server_info(board["projects"]), **board})
 
 
 async def _set_check(request):
@@ -139,14 +131,11 @@ async def _server(request):
     return JSONResponse(await _server_info())
 
 
-async def _server_info() -> dict:
-    projects = service.list_projects()["projects"]
-    open_periods = []
-    for p in projects:
-        state = store.load_state(p["key"])
-        for pname in sorted(state.periods):
-            if not state.periods[pname].has_result:
-                open_periods.append({"project": p["key"], "period": pname})
+async def _server_info(projects: list | None = None) -> dict:
+    if projects is None:
+        projects = service.list_projects()["projects"]
+    open_periods = [{"project": p["key"], "period": pname}
+                    for p in projects for pname in p["summary"]["open_periods"]]
     try:
         ver = pkg_version("aira")
     except PackageNotFoundError:
