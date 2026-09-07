@@ -29,9 +29,9 @@ React 18 + Vite + TypeScript, no router library; `App.tsx` switches pages by sta
 
 ## Data loading and state
 
-`useBoardData` fetches the whole board in one call to `/api/board` (server facts, projects, and per project status / roadmap / tasks with content) after login and on the one-minute refresh, and holds it in memory; pages filter that object rather than fetching per view. A `401` clears the session and returns to the login screen. Server time and timezone come from the `server` part of that response.
+`useBoardData` fetches the whole board in one call to `/api/board` (server facts, projects, and per project status / roadmap / tasks with content) after login and on the one-minute refresh, and holds it in memory; pages filter that object rather than fetching per view. The first load is two calls: `/api/board?content=0` paints the board without task content, then the full board replaces it (TaskPanel and the header search need content). A `401` clears the session and returns to the login screen. Server time and timezone come from the `server` part of that response.
 
-Load cost (AIR-072, measured from a dev PC over Tailscale, 7 active projects, 351 tasks): before, 23 requests totalling 130 KB, about 2.1 s when run in sequence and 40-90 ms per request even for a 1 KB body; after, one request, gzip-compressed. The post-change timing is recorded in the AIR-072 task. Task content stays in the payload on purpose: it is about 130 KB in total and the header search matches on it client-side.
+Load cost (AIR-072, measured from a dev PC over Tailscale, 7 active projects, 351 tasks): before, 23 requests totalling 130 KB, about 2.1 s when run in sequence and 40-90 ms per request even for a 1 KB body, of which about 1.1 s was the server building a fresh `httpx.AsyncClient` for every FronyAuth call (v0.26.1 keeps one per event loop). After: the light board answers in about 150 ms, the full board (190 KB gzipped) in about 600 ms, most of it transfer over the server's Wi-Fi. Task content stays in the full payload on purpose: the header search matches on it client-side.
 
 The only write the dashboard performs is the checklist toggle: `PATCH /api/projects/{key}/years/{year}/checklist/{index}` with `{done}`, applied optimistically in `useFocus` (`pages/Projects.tsx`).
 
