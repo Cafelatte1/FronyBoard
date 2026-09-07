@@ -128,6 +128,9 @@ over 2 KB are gzip-compressed when the client accepts it.
  "tasks":    {"AIR": [... GET /api/projects/AIR/tasks?include_cancelled=true, content included ...]}}
 ```
 
+`?content=0` leaves task `content` out of `tasks` (about 30 KB gzipped instead of 190 KB
+with 350 tasks); the SPA paints from that first, then fetches the full board.
+
 The per-project routes stay for tools and tests; the SPA calls only this one on load
 and on its one-minute refresh.
 

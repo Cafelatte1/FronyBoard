@@ -94,7 +94,10 @@ def _tasks(request):
 async def _board(request):
     """Everything the dashboard needs in one round trip (AIR-072): server facts, the
     project list and, per project, status / roadmap / every task including cancelled ones
-    and content. Replaces the 2 + 3n calls the SPA used to make on load."""
+    and content. Replaces the 2 + 3n calls the SPA used to make on load.
+    `?content=0` leaves task content out (~30 KB instead of ~190 KB gzipped): the SPA
+    paints from that first and fetches the full board right after."""
+    with_content = request.query_params.get("content") not in ("0", "false")
     info = await _server_info()
     projects = service.list_projects()["projects"]
     board = {"server": info, "projects": projects, "statuses": {}, "roadmaps": {}, "tasks": {}}
@@ -102,7 +105,8 @@ async def _board(request):
         key = p["key"]
         board["statuses"][key] = service.get_status(key)
         board["roadmaps"][key] = service.get_roadmap(key)["roadmap"]
-        board["tasks"][key] = service.list_tasks(key, include_cancelled=True, include_content=True)["tasks"]
+        board["tasks"][key] = service.list_tasks(key, include_cancelled=True,
+                                                 include_content=with_content)["tasks"]
     return JSONResponse(board)
 
 

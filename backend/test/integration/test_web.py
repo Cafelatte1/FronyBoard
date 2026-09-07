@@ -49,6 +49,9 @@ def test_board_bundles_everything_the_dashboard_loads(fake_fauth):
     assert body["roadmaps"]["DLY"]["years"]["2026"]["overview"]["goal"] == "ship it"
     assert [t["id"] for t in body["tasks"]["DLY"]] == ["DLY-001", "DLY-002"]  # cancelled included
     assert body["tasks"]["DLY"][0]["content"].startswith("## objective")  # content included
+    status, light = _get("/api/board", "content=0")
+    assert status == 200 and "content" not in light["tasks"]["DLY"][0]
+    assert [t["id"] for t in light["tasks"]["DLY"]] == ["DLY-001", "DLY-002"]
 
 
 def test_tasks_route_keeps_content_for_the_panel():

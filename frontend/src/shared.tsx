@@ -32,10 +32,13 @@ export function useBoardData(onAuthFail: () => void) {
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
 
-  const reload = useCallback(() => {
+  const reload = useCallback((first = false) => {
     return (async () => {
       // One round trip for the whole board (AIR-072): the server assembles what used to
-      // be 2 + 3n requests, and the SPA keeps it in memory as before.
+      // be 2 + 3n requests, and the SPA keeps it in memory as before. On the first load
+      // the board is painted from the light response (no task content, ~30 KB) and the
+      // full one (~190 KB gzipped, needed by TaskPanel and the header search) follows.
+      if (first) setData(await api<BoardData>("/api/board?content=0"));
       const board = await api<BoardData>("/api/board");
       setData(board);
       setFetchedAt(new Date());
@@ -48,7 +51,7 @@ export function useBoardData(onAuthFail: () => void) {
   }, []);
 
   useEffect(() => {
-    void reload();
+    void reload(true);
   }, [reload]);
 
   // Auto refresh: every minute while the tab is visible, and right away when the
