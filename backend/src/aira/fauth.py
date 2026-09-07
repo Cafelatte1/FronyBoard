@@ -20,6 +20,7 @@ a client must not conclude its key was revoked).
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import time
@@ -31,6 +32,7 @@ NEGATIVE_TTL = 5
 TIMEOUT = 2.0
 
 _cache: dict[str, tuple[float, str | None]] = {}  # sha256(token) -> (expires, caller|None)
+_http: tuple[asyncio.AbstractEventLoop, httpx.AsyncClient] | None = None
 
 
 class Unavailable(Exception):
@@ -45,12 +47,23 @@ def _headers() -> dict:
     return {"Authorization": f"Bearer {os.environ.get('FRONY_SERVICE_KEY', '')}"}
 
 
+def _client() -> httpx.AsyncClient:
+    """One client per event loop, reused across calls: building an AsyncClient costs
+    ~200 ms on the home server (SSL context + CA bundle) while the request itself takes
+    ~30 ms, and a per-call client made every introspect and /keys round trip pay it (AIR-072).
+    Keyed by loop so tests, which run one loop per test, never reuse a closed one."""
+    global _http
+    loop = asyncio.get_running_loop()
+    if _http is None or _http[0] is not loop:
+        _http = (loop, httpx.AsyncClient(timeout=TIMEOUT))
+    return _http[1]
+
+
 async def _post(path: str, payload: dict) -> httpx.Response:
     last_error: Exception | None = None
     for _ in range(2):  # one retry, per the contract
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                return await client.post(base_url() + path, json=payload, headers=_headers())
+            return await _client().post(base_url() + path, json=payload, headers=_headers())
         except httpx.HTTPError as e:
             last_error = e
     raise Unavailable(str(last_error))
@@ -91,8 +104,7 @@ async def admin_verify(username: str, password: str, client_addr: str) -> tuple[
 
 async def keys() -> list[dict]:
     try:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            response = await client.get(base_url() + "/keys", headers=_headers())
+        response = await _client().get(base_url() + "/keys", headers=_headers())
     except httpx.HTTPError as e:
         raise Unavailable(str(e))
     if response.status_code != 200:
@@ -107,8 +119,7 @@ async def create_key(name: str) -> tuple[int, dict]:
 
 async def delete_key(name: str) -> tuple[int, dict]:
     try:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            response = await client.delete(base_url() + f"/keys/{name}", headers=_headers())
+        response = await _client().delete(base_url() + f"/keys/{name}", headers=_headers())
     except httpx.HTTPError as e:
         raise Unavailable(str(e))
     return response.status_code, response.json()
