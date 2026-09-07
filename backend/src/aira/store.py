@@ -63,15 +63,26 @@ CREATE TABLE IF NOT EXISTS periods (
 """
 
 
+_ready: set[Path] = set()   # databases this process has already put in WAL mode and given the schema
+
+
 def connect() -> sqlite3.Connection:
     """One connection per operation: the database is tiny and SQLite serialises writers
-    itself; WAL keeps readers from blocking on a write."""
+    itself; WAL keeps readers from blocking on a write. The WAL switch and the schema
+    are applied once per database per process — on every connection they cost more
+    than the queries they precede (AIR-072)."""
     path = db_path()
+    conn = sqlite3.connect(path, timeout=10) if path in _ready else _prepare(path)
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def _prepare(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, timeout=10)
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(_SCHEMA)
+    _ready.add(path)
     return conn
 
 
