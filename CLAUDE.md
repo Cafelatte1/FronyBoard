@@ -27,9 +27,9 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 
 ## Deploy
 
-Runs on the home server (Tailscale `100.67.93.87:8642`) as the Task Scheduler task "FronyBoard Server". "FronyAuth Server" (`:8640`, the project-auth repo) on the same machine does all bearer verification through introspection (`FRONY_AUTH_URL` / `FRONY_SERVICE_KEY`, v0.18.0+); without it nothing authenticates.
+Runs on the home server (Tailscale, port 8642; the address is in `~/HomeServerInfo.md`) as the Task Scheduler task "FronyBoard Server". "FronyAuth Server" (`:8640`, the project-auth repo) on the same machine does all bearer verification through introspection (`FRONY_AUTH_URL` / `FRONY_SERVICE_KEY`, v0.18.0+); without it nothing authenticates.
 The server deploys **release tags only** (`vX.Y.Z`); pushing to main changes nothing.
-Procedure: push the tag, then on the server run `scripts\deploy.ps1 -Tag vX.Y.Z` (README, Deploy section). Keys come from `fauth keygen` or the dashboard Settings page.
+Procedure: push the tag, then on the server run `scripts\deploy.ps1 -Tag vX.Y.Z` (`docs/self-hosting.md`, `docs/operations.md`). Keys come from `fauth keygen` or the dashboard Settings page.
 
 ## Docs
 

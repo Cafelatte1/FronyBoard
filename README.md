@@ -19,106 +19,33 @@ The schema and operating rules were extracted from a real product's management s
 
 ## Install
 
-Requires [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/). One line registers FronyBoard in Claude Code;
+`uvx` fetches and builds the package on first use and caches it:
 
 ```powershell
-git clone https://github.com/Cafelatte1/project-aira
-cd project-aira/backend
-uv sync
+claude mcp add FronyBoard -- uvx --from "git+https://github.com/Cafelatte1/fronyboard@v0.28.0#subdirectory=backend" fronyboard
 ```
 
-The repo is a monorepo: `backend/` holds the MCP server (a uv project), `frontend/`
-the FronyBoard web dashboard. Commands below run from `backend/`.
-
-Data lives under `%LOCALAPPDATA%\Frony\FronyBoard\data` by default
-(`~/.Frony/FronyBoard/data` where `LOCALAPPDATA` is unset); set `AIRA_DATA_DIR`
-to relocate it. Logs (JSON Lines, one line per MCP tool call plus server events) go
-to the sibling `logs` folder — `AIRA_LOG_DIR` overrides; see [docs/logging.md](docs/logging.md).
-
-## Run
-
-### Remote (home server)
-
-FronyBoard is designed to run on one always-on machine, with every client PC talking
-to it over MCP streamable HTTP. Issue one API key per client machine, then start
-the server:
+Any MCP client that can launch a stdio command works the same way — the command is
+`uvx --from "git+…#subdirectory=backend" fronyboard`. From a clone, point at the
+checkout instead:
 
 ```powershell
-uv run aira keygen pc1        # prints the key once — store it on that PC
-uv run aira serve             # binds 0.0.0.0:8642, requires a valid key on every request
+git clone https://github.com/Cafelatte1/fronyboard
+claude mcp add FronyBoard -- uv run --directory <path-to-clone>\backend fronyboard
 ```
 
-Register on each client (any project, or `--scope user` for everywhere):
+This is the local (stdio) mode: the client starts the server as a child process and
+talks to it over a pipe. No HTTP, no network, no credentials — `web.py` and
+`fauth.py` are never called. Data is written to `%LOCALAPPDATA%\Frony\FronyBoard\data`
+(`~/.Frony/FronyBoard/data` where `LOCALAPPDATA` is unset); set `AIRA_DATA_DIR` to
+relocate it. Logs (JSON Lines, one line per MCP tool call plus server events) go to
+the sibling `logs` folder — `FRONYBOARD_LOG_DIR` overrides; see
+[docs/logging.md](docs/logging.md).
 
-```powershell
-claude mcp add --transport http FronyBoard http://<server>:8642/mcp --header "Authorization: Bearer <api key>"
-```
-
-Or let `scripts\configure_mcp_settings.ps1 -ApiKey <api key>` register the server as
-`FronyBoard` in every client installed on that PC — Claude Code, Codex CLI and
-Claude Desktop — and re-run it later to rotate the key (no argument reuses the
-configured one).
-
-Keys are stored hash-only in the Frony-wide registry
-`%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE` overrides) — one key per
-device, shared by every Frony service on that machine; revoke one by deleting its
-entry. For access across networks (e.g. a laptop at a cafe), put the server and
-clients on a [Tailscale](https://tailscale.com/) tailnet and use the server's
-Tailscale name as `<server>` — only your enrolled devices can reach it, from
-anywhere.
-
-### Hosted clients (Claude / ChatGPT apps)
-
-The Claude and ChatGPT apps connect from the vendor's servers, not from your
-device, so they need a public HTTPS address and log in with OAuth instead of a
-static key. Expose `/mcp` (and the OAuth paths) with
-[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) and start the server
-with that address:
-
-```powershell
-$env:AIRA_PUBLIC_URL = "https://<machine>.<tailnet>.ts.net"   # or: aira serve --public-url …
-$env:AIRA_PUBLIC_MCP_PATH = "/board/mcp"                       # the Funnel path that proxies to /mcp
-uv run aira serve
-```
-
-Add `https://<machine>.<tailnet>.ts.net/board/mcp` as a custom connector in the app;
-the approval page asks for the dashboard login (`aira admin`). Access tokens
-last 24 hours and refresh silently for 90 days; API keys keep working unchanged.
-See [docs/operations.md](docs/operations.md) for the Funnel paths. Tokens live in
-the Frony-wide `%LOCALAPPDATA%\Frony\oauth.yaml`, so other Frony services on
-the same machine can accept them on their own Funnel path without running OAuth
-themselves — [docs/auth.md](docs/auth.md#other-frony-services-behind-the-same-login).
-
-### Local (stdio)
-
-```powershell
-claude mcp add FronyBoard -- uv run --directory <path-to-project-aira>\backend aira
-```
-
-## FronyBoard — the dashboard
-
-FronyBoard is the human-facing, read-only view of the same data: yearly overview,
-quarterly/monthly milestones, per-month progress, and the task table — click a
-task row for its full record (content as markdown, branch, timestamps). The server
-serves it at `http://<server>:8642/` — sign in with the dashboard login, set once
-on the server with `aira admin <username>` (all writes still go through the MCP
-tools; API keys stay agent-only). Sessions live in server memory, so a server
-restart signs viewers out. The Settings screen can issue and revoke API keys —
-those endpoints require the dashboard login, never an API key; the first key
-still comes from `aira keygen`, since `serve` refuses to start without one.
-
-The dashboard source lives in `frontend/` (React + Vite). Its build output
-(`frontend/dist`) is committed to the repo on purpose, so the home server needs
-no Node toolchain — `git pull` is enough. After changing the frontend:
-
-```powershell
-cd frontend
-npm install
-npm run build     # refresh frontend/dist, then commit it
-```
-
-`npm run dev` starts a dev server that proxies `/api` to a locally running
-`aira serve` (override with `AIRA_API=http://<server>:8642`).
+To share one FronyBoard between several machines, or to use it from the Claude and
+ChatGPT apps, run it as an HTTP server instead — see
+[docs/self-hosting.md](docs/self-hosting.md).
 
 ## Project setup
 
@@ -137,77 +64,6 @@ Manage tasks through the FronyBoard MCP tools, following the FronyBoard server i
 Replace `DLY` with the project's key (register one first with `create_project`).
 The section is also the opt-in signal: a codebase without it is treated as not
 FronyBoard-managed.
-
-## Deploy — Windows home server
-
-The server machine only deploys; development happens on client PCs and flows
-through git (`push` on a dev PC → `pull` + restart here).
-
-```mermaid
-flowchart LR
-    subgraph tailnet["Tailscale tailnet — only your enrolled devices"]
-        subgraph server["Home server (always on)"]
-            task["Task Scheduler<br>(at startup)"] -->|runs| serve["aira serve :8642"]
-            serve --- data[("data root<br>Frony/FronyBoard/data")]
-        end
-        pc1["Dev PC<br>Claude Code"] -->|"MCP · Bearer API key"| serve
-        pc2["Laptop<br>Claude Code"] -->|"MCP · Bearer API key"| serve
-        browser["Any browser<br>FronyBoard dashboard"] -->|"dashboard login"| serve
-    end
-    gh["GitHub<br>release tag vX.Y.Z"]
-    pc1 -.->|"git push --tags"| gh
-    gh -.->|"git checkout vX.Y.Z"| server
-```
-
-One always-on machine runs the server and owns the data; every other device is
-a client — Claude Code sessions talk MCP with an API key, humans open the
-dashboard in a browser. Code reaches the server only as release tags pulled
-from GitHub, never by editing in place.
-
-1. Install [Tailscale](https://tailscale.com/download), log in with the same
-   account as your client PCs, and enable **Settings → Run unattended** so the
-   tailnet stays up with nobody logged in. In the
-   [admin console](https://login.tailscale.com/admin/machines), disable key
-   expiry for this machine.
-2. Install the server — the home server runs **release tags only**, never the tip
-   of main:
-
-   ```powershell
-   git clone https://github.com/Cafelatte1/project-aira
-   cd project-aira
-   git checkout vX.Y.Z                   # the latest release tag
-   cd backend
-   uv sync
-   ```
-
-   Auth lives in **FronyAuth** (the project-auth repo) — install it next to
-   this checkout the same way (`git checkout vX.Y.Z`, `uv sync`), then issue
-   keys and the dashboard login there:
-
-   ```powershell
-   uv run fauth keygen <client-pc-name>  # once per client PC, save each key
-   uv run fauth keygen board-server      # aira's own key -> FRONY_SERVICE_KEY
-   uv run fauth admin <username>         # dashboard login (prompts for a password)
-   ```
-
-   `aira serve` needs `FRONY_AUTH_URL` (default `http://127.0.0.1:8640`) and
-   `FRONY_SERVICE_KEY` in its launcher. A new machine bootstraps ssh/git/uv
-   with `scripts\bootstrap-server.ps1` (run once, as admin).
-
-3. Keep it running across reboots: copy `scripts\aira-server.cmd.example` to
-   `C:\Users\<user>\aira-server.cmd`, fill in `FRONY_SERVICE_KEY`, then run
-   `scripts\register-task.ps1` from an elevated PowerShell. It creates the
-   "AIRA Server" task (at startup, as SYSTEM) that runs the launcher. The
-   launcher pins `AIRA_DATA_DIR` because SYSTEM's `%LOCALAPPDATA%` is the
-   system profile, and sets `AIRA_TZ=Asia/Seoul` so the dashboard shows the
-   server's zone. See [docs/operations.md](docs/operations.md), First-time setup.
-4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z && git push --tags`),
-   then on the server run `powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z`
-   — it stops the task (`uv sync` cannot replace a running `aira.exe`), checks
-   out the tag, syncs, and starts the task again. Without `-Tag` it only
-   restarts the server. See [docs/operations.md](docs/operations.md).
-
-Clients then connect with the server's Tailscale name (see "Remote" above).
 
 ## Model
 
@@ -275,21 +131,33 @@ with the full error list. `close_period` refuses while tasks are still `todo` or
 `in_progress`. Writes are serialized per project, so concurrent clients cannot
 collide on ids or lose updates.
 
+## Self-hosting
+
+The same package also runs as an always-on HTTP server (`fronyboard serve`): MCP over
+streamable HTTP for every machine on your network, a read-only web dashboard for
+humans, API keys per device, and OAuth for the hosted Claude / ChatGPT apps.
+Authentication is delegated to [FronyAuth](https://github.com/Cafelatte1/project-auth),
+a separate service. None of it is needed for the stdio install above.
+[docs/self-hosting.md](docs/self-hosting.md) covers the setup;
+[docs/operations.md](docs/operations.md) is the day-2 runbook.
+
 ## Development
 
 ```powershell
-uv run --directory backend pytest
+uv run --directory backend pytest      # backend
+cd frontend; npm test                  # dashboard
 ```
 
-Layout: `backend/src/aira/` — `store.py` (file IO, data root), `validation.py`
-(schema gate), `service.py` (operations), `auth.py` (API keys, sessions, bearer
-middleware), `oauth.py` + `oauth_pages.py` (OAuth for hosted apps, approval
-page), `web.py` (JSON API + static serving), `server.py` (MCP tool
-surface + CLI); `frontend/` — the FronyBoard dashboard, built to static files
-served by the backend.
+The repo is a monorepo. `backend/src/fronyboard/` — `store.py` (SQLite, data root),
+`validation.py` (schema gate), `service.py` (operations), `auth.py` (bearer
+middleware) + `fauth.py` (FronyAuth client), `log.py`, `web.py` (JSON API + static
+serving), `server.py` (MCP tool surface + CLI). `frontend/` — the dashboard (React +
+Vite), built to static files that the backend serves; its build output
+`frontend/dist` is committed so a server needs no Node toolchain.
 
-More docs under [docs/](docs/):
+More docs under [docs/](docs/INDEX.md):
 
+- [docs/self-hosting.md](docs/self-hosting.md) — running FronyBoard as a shared server: clients, dashboard, hosted apps, deploy
 - [docs/auth.md](docs/auth.md) — access channels (CLI agents, desktop, dashboard, hosted apps) and how each authenticates
 - [docs/http-api.md](docs/http-api.md) — the FronyBoard JSON API
 - [docs/data-model.md](docs/data-model.md) — field-level schema and validation rules

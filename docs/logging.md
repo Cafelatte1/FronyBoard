@@ -52,9 +52,9 @@ session tokens, and the planning prose (`content`, `prd`, `goal`, `now`, `next`,
 
 ```json
 {"ts":"…","level":"INFO","scope":"boot","event":"start","mode":"http","version":"0.6.2","data":"C:\\…\\data","logs":"C:\\…\\logs","tz":"Asia/Seoul","host":"0.0.0.0:8642"}
-{"ts":"…","level":"INFO","scope":"auth","event":"login_ok","user":"admin","ip":"100.108.65.1"}
-{"ts":"…","level":"WARNING","scope":"auth","event":"key_rejected","ip":"100.108.65.1","path":"/mcp","prefix":"aira_347b"}
-{"ts":"…","level":"WARNING","scope":"http","event":"response","status":404,"method":"GET","path":"/api/projects/ZZ/status","ip":"100.108.65.1"}
+{"ts":"…","level":"INFO","scope":"auth","event":"login_ok","user":"admin","ip":"203.0.113.5"}
+{"ts":"…","level":"WARNING","scope":"auth","event":"key_rejected","ip":"203.0.113.5","path":"/mcp","prefix":"aira_347b"}
+{"ts":"…","level":"WARNING","scope":"http","event":"response","status":404,"method":"GET","path":"/api/projects/ZZ/status","ip":"203.0.113.5"}
 {"ts":"…","level":"WARNING","scope":"tool","event":"rejected","req":"03aa7d","tool":"update_task","msg":"nothing to update — …"}
 {"ts":"…","level":"ERROR","scope":"py","event":"log","logger":"uvicorn.error","msg":"Exception in ASGI application","trace":"Traceback (most recent call last): …"}
 ```

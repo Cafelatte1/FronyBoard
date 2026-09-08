@@ -48,7 +48,7 @@ All timestamps in responses are **naive UTC** strings (e.g.
 ### POST /api/login
 
 Body: `{"username": "...", "password": "..."}` — the credential set with
-`aira admin <username>`. Returns `{"token": "fbsession_…", "username": "..."}`,
+`fauth admin <username>`. Returns `{"token": "fbsession_…", "username": "..."}`,
 or `401` on a bad credential. Five failures from one address within 15 minutes
 lock that address out with `429` until the window passes.
 

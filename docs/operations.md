@@ -7,15 +7,14 @@
 ---
 
 Day-2 operations for the always-on Windows server. First-time install lives in
-the README ("Deploy — Windows home server"); this page is what you need after
-that. The server runs as the Task Scheduler task **"FronyBoard Server"** and deploys
+[self-hosting](self-hosting.md); this page is what you need after that. The server runs as the Task Scheduler task **"FronyBoard Server"** and deploys
 **release tags only** — pushing to main changes nothing on the server.
 
 ## First-time setup
 
 Two files make the server self-starting, both in `scripts/`:
 
-1. Copy `scripts\fronyboard-server.cmd.example` to `C:\Users\flash\fronyboard-server.cmd` and fill
+1. Copy `scripts\fronyboard-server.cmd.example` to `C:\Users\<user>\fronyboard-server.cmd` and fill
    `FRONY_SERVICE_KEY` (from `fauth keygen board-server`). The real `.cmd` is git-ignored;
    every env var the server needs lives there and nowhere else.
 2. In an elevated PowerShell run `scripts\register-task.ps1`. It registers the "FronyBoard Server"
@@ -33,8 +32,8 @@ git push origin main vX.Y.Z
 ```
 
 On the server, `scripts/deploy.ps1` does the whole sequence (from a dev PC:
-`ssh -i ~/.ssh/fronyboard_homeserver flash@100.67.93.87 "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
-FronyAuth deploys the same way from its own checkout (`C:\Users\flash\projects\project-auth`,
+`ssh -i ~/.ssh/fronyboard_homeserver <user>@<server> "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
+FronyAuth deploys the same way from its own checkout (`C:\Users\<user>\projects\project-auth`,
 task "FronyAuth Server", its own `scripts\deploy.ps1`).
 Run it as its own ssh command, not combined with anything that also mentions
 `fronyboard-server.cmd`: the process cleanup below matches command lines containing
@@ -70,7 +69,7 @@ scheduled task and four env vars. The server still runs the old names until this
 done once, on the server:
 
 1. `git fetch --tags; git checkout v0.28.0` in the checkout, so the new scripts are on disk.
-2. Create `C:\Users\flash\fronyboard-server.cmd` from `scripts\fronyboard-server.cmd.example`,
+2. Create `C:\Users\<user>\fronyboard-server.cmd` from `scripts\fronyboard-server.cmd.example`,
    copying `FRONY_SERVICE_KEY` and the paths from the old `aira-server.cmd`. `AIRA_TZ`,
    `AIRA_PUBLIC_URL`, `AIRA_PUBLIC_MCP_PATH` (and `AIRA_LOG_DIR` if set) become
    `FRONYBOARD_*`; `AIRA_DATA_DIR` stays as it is.
@@ -108,10 +107,10 @@ v0.18.0 — FronyBoard only advertises FronyAuth's resource metadata on a 401
 (`FRONYBOARD_PUBLIC_URL` + `FRONYBOARD_PUBLIC_MCP_PATH` in `fronyboard-server.cmd`). The public
 layout is *root = auth, one prefix per service*:
 
-    https://laptop-windows-hp-dragonflyg3.tailab9579.ts.net/board/mcp  -> http://127.0.0.1:8642/mcp  (FronyBoard)
-    https://laptop-windows-hp-dragonflyg3.tailab9579.ts.net/{.well-known,register,authorize,token,revoke,oauth,fonts,favicon.ico}
+    https://<server>.<tailnet>.ts.net/board/mcp  -> http://127.0.0.1:8642/mcp  (FronyBoard)
+    https://<server>.<tailnet>.ts.net/{.well-known,register,authorize,token,revoke,oauth,fonts,favicon.ico}
                                                                        -> http://127.0.0.1:8640/*    (FronyAuth)
-    https://laptop-windows-hp-gpu.tailab9579.ts.net/cache/*            -> http://127.0.0.1:9412/*    (FronyHome, its own machine)
+    https://<gpu-server>.<tailnet>.ts.net/cache/*            -> http://127.0.0.1:9412/*    (FronyHome, its own machine)
 
 Funnel exposes only these path prefixes — the dashboard and `/api` stay
 tailnet-only:

@@ -11,6 +11,7 @@ Every doc opens with **When to read / Code / Related**; the middle column below 
 | [tool-surface](tool-surface.md) | when adding, renaming or regrouping an `@mcp.tool()` or editing the server `instructions=` block |
 | [http-api](http-api.md) | when adding or changing an `/api/*` route the dashboard calls |
 | [auth](auth.md) | when changing how a request is authenticated (API key, dashboard session, OAuth) or which access channel serves it |
+| [self-hosting](self-hosting.md) | when running FronyBoard as a shared HTTP server for several machines or for the hosted Claude / ChatGPT apps, instead of the local stdio install in the README |
 | [operations](operations.md) | when deploying, restarting, backing up or diagnosing the home-server instance |
 | [logging](logging.md) | when adding a log field or event, or reading tools.jsonl / server.jsonl |
 | [frontend](frontend.md) | when changing a dashboard page, the data loading, or a UI-only feature such as the header search |
