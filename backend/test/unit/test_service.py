@@ -138,6 +138,60 @@ def test_update_task_replaces_the_whole_tag_list():
     assert "tags" not in service.list_tasks(key)["tasks"][0]   # gone from the file too
 
 
+def test_after_points_at_predecessors():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="first", month="M1")
+    task = service.create_task(key, "2026Q3", title="second", month="M1",
+                               after=[" DLY-001 ", "DLY-001"])["task"]
+    assert task["after"] == ["DLY-001"]                 # trimmed, de-duplicated
+
+    rows = {t["id"]: t for t in service.list_tasks(key)["tasks"]}
+    assert rows["DLY-002"]["waiting_on"] == ["DLY-001"]
+    assert "waiting_on" not in rows["DLY-001"]          # nothing to wait for
+    assert service.get_task("DLY-001")["task"]["followed_by"] == ["DLY-002"]
+
+    service.transition_task(key, "DLY-001", "in_progress")
+    service.transition_task(key, "DLY-001", "done")
+    rows = {t["id"]: t for t in service.list_tasks(key)["tasks"]}
+    assert "waiting_on" not in rows["DLY-002"]          # predecessor finished
+
+    task = service.update_task(key, "DLY-002", after=[])["task"]
+    assert "after" not in task
+    assert "after" not in service.list_tasks(key)["tasks"][1]   # gone from the file too
+
+
+def test_after_rejects_bad_references():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="first", month="M1")
+    with pytest.raises(service.FronyBoardError, match="itself"):
+        service.update_task(key, "DLY-001", after=["DLY-001"])
+    with pytest.raises(service.FronyBoardError, match="unknown task"):
+        service.update_task(key, "DLY-001", after=["DLY-099"])
+    with pytest.raises(service.FronyBoardError, match="project ZZ not found"):
+        service.update_task(key, "DLY-001", after=["ZZ-001"])
+    service.create_task(key, "2026Q3", title="second", month="M1", after=["DLY-001"])
+    with pytest.raises(service.FronyBoardError, match="cycle"):
+        service.update_task(key, "DLY-001", after=["DLY-002"])
+
+
+def test_after_crosses_projects():
+    bootstrap("DLY")
+    bootstrap("FAU")
+    service.create_task("FAU", "2026Q3", title="auth", month="M1")
+    task = service.create_task("DLY", "2026Q3", title="use auth", month="M1",
+                               after=["FAU-001"])["task"]
+    assert task["after"] == ["FAU-001"]
+    assert service.list_tasks("DLY")["tasks"][0]["waiting_on"] == ["FAU-001"]
+
+    service.transition_task("FAU", "FAU-001", "in_progress")
+    service.transition_task("FAU", "FAU-001", "done")
+    assert "waiting_on" not in service.list_tasks("DLY")["tasks"][0]
+    assert "followed_by" not in service.get_task("FAU-001")["task"]   # same project only
+
+    with pytest.raises(service.FronyBoardError, match="not found in project FAU"):
+        service.create_task("DLY", "2026Q3", title="x", month="M1", after=["FAU-002"])
+
+
 def test_cancel_requires_reason():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="mistake", month="M1")
