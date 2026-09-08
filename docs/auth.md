@@ -1,17 +1,17 @@
 # Access channels and how each one authenticates
 
 **When to read**: when changing how a request is authenticated (API key, dashboard session, OAuth) or which access channel serves it
-**Code**: `backend/src/aira/auth.py`, `backend/src/aira/fauth.py`
+**Code**: `backend/src/fronyboard/auth.py`, `backend/src/fronyboard/fauth.py`
 **Related**: [operations](operations.md), [logging](logging.md)
 
 ---
 
 Every request that reaches plan data — MCP or the JSON API — carries one
 `Authorization: Bearer <token>` header, checked in one place
-(`BearerAuthMiddleware`, `backend/src/aira/auth.py`). Since v0.18.0 (AIR-056)
+(`BearerAuthMiddleware`, `backend/src/fronyboard/auth.py`). Since v0.18.0 (AIR-056)
 the middleware does not judge keys or OAuth tokens itself: it asks **FronyAuth**
 (project-auth repo, same machine, `:8640`) via `POST /introspect` and caches the
-verdict briefly (`backend/src/aira/fauth.py`; contract: project-auth's
+verdict briefly (`backend/src/fronyboard/fauth.py`; contract: project-auth's
 `docs/introspection.md`). Only dashboard session tokens stay local. Channels
 differ only in **how the token is obtained** and **which network path they
 arrive on**.
@@ -22,7 +22,7 @@ arrive on**.
 | 2 | Claude Desktop (local MCP config) | tailnet, through the `mcp-remote` bridge | API key `frony_…` | same key as 1 | until revoked |
 | 3 | Dashboard in a browser | tailnet, `http://<server>:8642/` | session `fbsession_…` | `POST /api/login` with the admin id/password | until the server restarts |
 | 4 | Hosted apps — Claude app (mobile/web connector), ChatGPT connector | public internet, `https://<funnel-name>/board/mcp` | OAuth access `fbat_…` (+ refresh `fbrt_…`) | one browser login on the approval page; the app manages the tokens afterwards | 24 h, refreshed silently for 90 days |
-| 5 | Local `aira` (stdio) | none — same machine, process pipe | — | — | — |
+| 5 | Local `fronyboard` (stdio) | none — same machine, process pipe | — | — | — |
 
 The tailnet itself is the first gate for 1–3: a device that is not enrolled in
 Tailscale cannot reach `<server>` at all. Channel 4 is the only one open to the
@@ -96,7 +96,7 @@ POST /api/logout                     ──▶ dropped
 ```
 
 The credential is set on the server with `fauth admin <username>` (FronyAuth
-owns it; aira delegates the check via `POST /admin/verify`, lockout included) (one
+owns it; FronyBoard delegates the check via `POST /admin/verify`, lockout included) (one
 credential; setting it replaces the previous one). Sessions are in memory, so a
 restart signs everyone out. Five failed logins from one address within 15
 minutes lock that address out (`429`) until the window passes. Key management
@@ -145,9 +145,9 @@ What to know:
   page is server-rendered by FronyAuth (`oauth_pages.py` in project-auth) with
   no third-party assets — it is public and must render in any in-app browser;
   FronyAuth serves its `/fonts` and `/favicon.ico` itself.
-- Setup: FronyAuth runs with `FAUTH_PUBLIC_URL=https://<funnel-name>`; aira
-  runs with `AIRA_PUBLIC_URL`/`AIRA_PUBLIC_MCP_PATH=/board/mcp` so its 401s
-  point at the metadata. Funnel exposes `/board/mcp` (+ legacy `/mcp`) to aira
+- Setup: FronyAuth runs with `FAUTH_PUBLIC_URL=https://<funnel-name>`; fronyboard
+  runs with `FRONYBOARD_PUBLIC_URL`/`FRONYBOARD_PUBLIC_MCP_PATH=/board/mcp` so its 401s
+  point at the metadata. Funnel exposes `/board/mcp` (+ legacy `/mcp`) to fronyboard
   and `/.well-known`, `/register`, `/authorize`, `/token`, `/revoke`, `/oauth`,
   `/fonts`, `/favicon.ico` to FronyAuth. In the app, add
   `https://<funnel-name>/board/mcp` as a custom connector. The issuer is the
@@ -190,7 +190,7 @@ not enforced.
 
 ## 5. Local stdio
 
-`claude mcp add FronyBoard -- uv run --directory <repo>\backend aira` runs the
+`claude mcp add FronyBoard -- uv run --directory <repo>\backend fronyboard` runs the
 server as a child process on the same machine. There is no network and no
 token; the log records `caller: stdio`.
 

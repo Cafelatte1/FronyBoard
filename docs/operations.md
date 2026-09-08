@@ -1,24 +1,24 @@
 # Operations runbook — home server
 
 **When to read**: when deploying, restarting, backing up or diagnosing the home-server instance
-**Code**: `scripts/deploy.ps1`, `scripts/register-task.ps1`, `scripts/aira-server.cmd.example`
+**Code**: `scripts/deploy.ps1`, `scripts/register-task.ps1`, `scripts/fronyboard-server.cmd.example`
 **Related**: [auth](auth.md), [logging](logging.md), [http-api](http-api.md)
 
 ---
 
 Day-2 operations for the always-on Windows server. First-time install lives in
 the README ("Deploy — Windows home server"); this page is what you need after
-that. The server runs as the Task Scheduler task **"AIRA Server"** and deploys
+that. The server runs as the Task Scheduler task **"FronyBoard Server"** and deploys
 **release tags only** — pushing to main changes nothing on the server.
 
 ## First-time setup
 
 Two files make the server self-starting, both in `scripts/`:
 
-1. Copy `scripts\aira-server.cmd.example` to `C:\Users\flash\aira-server.cmd` and fill
+1. Copy `scripts\fronyboard-server.cmd.example` to `C:\Users\flash\fronyboard-server.cmd` and fill
    `FRONY_SERVICE_KEY` (from `fauth keygen board-server`). The real `.cmd` is git-ignored;
    every env var the server needs lives there and nowhere else.
-2. In an elevated PowerShell run `scripts\register-task.ps1`. It registers the "AIRA Server"
+2. In an elevated PowerShell run `scripts\register-task.ps1`. It registers the "FronyBoard Server"
    task: at startup, as SYSTEM, no time limit, re-checked every 10 minutes, pointing at
    the launcher. Re-run it any time to reset the task to this shape.
 
@@ -33,19 +33,19 @@ git push origin main vX.Y.Z
 ```
 
 On the server, `scripts/deploy.ps1` does the whole sequence (from a dev PC:
-`ssh -i ~/.ssh/aira_homeserver flash@100.67.93.87 "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
+`ssh -i ~/.ssh/fronyboard_homeserver flash@100.67.93.87 "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).
 FronyAuth deploys the same way from its own checkout (`C:\Users\flash\projects\project-auth`,
 task "FronyAuth Server", its own `scripts\deploy.ps1`).
 Run it as its own ssh command, not combined with anything that also mentions
-`aira-server.cmd`: the process cleanup below matches command lines containing
-both `aira` and `serve`, so a combined command naming the launcher would match
+`fronyboard-server.cmd`: the process cleanup below matches command lines containing
+both `fronyboard` and `serve`, so a combined command naming the launcher would match
 its own ssh session and kill it mid-deploy.
 
 ```powershell
 powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z
 ```
 
-It stops the task and any leftover `aira` process, discards the server's
+It stops the task and any leftover `fronyboard` process, discards the server's
 `uv.lock` drift (the server never commits, so this is always safe), `git fetch
 --tags` + `git checkout vX.Y.Z` (detached HEAD is expected), `uv sync` in
 `backend/`, then starts the task and prints its status. The task is started
@@ -53,7 +53,7 @@ again even when checkout or sync fails, so a bad tag leaves the previous
 version running rather than nothing. Run it without `-Tag` to only restart.
 
 **Order matters: the task must be stopped before `uv sync`** — while the server
-runs, `aira.exe` in the venv is locked and sync fails with `os error 32`
+runs, `fronyboard.exe` in the venv is locked and sync fails with `os error 32`
 ("file in use"), leaving the old version installed. The script handles this;
 doing it by hand, stop first.
 
@@ -62,6 +62,25 @@ menu drawer — ☰ top-left — and check the version under the logo).
 
 The frontend needs no build step on the server — `frontend/dist` is committed,
 and the backend serves it from the checkout.
+
+### One-time switch at the first deploy of v0.28.0 (AIR-074)
+
+v0.28.0 renamed the package, the CLI (`aira` → `fronyboard`), the launcher, the
+scheduled task and four env vars. The server still runs the old names until this is
+done once, on the server:
+
+1. `git fetch --tags; git checkout v0.28.0` in the checkout, so the new scripts are on disk.
+2. Create `C:\Users\flash\fronyboard-server.cmd` from `scripts\fronyboard-server.cmd.example`,
+   copying `FRONY_SERVICE_KEY` and the paths from the old `aira-server.cmd`. `AIRA_TZ`,
+   `AIRA_PUBLIC_URL`, `AIRA_PUBLIC_MCP_PATH` (and `AIRA_LOG_DIR` if set) become
+   `FRONYBOARD_*`; `AIRA_DATA_DIR` stays as it is.
+3. Elevated PowerShell: `schtasks /End /TN "AIRA Server"`, then
+   `Get-Process aira -ErrorAction SilentlyContinue | Stop-Process -Force`, then
+   `schtasks /Delete /TN "AIRA Server" /F`, then `scripts\register-task.ps1` — registers
+   "FronyBoard Server" on the new launcher (not started yet).
+4. `scripts\deploy.ps1 -Tag v0.28.0` — syncs the venv (which now builds `fronyboard.exe`)
+   and starts the new task.
+5. Delete `aira-server.cmd`. From here on the normal procedure above applies.
 
 ## After a reboot
 
@@ -73,7 +92,7 @@ sleeps on AC; Fast Startup is off so a power-on counts as a boot. If the
 dashboard is still unreachable, check:
 
 ```powershell
-schtasks /Query /TN "AIRA Server" /FO LIST   # Status should be Running
+schtasks /Query /TN "FronyBoard Server" /FO LIST   # Status should be Running
 powershell -NoProfile -File scripts\deploy.ps1   # restart it if not (no -Tag = restart only)
 ```
 
@@ -85,8 +104,8 @@ signs in again. API keys are unaffected.
 The Claude / ChatGPT apps connect from the vendor's servers, so the MCP
 endpoint is also reachable from the public internet through Tailscale Funnel.
 The OAuth authorization server is **FronyAuth** (project-auth, `:8640`) since
-v0.18.0 — aira only advertises FronyAuth's resource metadata on a 401
-(`AIRA_PUBLIC_URL` + `AIRA_PUBLIC_MCP_PATH` in `aira-server.cmd`). The public
+v0.18.0 — FronyBoard only advertises FronyAuth's resource metadata on a 401
+(`FRONYBOARD_PUBLIC_URL` + `FRONYBOARD_PUBLIC_MCP_PATH` in `fronyboard-server.cmd`). The public
 layout is *root = auth, one prefix per service*:
 
     https://laptop-windows-hp-dragonflyg3.tailab9579.ts.net/board/mcp  -> http://127.0.0.1:8642/mcp  (FronyBoard)
@@ -151,11 +170,11 @@ uv run fauth keygen <machine-name>   # prints the key once
 Keys sit in the Frony-wide registry `C:\Users\<user>\AppData\Local\Frony\auth.yaml`,
 one level above the FronyBoard data root, so the same key opens every Frony
 service on this machine. The scheduled task runs as SYSTEM, whose
-`LOCALAPPDATA` is the system profile, so the launcher (`aira-server.cmd`) pins
+`LOCALAPPDATA` is the system profile, so the launcher (`fronyboard-server.cmd`) pins
 both `AIRA_DATA_DIR` and `FRONY_AUTH_FILE` explicitly — any other Frony service
 started the same way must point at the same file. Revoking a key cuts that
 machine off immediately. A key cannot be shown again —
-if one is lost, revoke it and issue a new one. Note `aira serve` refuses to
+if one is lost, revoke it and issue a new one. Note `fronyboard serve` refuses to
 start with zero keys, so the first key always comes from the CLI.
 
 ## Dashboard login
@@ -184,12 +203,12 @@ backup; delete it when you no longer want it.
 
 | symptom | cause | fix |
 |---|---|---|
-| `uv sync` fails with `os error 32` | server still running while syncing — `schtasks /End` returns before the python child actually exits | wait until no `aira serve` process remains (`Get-CimInstance Win32_Process` filtered on the command line; force-stop after ~20s), then sync and `/Run`. A `/Run` while the old process lives is silently ignored (`IgnoreNew`), so the old version keeps serving |
+| `uv sync` fails with `os error 32` | server still running while syncing — `schtasks /End` returns before the python child actually exits | wait until no `fronyboard serve` process remains (`Get-CimInstance Win32_Process` filtered on the command line; force-stop after ~20s), then sync and `/Run`. A `/Run` while the old process lives is silently ignored (`IgnoreNew`), so the old version keeps serving |
 | `git checkout vX.Y.Z` refuses ("local changes") | `uv sync` dirtied `backend/uv.lock` | `git checkout -- backend/uv.lock`, then check out the tag |
 | everyone logged out of the dashboard | server restarted — sessions are in-memory | sign in again; expected |
-| every request answers 503 "auth service unavailable" | FronyAuth down or `FRONY_SERVICE_KEY`/`FRONY_AUTH_URL` wrong in `aira-server.cmd` | check `GET :8640/health`, restart "FronyAuth Server" task, verify the launcher env |
+| every request answers 503 "auth service unavailable" | FronyAuth down or `FRONY_SERVICE_KEY`/`FRONY_AUTH_URL` wrong in `fronyboard-server.cmd` | check `GET :8640/health`, restart "FronyAuth Server" task, verify the launcher env |
 | `fauth serve` exits with "no API keys yet" | fresh registry | `uv run fauth keygen <name>` once, then start |
-| task-panel timestamps show `UTC+9` instead of `KST` (or a wrong zone) | the SYSTEM account's locale gives no short zone name / a different zone | set `AIRA_TZ=Asia/Seoul` in the launcher script next to `AIRA_DATA_DIR` |
+| task-panel timestamps show `UTC+9` instead of `KST` (or a wrong zone) | the SYSTEM account's locale gives no short zone name / a different zone | set `FRONYBOARD_TZ=Asia/Seoul` in the launcher script next to `AIRA_DATA_DIR` |
 | server starts with empty data (all projects gone) | task runs as SYSTEM, whose `%LOCALAPPDATA%` is the system profile — the default root resolved elsewhere | set `AIRA_DATA_DIR` to the absolute data path in the launcher script |
 | server dead after closing the lid / after ~3 days | laptop slept on lid close, or the task's default 72h execution limit killed it | lid action = do nothing (`powercfg`), `ExecutionTimeLimit 0`, 10-minute watchdog trigger — all applied; re-check with `Get-ScheduledTask` if the task is ever re-created |
 | dashboard loads but data errors | version mismatch: old backend serving a newer dist (or vice versa) after a partial deploy | redo the deploy sequence — checkout and sync must both complete |
@@ -197,7 +216,7 @@ backup; delete it when you no longer want it.
 ## Logs
 
 Two JSON Lines files under `%LOCALAPPDATA%\Frony\FronyBoard\logs` (next to the data
-root; `AIRA_LOG_DIR` overrides), rotated daily and gzipped:
+root; `FRONYBOARD_LOG_DIR` overrides), rotated daily and gzipped:
 
 - `server.jsonl` — boot/shutdown, login and key events, HTTP 4xx/5xx, rejected tool
   calls, unhandled exceptions with `trace`. **Look here first when something is wrong.**

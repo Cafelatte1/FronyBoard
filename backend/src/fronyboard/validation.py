@@ -1,4 +1,4 @@
-"""Schema and rule validation for AIRA project data.
+"""Schema and rule validation for FronyBoard project data.
 
 Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,

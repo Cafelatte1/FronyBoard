@@ -1,7 +1,7 @@
 # Logging
 
 **When to read**: when adding a log field or event, or reading tools.jsonl / server.jsonl
-**Code**: `backend/src/aira/log.py`, `backend/src/aira/server.py`, `backend/src/aira/web.py`
+**Code**: `backend/src/fronyboard/log.py`, `backend/src/fronyboard/server.py`, `backend/src/fronyboard/web.py`
 **Related**: [logging-spec](templates/template_logging-spec.md), [operations](operations.md), [auth](auth.md), [tool-surface](tool-surface.md)
 
 ---
@@ -17,9 +17,9 @@ in stdio mode that channel carries MCP.
 | kept | 180 days | 30 days |
 
 Location: `%LOCALAPPDATA%\Frony\FronyBoard\logs` (the `logs` folder next to the data
-root); `AIRA_LOG_DIR` overrides. Rotated at midnight, older days gzipped
+root); `FRONYBOARD_LOG_DIR` overrides. Rotated at midnight, older days gzipped
 (`tools.2026-08-26_00-00-00_000000.jsonl.gz`). Timestamps are ISO 8601 in the server's
-zone (`AIRA_TZ`, else local) with offset — unlike the data files, which store naive UTC.
+zone (`FRONYBOARD_TZ`, else local) with offset — unlike the data files, which store naive UTC.
 
 Not logged, ever: API keys (only the first 9 characters on a rejection), passwords,
 session tokens, and the planning prose (`content`, `prd`, `goal`, `now`, `next`,
@@ -38,7 +38,7 @@ session tokens, and the planning prose (`content`, `prd`, `goal`, `now`, `next`,
 | `ts` | yes | call time, ISO 8601 with offset |
 | `req` | yes | 6-hex correlation id; `server.jsonl` follow-ups carry the same value |
 | `tool` | yes | MCP tool name |
-| `caller` | yes | `key:<api key name>` · `session:<dashboard user>` · `oauth:<client name>:<user>` (hosted app) · `stdio` (local `aira` run) |
+| `caller` | yes | `key:<api key name>` · `session:<dashboard user>` · `oauth:<client name>:<user>` (hosted app) · `stdio` (local `fronyboard` run) |
 | `project` | when known | from `key`, or the prefix of `task_id` |
 | `period` | when passed | `2026Q3` |
 | `task` | when passed | `AIR-031` |

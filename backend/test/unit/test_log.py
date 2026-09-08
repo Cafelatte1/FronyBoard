@@ -6,7 +6,7 @@ import anyio
 import pytest
 from mcp.client import Client
 
-from aira import log, server
+from fronyboard import log, server
 from conftest import bootstrap
 
 
@@ -16,7 +16,7 @@ def _lines(path):
 
 @pytest.fixture
 def logs(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("FRONYBOARD_LOG_DIR", str(tmp_path / "logs"))
     root = log.setup()
     yield root
     log.shutdown()

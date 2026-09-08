@@ -8,26 +8,26 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 ## Layout
 
 - `backend/` — MCP server (uv project, Python)
-  - `src/aira/store.py` — SQLite store (`fronyboard.db`), data root, YAML migration
-  - `src/aira/validation.py` — schema and rule gate; runs before every mutation, an error rejects the write
-  - `src/aira/service.py` — operations; per-project lock, timestamps stamped by the server
-  - `src/aira/server.py` — MCP tool surface + CLI (stdio / `serve`)
-  - `src/aira/web.py` — `/api/*` JSON for the dashboard, static serving of `frontend/dist`
+  - `src/fronyboard/store.py` — SQLite store (`fronyboard.db`), data root, YAML migration
+  - `src/fronyboard/validation.py` — schema and rule gate; runs before every mutation, an error rejects the write
+  - `src/fronyboard/service.py` — operations; per-project lock, timestamps stamped by the server
+  - `src/fronyboard/server.py` — MCP tool surface + CLI (stdio / `serve`)
+  - `src/fronyboard/web.py` — `/api/*` JSON for the dashboard, static serving of `frontend/dist`
   - `test/unit/`, `test/integration/` — pytest; integration drives the ASGI app with a fake FronyAuth
 - `frontend/` — FronyBoard dashboard (React + Vite). Build output is served by the backend, so there is one deploy. `test/` is vitest.
-- `scripts/` — server-side PowerShell: `deploy.ps1`, `register-task.ps1`, `aira-server.cmd.example` (the real launcher is git-ignored), `bootstrap-server.ps1`, `configure_mcp_settings.ps1`
+- `scripts/` — server-side PowerShell: `deploy.ps1`, `register-task.ps1`, `fronyboard-server.cmd.example` (the real launcher is git-ignored), `bootstrap-server.ps1`, `configure_mcp_settings.ps1`
 - Folder rules for every Frony repo: `docs/templates/template_LAYOUT.md`.
 
 ## Commands (from the repo root)
 
 - Test: `uv run --directory backend pytest` · `cd frontend; npm test`
-- Local server (stdio): `uv run --directory backend aira`
-- HTTP server: `uv run --directory backend aira serve` (needs FronyAuth, see Deploy)
+- Local server (stdio): `uv run --directory backend fronyboard`
+- HTTP server: `uv run --directory backend fronyboard serve` (needs FronyAuth, see Deploy)
 - Frontend build: `cd frontend; npm run build` — **`frontend/dist` is committed** (the home server only pulls)
 
 ## Deploy
 
-Runs on the home server (Tailscale `100.67.93.87:8642`) as the Task Scheduler task "AIRA Server". "FronyAuth Server" (`:8640`, the project-auth repo) on the same machine does all bearer verification through introspection (`FRONY_AUTH_URL` / `FRONY_SERVICE_KEY`, v0.18.0+); without it nothing authenticates.
+Runs on the home server (Tailscale `100.67.93.87:8642`) as the Task Scheduler task "FronyBoard Server". "FronyAuth Server" (`:8640`, the project-auth repo) on the same machine does all bearer verification through introspection (`FRONY_AUTH_URL` / `FRONY_SERVICE_KEY`, v0.18.0+); without it nothing authenticates.
 The server deploys **release tags only** (`vX.Y.Z`); pushing to main changes nothing.
 Procedure: push the tag, then on the server run `scripts\deploy.ps1 -Tag vX.Y.Z` (README, Deploy section). Keys come from `fauth keygen` or the dashboard Settings page.
 

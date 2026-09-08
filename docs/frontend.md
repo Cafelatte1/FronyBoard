@@ -8,7 +8,7 @@
 
 ## Stack and build
 
-React 18 + Vite + TypeScript, no router library; `App.tsx` switches pages by state. `npm run build` runs `tsc -b` then `vite build` into `frontend/dist`, which is **committed** and served by the backend at `/` (see [architecture](architecture.md)). `npm run dev` proxies `/api` to a local `aira serve`; override the target with `AIRA_API=http://<server>:8642`. Tests: `npm test` (vitest, see [testing](testing.md)).
+React 18 + Vite + TypeScript, no router library; `App.tsx` switches pages by state. `npm run build` runs `tsc -b` then `vite build` into `frontend/dist`, which is **committed** and served by the backend at `/` (see [architecture](architecture.md)). `npm run dev` proxies `/api` to a local `fronyboard serve`; override the target with `AIRA_API=http://<server>:8642`. Tests: `npm test` (vitest, see [testing](testing.md)).
 
 ## Layout
 

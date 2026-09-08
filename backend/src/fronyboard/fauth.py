@@ -1,6 +1,6 @@
 """Client for FronyAuth — the central auth server every Frony service delegates to.
 
-Since AIR-056 aira no longer reads auth.yaml/oauth.yaml itself: every bearer
+Since AIR-056 FronyBoard no longer reads auth.yaml/oauth.yaml itself: every bearer
 credential (API key or OAuth access token) is judged by FronyAuth's
 POST /introspect, the dashboard login by POST /admin/verify, and the Settings
 key management by its /keys API. The contract is FronyAuth's

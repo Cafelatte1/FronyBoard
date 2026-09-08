@@ -3,7 +3,7 @@
   One-time bootstrap for a new Frony home server (run ON the new machine, as admin).
 
 .DESCRIPTION
-  Enables the OpenSSH server, authorizes the aira_homeserver deploy key, and
+  Enables the OpenSSH server, authorizes the fronyboard_homeserver deploy key, and
   installs git + uv. Everything after this (clone, data move, scheduled tasks,
   funnel) is done over ssh from a dev PC — see docs/operations.md and AIR-058.
 

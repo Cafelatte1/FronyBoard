@@ -2,7 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
-from aira import service
+from fronyboard import service
 from conftest import bootstrap
 
 

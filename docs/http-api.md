@@ -1,12 +1,12 @@
 # HTTP API
 
 **When to read**: when adding or changing an `/api/*` route the dashboard calls
-**Code**: `backend/src/aira/web.py`, `backend/src/aira/auth.py`
+**Code**: `backend/src/fronyboard/web.py`, `backend/src/fronyboard/auth.py`
 **Related**: [auth](auth.md), [operations](operations.md), [data-model](data-model.md)
 
 ---
 
-The JSON API behind the FronyBoard dashboard, served by `aira serve` alongside
+The JSON API behind the FronyBoard dashboard, served by `fronyboard serve` alongside
 the MCP endpoint (`/mcp`) and the static dashboard (`/`). It is read-only over
 plan data — every plan mutation goes through the MCP tools. The one writable
 surface is API key management, which is restricted to the dashboard login.
@@ -63,7 +63,7 @@ Drops the bearer session token. Returns `{"ok": true}`.
 Archived projects are left out unless `?include_archived=true`.
 
 ```json
-{"projects": [{"key": "AIR", "name": "FronyBoard", "description": "…", "repo": "owner/aira",
+{"projects": [{"key": "AIR", "name": "FronyBoard", "description": "…", "repo": "owner/fronyboard",
                "status": "active", "meta": {"created_at": "2026-08-18T06:00:00", "updated_at": "…"}}],
  "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data"}
 ```
@@ -151,7 +151,7 @@ Runtime facts for the Settings screen:
 Uptime is `now - started_at` (the process start).
 
 `timezone` is the zone the server is serving from — the dashboard shifts the
-stored naive-UTC timestamps by `offset_minutes` for display. Set `AIRA_TZ` to an
+stored naive-UTC timestamps by `offset_minutes` for display. Set `FRONYBOARD_TZ` to an
 IANA name (`Asia/Seoul`) to pin it; otherwise it is the process-local offset, and
 `name` is null when the OS only offers a localized long name (Windows).
 

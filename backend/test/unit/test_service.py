@@ -2,7 +2,7 @@
 
 import pytest
 
-from aira import service, store
+from fronyboard import service, store
 from conftest import bootstrap
 
 
@@ -64,14 +64,14 @@ def test_task_ids_are_global_sequence_across_periods():
 
 def test_invalid_mutations_are_rejected_and_not_written(data_root):
     key = bootstrap()
-    with pytest.raises(service.AiraError, match="validation failed"):
+    with pytest.raises(service.FronyBoardError, match="validation failed"):
         service.create_task(key, "2026Q3", title="x", month="M9")
-    with pytest.raises(service.AiraError, match="validation failed"):
+    with pytest.raises(service.FronyBoardError, match="validation failed"):
         service.create_task(key, "2026Q3", title="x", month="M1", week=7)
     assert service.list_tasks(key)["count"] == 0
 
     service.create_task(key, "2026Q3", title="x", month="M1")
-    with pytest.raises(service.AiraError, match="validation failed"):
+    with pytest.raises(service.FronyBoardError, match="validation failed"):
         service.transition_task(key, "DLY-001", "shipped")
     assert service.list_tasks(key)["tasks"][0]["status"] == "todo"
 
@@ -79,7 +79,7 @@ def test_invalid_mutations_are_rejected_and_not_written(data_root):
 def test_close_period_requires_tasks_finished():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="open work", month="M1")
-    with pytest.raises(service.AiraError, match="open tasks"):
+    with pytest.raises(service.FronyBoardError, match="open tasks"):
         service.close_period(key, "2026Q3", "# result")
     service.transition_task(key, "DLY-001", "blocked")
     service.close_period(key, "2026Q3", "# result")
@@ -87,18 +87,18 @@ def test_close_period_requires_tasks_finished():
 
 def test_guardrails():
     key = bootstrap()
-    with pytest.raises(service.AiraError, match="already exists"):
+    with pytest.raises(service.FronyBoardError, match="already exists"):
         service.create_project(key)
-    with pytest.raises(service.AiraError, match="uppercase"):
+    with pytest.raises(service.FronyBoardError, match="uppercase"):
         service.create_project("dly")
-    with pytest.raises(service.AiraError, match="already open"):
+    with pytest.raises(service.FronyBoardError, match="already open"):
         service.open_period(key, "2026Q3")
-    with pytest.raises(service.AiraError, match="no milestone"):
+    with pytest.raises(service.FronyBoardError, match="no milestone"):
         service.open_period(key, "2026Q1")
-    with pytest.raises(service.AiraError, match="not found"):
+    with pytest.raises(service.FronyBoardError, match="not found"):
         service.transition_task(key, "DLY-999", "done")
     service.create_task(key, "2026Q3", title="x", month="M1")
-    with pytest.raises(service.AiraError, match="nothing to update"):
+    with pytest.raises(service.FronyBoardError, match="nothing to update"):
         service.update_task(key, "DLY-001")
 
 
@@ -109,7 +109,7 @@ def test_update_task_empty_value_removes_optional_field():
     task = service.update_task(key, "DLY-001", week=0, branch="", prd="")["task"]
     assert "week" not in task and "branch" not in task and "prd" not in task
     assert "week" not in service.list_tasks(key)["tasks"][0]  # gone from the file too
-    with pytest.raises(service.AiraError, match="missing title"):
+    with pytest.raises(service.FronyBoardError, match="missing title"):
         service.update_task(key, "DLY-001", title="")  # required fields cannot be cleared
 
 
@@ -141,7 +141,7 @@ def test_update_task_replaces_the_whole_tag_list():
 def test_cancel_requires_reason():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="mistake", month="M1")
-    with pytest.raises(service.AiraError, match="requires a reason"):
+    with pytest.raises(service.FronyBoardError, match="requires a reason"):
         service.transition_task(key, "DLY-001", "cancelled")
     service.transition_task(key, "DLY-001", "cancelled", reason="duplicate of DLY-002")
     task = service.list_tasks(key, include_cancelled=True)["tasks"][0]
@@ -217,16 +217,16 @@ def test_content_round_trips_as_multiline_markdown():
 
 def test_list_projects():
     bootstrap("DLY")
-    service.create_project("AIR", name="AIRA itself")
+    service.create_project("AIR", name="FronyBoard itself")
     keys = [p["key"] for p in service.list_projects()["projects"]]
     assert keys == ["AIR", "DLY"]
 
 def test_resolve_key_derives_and_checks():
     assert service.resolve_key(None, "DLY-042") == "DLY"
     assert service.resolve_key("DLY", "DLY-042") == "DLY"
-    with pytest.raises(service.AiraError, match="does not match"):
+    with pytest.raises(service.FronyBoardError, match="does not match"):
         service.resolve_key("AIR", "DLY-042")
-    with pytest.raises(service.AiraError, match="full id"):
+    with pytest.raises(service.FronyBoardError, match="full id"):
         service.resolve_key(None, "042")
 
 
@@ -245,9 +245,9 @@ def test_unknown_period_names_the_ones_that_exist():
                  lambda p: service.upsert_month(key, p, "M1"),
                  lambda p: service.close_period(key, p, "# r"),
                  lambda p: service.get_retrospective(key, p)):
-        with pytest.raises(service.AiraError, match=r"has no period 2026Q4 \(it has: 2026Q3\)"):
+        with pytest.raises(service.FronyBoardError, match=r"has no period 2026Q4 \(it has: 2026Q3\)"):
             call("2026Q4")
-        with pytest.raises(service.AiraError, match="has no period|must look like"):
+        with pytest.raises(service.FronyBoardError, match="has no period|must look like"):
             call("2026-Q3")
 
     # a closed period still answers
@@ -257,7 +257,7 @@ def test_unknown_period_names_the_ones_that_exist():
 
 def test_get_retrospective_and_rewrite():
     key = bootstrap()
-    with pytest.raises(service.AiraError, match="not closed"):
+    with pytest.raises(service.FronyBoardError, match="not closed"):
         service.get_retrospective(key, "2026Q3")
     first = service.close_period(key, "2026Q3", "# v1")
     assert first["rewritten"] is False
@@ -274,9 +274,9 @@ def test_project_meta_fields_and_archive():
     p = service.list_projects()["projects"][0]
     assert (p["description"], p["repo"], p["status"]) == ("a diary app", "me/dailying", "active")
     assert p["meta"]["created_at"] <= p["meta"]["updated_at"]
-    with pytest.raises(service.AiraError, match="at least one"):
+    with pytest.raises(service.FronyBoardError, match="at least one"):
         service.update_project(key)
-    with pytest.raises(service.AiraError, match="status must be one of"):
+    with pytest.raises(service.FronyBoardError, match="status must be one of"):
         service.update_project(key, status="deleted")
 
     service.create_task(key, "2026Q3", "first", "M1")
@@ -286,14 +286,14 @@ def test_project_meta_fields_and_archive():
     service.update_project(key, status="archived")
     assert service.list_projects()["projects"] == []
     assert service.list_projects(include_archived=True)["projects"][0]["status"] == "archived"
-    with pytest.raises(service.AiraError, match="archived"):
+    with pytest.raises(service.FronyBoardError, match="archived"):
         service.update_task(key, f"{key}-001", title="nope")
     service.update_project(key, status="active")
     service.update_task(key, f"{key}-001", title="back")
 
 
 def test_create_project_stamps_meta_and_legacy_roadmap_still_valid():
-    service.create_project("AIR", name="FronyBoard", description="tracker", repo="x/aira")
+    service.create_project("AIR", name="FronyBoard", description="tracker", repo="x/fronyboard")
     p = service.list_projects()["projects"][0]
     assert p["status"] == "active" and p["meta"]["created_at"]
     # a pre-v0.6 roadmap has neither status nor meta — must read as active, no meta
