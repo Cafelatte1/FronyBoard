@@ -25,7 +25,7 @@ jobs:
           echo "tag=$TAG pyproject=$PYPROJECT server.json=$SERVER/$PACKAGE"
           [ "$TAG" = "$PYPROJECT" ] && [ "$TAG" = "$SERVER" ] && [ "$TAG" = "$PACKAGE" ]
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v7
 
       - name: Test
         run: uv run --directory backend pytest -q
