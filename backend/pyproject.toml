@@ -2,6 +2,7 @@
 name = "fronyboard"
 version = "0.28.0"
 description = "FronyBoard — an MCP server that gives AI agents a first-class project tracker"
+license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",
