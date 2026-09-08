@@ -410,10 +410,38 @@ def _clean_tags(tags: list[str] | None) -> list[str]:
     return cleaned
 
 
+def _clean_after(after: list[str] | None) -> list[str]:
+    """Trim, drop blanks and de-duplicate while keeping the order given."""
+    if not after:
+        return []
+    if not isinstance(after, list):
+        raise FronyBoardError("after must be a list of task ids")
+    cleaned: list[str] = []
+    for ref in after:
+        if not isinstance(ref, str):
+            raise FronyBoardError(f"after must be a list of task ids ({ref!r})")
+        ref = ref.strip()
+        if ref and ref not in cleaned:
+            cleaned.append(ref)
+    return cleaned
+
+
+def _check_foreign_after(state: ProjectState, after: list[str]) -> None:
+    """Ids from other projects are checked here — the gate only sees this project's state."""
+    for ref in after:
+        other = resolve_key(None, ref)
+        if other == state.key:
+            continue
+        if not store.project_exists(other):
+            raise FronyBoardError(f"after: project {other} not found for {ref}")
+        _find_task(store.load_state(other), ref)
+
+
 @_locked
 def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
-                prd: str | None = None, tags: list[str] | None = None) -> dict:
+                prd: str | None = None, tags: list[str] | None = None,
+                after: list[str] | None = None) -> dict:
     state = store.load_state(key)
     _require_period(state, period)
     task: dict = {"id": _next_task_id(state), "title": title,
@@ -423,6 +451,10 @@ def create_task(key: str, period: str, title: str, month: str,
     tags = _clean_tags(tags)
     if tags:
         task["tags"] = tags
+    after = _clean_after(after)
+    if after:
+        _check_foreign_after(state, after)
+        task["after"] = after
     if content is not None:
         task["content"] = content
     if prd is not None:
@@ -435,7 +467,7 @@ def create_task(key: str, period: str, title: str, month: str,
 
 
 # Optional task fields; an "empty" value (0 / "" / []) passed to update_task removes them.
-_CLEARABLE = {"week", "content", "prd", "branch", "tags"}
+_CLEARABLE = {"week", "content", "prd", "branch", "tags", "after"}
 _PROSE = ("content", "prd")
 
 
@@ -449,13 +481,18 @@ def _without_prose(task: dict) -> dict:
 def update_task(key: str, task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None,
-                tags: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, after: list[str] | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
     if tags is not None:
         tags = _clean_tags(tags)
+    if after is not None:
+        after = _clean_after(after)
+        if after:
+            _check_foreign_after(state, after)
     fields = {"title": title, "month": month, "week": week,
-              "content": content, "prd": prd, "branch": branch, "tags": tags}
+              "content": content, "prd": prd, "branch": branch, "tags": tags,
+              "after": after}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise FronyBoardError("nothing to update — pass at least one field (status changes go through transition_task)")
@@ -500,6 +537,27 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 # ----------------------------------------------------------------- queries
 
 
+def _status_lookup(state: ProjectState):
+    """status by task id, loading other projects lazily; None when the id cannot be found."""
+    cache = {state.key: {t.get("id"): t.get("status") for p in state.periods.values()
+                         for t in p.data.get("tasks") or []}}
+
+    def status_of(ref: str):
+        key = ref.split("-", 1)[0]
+        if key not in cache:
+            cache[key] = ({t.get("id"): t.get("status") for p in store.load_state(key).periods.values()
+                           for t in p.data.get("tasks") or []}
+                          if store.project_exists(key) else {})
+        return cache[key].get(ref)
+    return status_of
+
+
+def _waiting_on(t: dict, status_of) -> list[str]:
+    if t.get("status") in ("done", "cancelled"):
+        return []
+    return [ref for ref in t.get("after") or [] if status_of(ref) not in ("done", "cancelled")]
+
+
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                month: str | None = None, include_cancelled: bool = False,
                tags: list[str] | None = None, updated_since: str | None = None,
@@ -518,6 +576,7 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
            include_content: bool = False) -> list:
     wanted = set(_clean_tags(tags))   # a task must carry all of them
     cutoff = _naive_utc(_since(updated_since)) if updated_since else None
+    status_of = _status_lookup(state)
     results = []
     for pname, p in sorted(state.periods.items()):
         if period is not None and pname != period:
@@ -536,7 +595,11 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
                 u = (t.get("meta") or {}).get("updated_at")
                 if not isinstance(u, datetime.datetime) or u < cutoff:
                     continue
-            results.append({"period": pname, **(t if include_content else _without_prose(t))})
+            row = {"period": pname, **(t if include_content else _without_prose(t))}
+            waiting = _waiting_on(t, status_of)
+            if waiting:
+                row["waiting_on"] = waiting
+            results.append(row)
     return results
 
 
@@ -581,7 +644,16 @@ def get_task(task_id: str) -> dict:
     key = resolve_key(None, task_id)
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
-    return _jsonable({"project": key, "task": {"period": period, **task}})
+    followed_by = sorted(o.get("id") for p in state.periods.values()
+                         for o in p.data.get("tasks") or []
+                         if task_id in (o.get("after") or []))
+    record = {"period": period, **task}
+    if followed_by:
+        record["followed_by"] = followed_by
+    waiting = _waiting_on(task, _status_lookup(state))
+    if waiting:
+        record["waiting_on"] = waiting
+    return _jsonable({"project": key, "task": record})
 
 
 def _snippet(content: str, q: str) -> str | None:

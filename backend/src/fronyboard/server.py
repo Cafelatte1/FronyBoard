@@ -43,7 +43,11 @@ mcp = MCPServer(
         "task id is the only link between FronyBoard and the codebase). When the work is "
         "merged, transition it to done; if you cannot observe the merge, ask the user before "
         "marking done. If branch-sized work has no task yet, offer create_task first; trivial "
-        "fixes need no task.\n\n"
+        "fixes need no task. A task's `after` lists the tasks it continues from: when you hand "
+        "scope to a later task (\"Out of scope -> X\") or build on another task's result, set "
+        "`after` on the receiving task — ids from other projects are allowed. It is a pointer, "
+        "not a lock: nothing is blocked, list_tasks only reports `waiting_on` for predecessors "
+        "not yet done.\n\n"
         "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
         "-> open_period -> upsert_month + create_task -> transition_task as work progresses "
         "-> close_period with a retrospective. A task that outlives its period is not moved: "
@@ -210,7 +214,8 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
 @mcp.tool()
 def create_task(key: str, period: str, title: str, month: str,
                 week: int | None = None, content: str | None = None,
-                prd: str | None = None, tags: list[str] | None = None) -> dict:
+                prd: str | None = None, tags: list[str] | None = None,
+                after: list[str] | None = None) -> dict:
     """Create a task — one issue/branch-sized unit of work — with status todo.
 
     The id is assigned from the project-global sequence and never reused.
@@ -223,6 +228,11 @@ def create_task(key: str, period: str, title: str, month: str,
     "bug", "infra"): up to 8 per task, 24 characters each, no commas. Reuse the
     wording already in use on the project (list_tasks shows it) instead of coining
     a new spelling for the same thing.
+
+    `after` lists the task ids this one continues from (a predecessor whose result it
+    builds on, or the task that handed it this scope) — full ids, other projects allowed.
+    It is a pointer, not a dependency lock: nothing blocks, and get_task shows the reverse
+    as `followed_by`.
 
     `title` is a short English imperative ("Add multi-select status filter").
     Returns the stored record without `content`/`prd` (you already have them); get_task
@@ -243,14 +253,15 @@ def create_task(key: str, period: str, title: str, month: str,
     Record decisions inline as "(YYYY-MM-DD decided)". The rationale lives here and
     only here: commit messages list what changed and reference the task id.
     """
-    return service.create_task(key, period, title, month, week, content, prd, tags)
+    return service.create_task(key, period, title, month, week, content, prd, tags, after)
 
 
 @mcp.tool()
 def update_task(task_id: str, title: str | None = None,
                 month: str | None = None, week: int | None = None, content: str | None = None,
                 prd: str | None = None, branch: str | None = None,
-                tags: list[str] | None = None, key: str | None = None) -> dict:
+                tags: list[str] | None = None, after: list[str] | None = None,
+                key: str | None = None) -> dict:
     """Update a task's fields — everything except status, which is transition_task.
     `branch` records the working branch name, `month` is a month id (M1/M2/M3) that exists
     in the task's period, `week` is 1-5.
@@ -260,16 +271,17 @@ def update_task(task_id: str, title: str | None = None,
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
     not just the new ones. Returns the record without `content`/`prd`.
+    `after` likewise replaces the whole predecessor list.
 
     Omitted fields are left as they are. To remove an optional field pass an empty value:
-    `week=0`, `content=""`, `prd=""`, `branch=""`, `tags=[]` (title and month cannot
-    be removed).
+    `week=0`, `content=""`, `prd=""`, `branch=""`, `tags=[]`, `after=[]` (title and month
+    cannot be removed).
 
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
     """
     return service.update_task(service.resolve_key(key, task_id), task_id,
-                               title, month, week, content, prd, branch, tags)
+                               title, month, week, content, prd, branch, tags, after)
 
 
 @mcp.tool()
@@ -307,7 +319,8 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
     match on it alone, and call again per tag when you want the union.
     `updated_since` keeps tasks touched after a duration ("24h", "7d") or ISO timestamp.
     Rows carry everything but the markdown bodies (`content`, `prd`); pass
-    `include_content=True` to get them, or get_task for one task.
+    `include_content=True` to get them, or get_task for one task. A row carries `waiting_on`
+    (the ids from its `after` not yet done) only when there are any.
     Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
     """
     return service.list_tasks(key, period, status, month, include_cancelled, tags,
@@ -330,7 +343,9 @@ def get_status(key: str) -> dict:
 def get_task(task_id: str) -> dict:
     """Read one task in full by id (DLY-042) — the project comes from the prefix, so no key
     is needed. Returns the record with its period. Use this instead of list_tasks whenever
-    you already know the id; search_tasks when you only know a word from it.
+    you already know the id; search_tasks when you only know a word from it. The record also
+    carries `followed_by` (same-project tasks whose `after` names this one) and `waiting_on`
+    when they apply.
     """
     return service.get_task(task_id)
 
