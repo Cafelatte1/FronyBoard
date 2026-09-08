@@ -4,7 +4,7 @@ import json
 
 from starlette.applications import Starlette
 
-from aira import auth, service, web
+from fronyboard import auth, service, web
 from conftest import asgi_request, bootstrap
 
 
@@ -115,12 +115,12 @@ def test_server_info_survives_fauth_outage(fake_fauth):
     assert body["api_keys"] is None
 
 
-def test_server_timezone_honours_aira_tz(monkeypatch):
-    from aira import web
+def test_server_timezone_honours_fronyboard_tz(monkeypatch):
+    from fronyboard import web
 
-    monkeypatch.setenv("AIRA_TZ", "Asia/Seoul")
+    monkeypatch.setenv("FRONYBOARD_TZ", "Asia/Seoul")
     assert web._timezone() == {"name": "KST", "offset_minutes": 540}
-    monkeypatch.setenv("AIRA_TZ", "Not/AZone")
+    monkeypatch.setenv("FRONYBOARD_TZ", "Not/AZone")
     assert isinstance(web._timezone()["offset_minutes"], int)  # falls back, no crash
 
 

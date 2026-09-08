@@ -1,13 +1,13 @@
 """FronyBoard MCP server — the tool surface.
 
 Commands:
-    aira                                 stdio transport (local development)
-    aira serve [--host H] [--port P]     streamable HTTP transport (home server)
+    fronyboard                                 stdio transport (local development)
+    fronyboard serve [--host H] [--port P]     streamable HTTP transport (home server)
                [--public-url URL]        the shared Funnel domain (401s advertise
                [--public-mcp-path P]     the resource metadata FronyAuth serves there)
 
 Keys and the admin credential are issued by FronyAuth (`fauth keygen` /
-`fauth admin`, project-auth repo) — aira delegates every bearer check to it.
+`fauth admin`, project-auth repo) — FronyBoard delegates every bearer check to it.
 
 Register a remote server in Claude Code:
 
@@ -417,25 +417,25 @@ def _boot(mode: str, **fields) -> None:
     from importlib.metadata import PackageNotFoundError, version
 
     try:
-        ver = version("aira")
+        ver = version("fronyboard")
     except PackageNotFoundError:
         ver = "dev"
     log.event("INFO", "boot", "start", mode=mode, version=ver, data=str(store.data_root()),
-              logs=str(log.log_dir()), tz=os.environ.get("AIRA_TZ"), **fields)
+              logs=str(log.log_dir()), tz=os.environ.get("FRONYBOARD_TZ"), **fields)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="aira", description="FronyBoard MCP server")
+    parser = argparse.ArgumentParser(prog="fronyboard", description="FronyBoard MCP server")
     sub = parser.add_subparsers(dest="command")
     serve_p = sub.add_parser("serve", help="run the HTTP server (home server mode)")
     serve_p.add_argument("--host", default="0.0.0.0")
     serve_p.add_argument("--port", type=int, default=8642)
-    serve_p.add_argument("--public-url", default=os.environ.get("AIRA_PUBLIC_URL") or None,
+    serve_p.add_argument("--public-url", default=os.environ.get("FRONYBOARD_PUBLIC_URL") or None,
                          help="HTTPS URL hosted MCP clients use (enables OAuth); "
-                              "default: AIRA_PUBLIC_URL")
-    serve_p.add_argument("--public-mcp-path", default=os.environ.get("AIRA_PUBLIC_MCP_PATH") or "/mcp",
+                              "default: FRONYBOARD_PUBLIC_URL")
+    serve_p.add_argument("--public-mcp-path", default=os.environ.get("FRONYBOARD_PUBLIC_MCP_PATH") or "/mcp",
                          help="path of the MCP endpoint under --public-url, e.g. /board/mcp; "
-                              "default: AIRA_PUBLIC_MCP_PATH or /mcp")
+                              "default: FRONYBOARD_PUBLIC_MCP_PATH or /mcp")
     mig_p = sub.add_parser("migrate", help="copy the pre-v0.25 YAML tree into fronyboard.db (once)")
     mig_p.add_argument("--source", default=None, help="projects/ folder; default <data root>/projects")
     mig_p.add_argument("--dry-run", action="store_true", help="list what would be copied, write nothing")

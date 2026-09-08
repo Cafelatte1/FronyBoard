@@ -6,7 +6,7 @@ import json
 import pytest
 from starlette.applications import Starlette
 
-from aira import service, store, web
+from fronyboard import service, store, web
 from conftest import asgi_request, bootstrap
 
 
@@ -40,9 +40,9 @@ def test_set_overview_optional_blocks_and_validation():
     service.set_overview(key, "2026", goal="only a goal")
     assert set(_overview(key)) == {"goal", "meta"}
 
-    with pytest.raises(service.AiraError, match=r"checklist\[0\]: text"):
+    with pytest.raises(service.FronyBoardError, match=r"checklist\[0\]: text"):
         service.set_overview(key, "2026", goal="g", checklist=[{"text": "  ", "done": False}])
-    with pytest.raises(service.AiraError, match=r"checklist\[0\]: must be a map"):
+    with pytest.raises(service.FronyBoardError, match=r"checklist\[0\]: must be a map"):
         service.set_overview(key, "2026", goal="g", checklist=[3])
     assert set(_overview(key)) == {"goal", "meta"}  # rejected writes leave the file alone
 
@@ -57,9 +57,9 @@ def test_set_check_flips_one_item_and_guards_index():
     service.set_check(key, "2026", 1, False)
     assert [i["done"] for i in _overview(key)["checklist"]] == [False, False, False]
 
-    with pytest.raises(service.AiraError, match="index must be 0..2"):
+    with pytest.raises(service.FronyBoardError, match="index must be 0..2"):
         service.set_check(key, "2026", 3, True)
-    with pytest.raises(service.AiraError, match="no checklist"):
+    with pytest.raises(service.FronyBoardError, match="no checklist"):
         service.set_check(key, "2027", 0, True)
 
 

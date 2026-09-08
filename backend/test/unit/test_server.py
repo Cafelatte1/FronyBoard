@@ -2,7 +2,7 @@
 
 import pytest
 
-from aira import server, service
+from fronyboard import server, service
 from conftest import bootstrap
 
 
@@ -28,7 +28,7 @@ def test_task_tools_accept_matching_key_and_reject_mismatch():
 
     out = server.update_task(task_id="DLY-001", title="ok", key="DLY")
     assert out["task"]["title"] == "ok"
-    with pytest.raises(service.AiraError, match="does not match"):
+    with pytest.raises(service.FronyBoardError, match="does not match"):
         server.update_task(task_id="DLY-001", title="nope", key="AIR")
-    with pytest.raises(service.AiraError, match="does not match"):
+    with pytest.raises(service.FronyBoardError, match="does not match"):
         server.transition_task(task_id="DLY-001", status="done", key="AIR")

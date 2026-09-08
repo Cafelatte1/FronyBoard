@@ -1,6 +1,6 @@
 """JSON Lines event logs, written for agents rather than people.
 
-Two files under the log root (`AIRA_LOG_DIR`, default `<data root>/../logs`):
+Two files under the log root (`FRONYBOARD_LOG_DIR`, default `<data root>/../logs`):
 
     tools.jsonl   one line per MCP tool call — who called what, on which record,
                   how long it took, and whether it was accepted (kept 180 days)
@@ -40,14 +40,14 @@ _tz: datetime.tzinfo | None = None
 
 
 def log_dir() -> Path:
-    override = os.environ.get("AIRA_LOG_DIR")
+    override = os.environ.get("FRONYBOARD_LOG_DIR")
     return Path(override) if override else store.data_root().parent / "logs"
 
 
 def setup(*, stderr: bool = False) -> Path:
     """Install the two file sinks (and optionally a WARNING+ stderr echo); returns the log root."""
     global _tz
-    name = os.environ.get("AIRA_TZ")
+    name = os.environ.get("FRONYBOARD_TZ")
     try:
         _tz = zoneinfo.ZoneInfo(name) if name else None
     except (zoneinfo.ZoneInfoNotFoundError, ValueError):
@@ -78,7 +78,7 @@ def shutdown() -> None:
 
 
 def _ts() -> str:
-    """ISO 8601 with offset, in AIRA_TZ or the process-local zone."""
+    """ISO 8601 with offset, in FRONYBOARD_TZ or the process-local zone."""
     return datetime.datetime.now(_tz).astimezone(_tz).isoformat(timespec="milliseconds")
 
 
@@ -190,7 +190,7 @@ class ToolLogMiddleware:
         is_error, content, structured = _result_parts(result)
         if is_error:
             # The SDK turns any exception raised by a tool into an is_error result;
-            # for this server that is a validation/argument rejection (AiraError).
+            # for this server that is a validation/argument rejection (FronyBoardError).
             msg = "; ".join(_text(c) for c in content)
             msg = msg.removeprefix(f"Error executing tool {name}: ")[:500]  # SDK boilerplate
             tool_call(**line, ms=ms, ok=False, error="rejected", msg=msg)

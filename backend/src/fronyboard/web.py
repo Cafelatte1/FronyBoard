@@ -23,18 +23,18 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from . import auth, fauth, log, service, store
-from .service import AiraError
+from .service import FronyBoardError
 
 _started_at = store.now()  # module import happens at process start — close enough for uptime
 
 
 def _timezone() -> dict:
     """The zone this server is serving from, for display conversion of the naive-UTC
-    timestamps. AIRA_TZ (an IANA name) wins; otherwise the process-local offset.
+    timestamps. FRONYBOARD_TZ (an IANA name) wins; otherwise the process-local offset.
     `name` is only reported when it is a short ASCII abbreviation (KST, CET…) —
     Windows hands back localized long names, which are useless as a label."""
     tz = None
-    override = os.environ.get("AIRA_TZ")
+    override = os.environ.get("FRONYBOARD_TZ")
     if override:
         try:
             tz = zoneinfo.ZoneInfo(override)
@@ -59,7 +59,7 @@ def _endpoint(fn):
             return JSONResponse(fn(request))
         except FileNotFoundError as e:
             return JSONResponse({"error": str(e)}, status_code=404)
-        except AiraError as e:
+        except FronyBoardError as e:
             return JSONResponse({"error": str(e)}, status_code=400)
     return handle
 
@@ -119,7 +119,7 @@ async def _set_check(request):
         result = service.set_check(p["key"], p["year"], p["index"], done)
     except FileNotFoundError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
-    except AiraError as e:
+    except FronyBoardError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     log.tool_call(req=log.new_req(), tool="set_check", caller=caller, project=p["key"],
                   args={"year": p["year"], "index": p["index"], "done": done},
@@ -137,7 +137,7 @@ async def _server_info(projects: list | None = None) -> dict:
     open_periods = [{"project": p["key"], "period": pname}
                     for p in projects for pname in p["summary"]["open_periods"]]
     try:
-        ver = pkg_version("aira")
+        ver = pkg_version("fronyboard")
     except PackageNotFoundError:
         ver = "dev"
     try:

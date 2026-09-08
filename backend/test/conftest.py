@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import anyio
 import pytest
 
-from aira import fauth, service
+from fronyboard import fauth, service
 
 
 @pytest.fixture(autouse=True)

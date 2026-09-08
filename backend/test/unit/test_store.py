@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from aira import service, store
+from fronyboard import service, store
 from conftest import bootstrap
 
 

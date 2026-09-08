@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from aira import auth, fauth
+from fronyboard import auth, fauth
 from conftest import asgi_request
 
 
@@ -28,7 +28,7 @@ def _bearer(token: str) -> list:
 def test_middleware_rejects_missing_or_bad_credential(fake_fauth):
     fake_fauth.keys["pc1"] = "frony_real"
     assert _run_middleware([])[0] == 401
-    assert _run_middleware(_bearer("aira_bogus"))[0] == 401
+    assert _run_middleware(_bearer("bogus_token"))[0] == 401
     assert _run_middleware([(b"authorization", b"Basic abc")])[0] == 401
 
 

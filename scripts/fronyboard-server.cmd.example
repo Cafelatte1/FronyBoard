@@ -1,0 +1,11 @@
+@echo off
+rem FronyBoard launcher - env vars live here only (HomeServer convention).
+rem Copy to C:\Users\flash\fronyboard-server.cmd on the server and fill FRONY_SERVICE_KEY. Never commit the real file.
+rem The Task Scheduler task "FronyBoard Server" runs this at system startup as SYSTEM (scripts\register-task.ps1).
+set AIRA_DATA_DIR=C:\Users\flash\AppData\Local\Frony\FronyBoard\data
+set FRONYBOARD_TZ=Asia/Seoul
+set FRONYBOARD_PUBLIC_URL=https://<tailnet-host>.ts.net
+set FRONYBOARD_PUBLIC_MCP_PATH=/board/mcp
+set FRONY_AUTH_URL=http://127.0.0.1:8640
+set FRONY_SERVICE_KEY=frony_REPLACE_ME
+C:\Users\flash\projects\project-aira\backend\.venv\Scripts\fronyboard.exe serve

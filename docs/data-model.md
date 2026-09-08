@@ -1,7 +1,7 @@
 # Data model
 
 **When to read**: when changing the roadmap / period record schema, the storage layout or the validation rules
-**Code**: `backend/src/aira/validation.py`, `backend/src/aira/store.py`
+**Code**: `backend/src/fronyboard/validation.py`, `backend/src/fronyboard/store.py`
 **Related**: [tool-surface](tool-surface.md), [auth](auth.md), [http-api](http-api.md)
 
 ---
@@ -32,7 +32,7 @@ Timestamps inside the JSON are stored as `{"__dt__": "<iso>"}` and come back as 
 `datetime` values, so validation and `updated_since` see the same types as before. Every
 write is one `INSERT … ON CONFLICT DO UPDATE`, so a record is never half-written.
 
-`aira migrate [--dry-run] [--source DIR]` copies a YAML tree into the database (rows are
+`fronyboard migrate [--dry-run] [--source DIR]` copies a YAML tree into the database (rows are
 overwritten, files untouched). It ran once on the home server at the v0.25.0 deploy.
 
 ## Identifiers

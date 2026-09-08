@@ -1,12 +1,12 @@
 # MCP tool surface
 
 **When to read**: when adding, renaming or regrouping an `@mcp.tool()` or editing the server `instructions=` block
-**Code**: `backend/src/aira/server.py`
+**Code**: `backend/src/fronyboard/server.py`
 **Related**: [data-model](data-model.md), [http-api](http-api.md), [frontend](frontend.md)
 
 ---
 
-Why the 20 `@mcp.tool()` functions in `backend/src/aira/server.py` are named and structured the way
+Why the 20 `@mcp.tool()` functions in `backend/src/fronyboard/server.py` are named and structured the way
 they are. Each tool's docstring is the description an MCP client shows an agent, and is the source of
 truth for what that tool does and how to call it — read `server.py` directly. This page only covers
 what a docstring cannot say by itself: the shape of the surface and the constraints it was built

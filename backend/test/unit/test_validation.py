@@ -6,7 +6,7 @@ The service gate blocks invalid mutations, so broken states are built in memory
 
 import datetime
 
-from aira import service, store, validation
+from fronyboard import service, store, validation
 from conftest import bootstrap
 
 

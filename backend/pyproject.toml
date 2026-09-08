@@ -1,6 +1,6 @@
 [project]
-name = "aira"
-version = "0.27.1"
+name = "fronyboard"
+version = "0.28.0"
 description = "FronyBoard — an MCP server that gives AI agents a first-class project tracker"
 requires-python = ">=3.10"
 dependencies = [
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-aira = "aira.server:main"
+fronyboard = "fronyboard.server:main"
 
 [dependency-groups]
 dev = [
@@ -24,7 +24,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/aira"]
+packages = ["src/fronyboard"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

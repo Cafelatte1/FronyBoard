@@ -1,7 +1,7 @@
-"""HTTP bearer auth for the AIRA server — delegation to FronyAuth since AIR-056.
+"""HTTP bearer auth for the FronyBoard server — delegation to FronyAuth since AIR-056.
 
 API keys and OAuth tokens are issued and judged by FronyAuth (see fauth.py for
-the client and its configuration); aira no longer reads auth.yaml/oauth.yaml.
+the client and its configuration); FronyBoard no longer reads auth.yaml/oauth.yaml.
 The only credential that stays local is the dashboard session token, which
 lives in this process's memory and never leaves the machine.
 """

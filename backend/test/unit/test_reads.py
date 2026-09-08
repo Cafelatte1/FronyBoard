@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from aira import log, service
+from fronyboard import log, service
 from conftest import bootstrap
 
 
@@ -36,9 +36,9 @@ def test_get_task_by_id_without_key():
 
 def test_get_task_unknown_id_and_bad_shape():
     _seed()
-    with pytest.raises(service.AiraError, match="not found"):
+    with pytest.raises(service.FronyBoardError, match="not found"):
         service.get_task("DLY-099")
-    with pytest.raises(service.AiraError, match="full id"):
+    with pytest.raises(service.FronyBoardError, match="full id"):
         service.get_task("2")
 
 
@@ -88,7 +88,7 @@ def test_search_across_projects_key_filter_limit_and_empty_query():
     assert {h["project"] for h in only["hits"]} == {"DLY"}
 
     assert service.search_tasks("login", status="in_progress")["count"] == 0
-    with pytest.raises(service.AiraError, match="empty"):
+    with pytest.raises(service.FronyBoardError, match="empty"):
         service.search_tasks("   ")
 
 
@@ -104,7 +104,7 @@ def test_list_tasks_omits_prose_unless_asked_and_filters_updated_since():
 
     assert service.list_tasks(key, updated_since="1h")["count"] == 2
     assert service.list_tasks(key, updated_since="2999-01-01T00:00:00")["count"] == 0
-    with pytest.raises(service.AiraError, match="since must be"):
+    with pytest.raises(service.FronyBoardError, match="since must be"):
         service.list_tasks(key, updated_since="yesterday")
 
 
@@ -121,7 +121,7 @@ def test_list_projects_carries_summary():
 
 @pytest.fixture
 def logs(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("FRONYBOARD_LOG_DIR", str(tmp_path / "logs"))
     root = log.setup()
     yield root
     log.shutdown()
@@ -169,7 +169,7 @@ def test_recent_activity_shows_ok_only_when_false(logs):
 
 
 def test_recent_activity_without_logs_is_empty(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIRA_LOG_DIR", str(tmp_path / "nowhere"))
+    monkeypatch.setenv("FRONYBOARD_LOG_DIR", str(tmp_path / "nowhere"))
     got = service.recent_activity()
     assert got["activity"] == [] and got["count"] == 0
 
