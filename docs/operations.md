@@ -26,10 +26,21 @@ Two files make the server self-starting, both in `scripts/`:
 On a dev PC:
 
 ```powershell
-# bump version in backend/pyproject.toml, commit, then:
+# bump the version in backend/pyproject.toml and server.json (both fields), commit, then:
 git tag -a vX.Y.Z -m "..."
 git push origin main vX.Y.Z
 ```
+
+Pushing the tag runs `.github/workflows/publish.yml` (AIR-079): it checks that the
+tag matches `pyproject.toml` and `server.json`, runs the backend tests, builds the
+package, publishes it to PyPI and then publishes `server.json` to the MCP Registry
+(`mcp-publisher login github-oidc`). A mismatch stops the run before anything is
+published, so the tag can be deleted, fixed and pushed again. The job uses the
+GitHub environment `pypi` (restricted to `v*` tags); PyPI authenticates through
+Trusted Publishing once the project has one registered — until then the
+environment secret `PYPI_API_TOKEN` is used, and removing that secret switches
+the workflow over with no other change. `uvx fronyboard` picks the new version up
+on the next run. The home server is not touched by the workflow; deploy it as below.
 
 On the server, `scripts/deploy.ps1` does the whole sequence (from a dev PC:
 `ssh -i ~/.ssh/fronyboard_homeserver <user>@<server> "powershell -NoProfile -File <path-to-project-aira>\scripts\deploy.ps1 -Tag vX.Y.Z"`).

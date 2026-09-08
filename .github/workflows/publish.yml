@@ -1,0 +1,51 @@
+name: Publish
+
+# A release tag (vX.Y.Z) publishes the package to PyPI (Trusted Publishing, no token)
+# and the listing to the MCP Registry (GitHub OIDC). docs/operations.md "Deploying a release".
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # PyPI Trusted Publishing + MCP Registry github-oidc
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag must match pyproject and server.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PYPROJECT=$(grep -m1 '^version = ' backend/pyproject.toml | cut -d'"' -f2)
+          SERVER=$(jq -r .version server.json)
+          PACKAGE=$(jq -r '.packages[0].version' server.json)
+          echo "tag=$TAG pyproject=$PYPROJECT server.json=$SERVER/$PACKAGE"
+          [ "$TAG" = "$PYPROJECT" ] && [ "$TAG" = "$SERVER" ] && [ "$TAG" = "$PACKAGE" ]
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Test
+        run: uv run --directory backend pytest -q
+
+      - name: Build
+        run: uv build backend --out-dir dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          # Empty (no PYPI_API_TOKEN secret in the pypi environment) = Trusted Publishing
+          # via OIDC; set only while the PyPI side has no trusted publisher yet.
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Publish to MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
