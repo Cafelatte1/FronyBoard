@@ -20,15 +20,16 @@ The schema and operating rules were extracted from a real product's management s
 ## Install
 
 Requires [uv](https://docs.astral.sh/uv/). One line registers FronyBoard in Claude Code;
-`uvx` fetches and builds the package on first use and caches it:
+`uvx` fetches the package from PyPI on first use and caches it:
 
 ```powershell
-claude mcp add FronyBoard -- uvx --from "git+https://github.com/Cafelatte1/fronyboard@v0.28.0#subdirectory=backend" fronyboard
+claude mcp add FronyBoard -- uvx fronyboard
 ```
 
 Any MCP client that can launch a stdio command works the same way — the command is
-`uvx --from "git+…#subdirectory=backend" fronyboard`. From a clone, point at the
-checkout instead:
+`uvx fronyboard`. It is also listed in the
+[MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.Cafelatte1/fronyboard`.
+From a clone, point at the checkout instead (this needs `git`):
 
 ```powershell
 git clone https://github.com/Cafelatte1/fronyboard
