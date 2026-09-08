@@ -28,7 +28,7 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 ## Deploy
 
 Runs on the home server (Tailscale, port 8642; the address is in `~/HomeServerInfo.md`) as the Task Scheduler task "FronyBoard Server". "FronyAuth Server" (`:8640`, the project-auth repo) on the same machine does all bearer verification through introspection (`FRONY_AUTH_URL` / `FRONY_SERVICE_KEY`, v0.18.0+); without it nothing authenticates.
-The server deploys **release tags only** (`vX.Y.Z`); pushing to main changes nothing.
+The server deploys **release tags only** (`vX.Y.Z`); pushing to main changes nothing. Pushing a tag also runs `.github/workflows/publish.yml`, which publishes the package to PyPI and the MCP Registry after checking the tag against `backend/pyproject.toml` and `server.json`.
 Procedure: push the tag, then on the server run `scripts\deploy.ps1 -Tag vX.Y.Z` (`docs/self-hosting.md`, `docs/operations.md`). Keys come from `fauth keygen` or the dashboard Settings page.
 
 ## Docs
