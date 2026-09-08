@@ -171,7 +171,7 @@ next period under a new id and note the mapping in the closing `result`.
 API keys are per device and shared by every Frony service on the machine, so
 they live **outside** the FronyBoard data root, in the Frony-wide registry
 `%LOCALAPPDATA%\Frony\auth.yaml` (`FRONY_AUTH_FILE` overrides). Managed by
-`aira keygen` and the `/api/keys` endpoints; other services only read it:
+`fauth keygen` and the `/api/keys` endpoints; other services only read it:
 
 ```yaml
 keys:
@@ -186,7 +186,7 @@ FronyBoard issues the tokens, any Frony service may verify them (see
 [auth.md](auth.md#other-frony-services-behind-the-same-login)).
 
 FronyBoard's own `<data root>/auth.yaml` keeps only the dashboard admin
-(`aira admin`). Keys or an `oauth.yaml` found in the data root from before the
+(`fauth admin`). Keys or an `oauth.yaml` found in the data root from before the
 shared location existed are moved over the first time the server reads them.
 
 ```yaml

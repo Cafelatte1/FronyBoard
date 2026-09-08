@@ -14,14 +14,16 @@
   app, ChatGPT) are account-level OAuth and are set up in the app, not here.
 
 .EXAMPLE
-  powershell -NoProfile -File scripts\configure_mcp_settings.ps1 -ApiKey frony_...
-  powershell -NoProfile -File scripts\configure_mcp_settings.ps1              # reuse the key already configured
+  powershell -NoProfile -File scripts\configure_mcp_settings.ps1 -Server http://<server>:8642 -ApiKey frony_...
+  powershell -NoProfile -File scripts\configure_mcp_settings.ps1 -Server http://<server>:8642   # reuse the key already configured
 #>
 param(
-    [string]$Server = "http://100.67.93.87:8642",
+    [string]$Server,
     [string]$ApiKey
 )
 $ErrorActionPreference = "Stop"
+if (-not $Server) { throw "pass -Server http://<host>:8642 (the FronyBoard server's tailnet address)" }
+$Server = $Server.TrimEnd("/")
 $Name = "FronyBoard"
 $mcpUrl = "$Server/mcp"
 $claudeJson = Join-Path $env:USERPROFILE ".claude.json"

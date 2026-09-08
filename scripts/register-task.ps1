@@ -6,7 +6,7 @@
   Runs ON the server in an elevated PowerShell. Trigger: at system startup. Principal: SYSTEM,
   so the server is up before anyone logs on. A second trigger re-checks every 10 minutes
   (MultipleInstances = IgnoreNew makes it a no-op while running). No time limit, restarts on failure.
-  The task runs the launcher C:\Users\flash\fronyboard-server.cmd (copy scripts\fronyboard-server.cmd.example
+  The task runs the launcher %USERPROFILE%\fronyboard-server.cmd (copy scripts\fronyboard-server.cmd.example
   and fill it in first). Because SYSTEM's %LOCALAPPDATA% is the system profile, the launcher
   must pin AIRA_DATA_DIR explicitly.
 
@@ -15,7 +15,7 @@
 #>
 param(
     [string]$TaskName = "FronyBoard Server",
-    [string]$Launcher = "C:\Users\flash\fronyboard-server.cmd"
+    [string]$Launcher = (Join-Path $env:USERPROFILE "fronyboard-server.cmd")
 )
 $ErrorActionPreference = "Stop"
 if (-not (Test-Path $Launcher)) { throw "launcher not found: $Launcher (copy scripts\fronyboard-server.cmd.example)" }

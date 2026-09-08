@@ -12,7 +12,7 @@
   powershell -NoProfile -File scripts\deploy.ps1               # restart only
 
   From a dev PC over Tailscale:
-  ssh -i ~/.ssh/fronyboard_homeserver flash@100.67.93.87 "powershell -NoProfile -File C:\Users\flash\projects\project-aira\scripts\deploy.ps1 -Tag v0.7.6"
+  ssh -i ~/.ssh/fronyboard_homeserver <user>@<server> "powershell -NoProfile -File <checkout>\scripts\deploy.ps1 -Tag v0.7.6"
 #>
 param(
     [string]$Tag,
