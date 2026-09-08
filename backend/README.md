@@ -5,7 +5,7 @@ tracker: roadmap → quarterly periods → months → tasks in one SQLite file, 
 rule validation gate before every write, retrospectives that close a period, and a
 read-only web dashboard for humans.
 
-<!-- mcp-name: io.github.cafelatte1/fronyboard -->
+<!-- mcp-name: io.github.Cafelatte1/fronyboard -->
 
 ## Install
 

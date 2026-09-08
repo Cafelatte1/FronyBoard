@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Cafelatte1/fronyboard",
+  "title": "FronyBoard",
+  "description": "Project tracker for AI agents: roadmap, periods, tasks and a validation gate, in one SQLite file",
+  "repository": {
+    "url": "https://github.com/Cafelatte1/FronyBoard",
+    "source": "github"
+  },
+  "version": "0.28.2",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "fronyboard",
+      "version": "0.28.2",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "AIRA_DATA_DIR",
+          "description": "Data root; default is Frony/FronyBoard/data under LOCALAPPDATA (or ~/.Frony/FronyBoard/data)",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}
