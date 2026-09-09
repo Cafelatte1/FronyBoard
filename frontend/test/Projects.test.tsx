@@ -72,12 +72,12 @@ describe("project detail task table", () => {
     return render(<Projects data={makeBoard(list)} openKey="DLY" {...noop} />);
   }
 
-  it("hides cancelled tasks by default", () => {
+  it("shows every task, cancelled ones dimmed, when no filter is set", () => {
     renderDetail();
     expect(screen.getByText("first todo")).toBeInTheDocument();
     expect(screen.getByText("the wip one")).toBeInTheDocument();
-    expect(screen.queryByText("dropped")).not.toBeInTheDocument();
-    expect(screen.getByText(/3건/)).toHaveTextContent("2026Q3 · 3건 / 전체 4건");
+    expect(screen.getByText("dropped").closest(".task-grid")).toHaveClass("cancelled");
+    expect(screen.getByText(/4건/)).toHaveTextContent("2026Q3 · 4건");
   });
 
   it("filters by status from the filter menu", async () => {
@@ -90,12 +90,14 @@ describe("project detail task table", () => {
     expect(screen.queryByText("first todo")).not.toBeInTheDocument();
   });
 
-  it("shows cancelled tasks when the toggle is on", async () => {
+  it("narrows to cancelled tasks from the filter menu", async () => {
     const user = userEvent.setup();
     const { container } = renderDetail();
     await user.click(screen.getByTitle("필터"));
-    await user.click(within(container.querySelector(".menu")!).getByText("취소된 태스크 포함"));
+    await user.click(within(container.querySelector(".menu")!).getByText("취소됨"));
     expect(screen.getByText("dropped")).toBeInTheDocument();
+    expect(screen.queryByText("first todo")).not.toBeInTheDocument();
+    expect(screen.getByText(/1건/)).toHaveTextContent("2026Q3 · 1건 / 전체 4건");
   });
 
   it("tells apart 'no tasks yet' from 'nothing matches the filter'", async () => {
