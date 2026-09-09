@@ -13,18 +13,20 @@ import {
   doneRatio,
   fmtServerTime,
   sortTasks,
-  useFavorites,
   useIsPhone,
+  useProjectOrder,
   type SortKey,
 } from "../shared";
 import { apiSend } from "../api";
-import type { BoardData, Overview, PeriodStatus, Roadmap, ServerTimezone, StatusResp, Task } from "../types";
+import type { BoardData, Overview, PeriodStatus, ProjectRef, Roadmap, ServerTimezone, StatusResp, Task } from "../types";
 
 export default function Projects({
   data,
   openKey,
   setOpenKey,
   onOpenTask,
+  favs,
+  onToggleFav,
   focus,
   infoOpen,
   onCloseInfo,
@@ -33,6 +35,8 @@ export default function Projects({
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onOpenTask: (key: string, task: Task) => void;
+  favs: Set<string>;
+  onToggleFav: (key: string) => void;
   /** A search pick: land the detail on this period, paged to this task
       (nonce remounts on every pick). */
   focus?: { period: string; taskId?: string; nonce: number } | null;
@@ -40,7 +44,8 @@ export default function Projects({
   infoOpen?: boolean;
   onCloseInfo?: () => void;
 }) {
-  if (openKey === null) return <ProjectList data={data} onOpen={setOpenKey} />;
+  if (openKey === null)
+    return <ProjectList data={data} onOpen={setOpenKey} favs={favs} onToggleFav={onToggleFav} />;
   return (
     <ProjectDetail
       key={focus ? `${openKey}:${focus.nonce}` : openKey}
@@ -58,22 +63,50 @@ export default function Projects({
 
 const COUNT_ORDER = ["done", "in_progress", "todo", "blocked"] as const;
 
-function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) => void }) {
-  const [favs, toggleFav] = useFavorites();
+/** Stored keys first, in stored order (dropping ones that are gone); the rest follow
+    in the server's order, so a newly registered project lands at the end. */
+function applyOrder(projects: ProjectRef[], order: string[]): ProjectRef[] {
+  const byKey = new Map(projects.map((p) => [p.key, p]));
+  const head = order.map((k) => byKey.get(k)).filter((p): p is ProjectRef => p !== undefined);
+  const seen = new Set(head.map((p) => p.key));
+  return [...head, ...projects.filter((p) => !seen.has(p.key))];
+}
+
+function ProjectList({
+  data,
+  onOpen,
+  favs,
+  onToggleFav,
+}: {
+  data: BoardData;
+  onOpen: (k: string) => void;
+  favs: Set<string>;
+  onToggleFav: (key: string) => void;
+}) {
+  const [order, setOrder] = useProjectOrder();
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
   if (data.projects.length === 0)
     return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
-  // Starred first, otherwise the server's key order (sort is stable).
-  const ordered = [...data.projects].sort((a, b) => Number(favs.has(b.key)) - Number(favs.has(a.key)));
+  const ordered = applyOrder(data.projects, order);
+  const drop = (targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) return;
+    // The dragged card takes the target's slot: dropping lower lands after it, higher before it.
+    const keys = ordered.map((p) => p.key);
+    const to = keys.indexOf(targetKey);
+    keys.splice(to, 0, keys.splice(keys.indexOf(dragKey), 1)[0]);
+    setOrder(keys);
+  };
   return (
     <>
-      <span className="hint-text">카드를 누르면 해당 프로젝트의 상세 화면으로 이동합니다.</span>
+      <span className="hint-text">카드를 누르면 상세 화면으로 이동하고, 끌어서 순서를 바꿀 수 있습니다.</span>
       <div className="project-grid-2">
         {ordered.map((p) => {
           const fav = favs.has(p.key);
           const onFav = (e: { stopPropagation: () => void; preventDefault: () => void }) => {
             e.stopPropagation();
             e.preventDefault();
-            toggleFav(p.key);
+            onToggleFav(p.key);
           };
           const status = data.statuses[p.key];
           const period = currentPeriodName(status);
@@ -81,7 +114,32 @@ function ProjectList({ data, onOpen }: { data: BoardData; onOpen: (k: string) =>
           const c = countBy(tasks);
           const r = doneRatio(c);
           return (
-            <button key={p.key} className="card project-card" onClick={() => onOpen(p.key)}>
+            <button
+              key={p.key}
+              className={`card project-card ${dragKey === p.key ? "dragging" : ""} ${
+                overKey === p.key ? "drag-over" : ""
+              }`}
+              onClick={() => onOpen(p.key)}
+              draggable
+              onDragStart={(e) => {
+                setDragKey(p.key);
+                e.dataTransfer?.setData("text/plain", p.key);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOverKey(p.key);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                drop(p.key);
+                setDragKey(null);
+                setOverKey(null);
+              }}
+              onDragEnd={() => {
+                setDragKey(null);
+                setOverKey(null);
+              }}
+            >
               <span className="project-card-head">
                 <span className="id-chip">{p.key}</span>
                 <span className="project-card-name lg">{status.name ?? p.key}</span>

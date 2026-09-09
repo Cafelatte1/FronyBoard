@@ -183,6 +183,32 @@ export function useFavorites(): [Set<string>, (key: string) => void] {
   return [new Set(favs), toggle];
 }
 
+const ORDER_KEY = "fronyboard_project_order";
+
+function readProjectOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(ORDER_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return []; // storage blocked or corrupt — fall back to the server's order
+  }
+}
+
+/** Cards in the user's dragged order (localStorage); unknown keys dropped, new projects appended in server order. */
+export function useProjectOrder(): [string[], (next: string[]) => void] {
+  const [order, setOrder] = useState<string[]>(readProjectOrder);
+  const save = useCallback((next: string[]) => {
+    setOrder(next);
+    try {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(next));
+    } catch {
+      // keep the in-memory value for this page view
+    }
+  }, []);
+  return [order, save];
+}
+
 /** Newest `meta.updated_at` across a project's record and its tasks ("" when unknown). */
 export function latestUpdate(ref: ProjectRef, tasks: Task[]): string {
   let latest = ref.meta?.updated_at ?? "";

@@ -23,6 +23,8 @@ describe("Dashboard", () => {
     // the WIP list shows the in_progress task with its branch
     expect(screen.getByText("wire the API")).toBeInTheDocument();
     expect(screen.getByText("feat/DLY-002/api")).toBeInTheDocument();
+    // ...under a group header naming its project
+    expect(screen.getByTitle("DLY 프로젝트 상세로 이동")).toBeInTheDocument();
     expect(screen.queryByText(/진행 중인 태스크가 없어요/)).not.toBeInTheDocument();
   });
 
@@ -31,13 +33,13 @@ describe("Dashboard", () => {
     expect(screen.getByText(/진행 중인 태스크가 없어요/)).toBeInTheDocument();
   });
 
-  it("opens a project from its card and a task from the WIP list", async () => {
+  it("opens a project from a WIP group header and a task from its rows", async () => {
     const user = userEvent.setup();
     const onOpenProject = vi.fn();
     const onOpenTask = vi.fn();
     const wip = makeTask({ id: "DLY-002", title: "wire the API", status: "in_progress" });
     render(<Dashboard data={makeBoard([wip])} onOpenProject={onOpenProject} onOpenTask={onOpenTask} />);
-    await user.click(screen.getByText("습관 트래커"));
+    await user.click(screen.getByText("Dailying"));
     expect(onOpenProject).toHaveBeenCalledWith("DLY");
     await user.click(screen.getByText("wire the API"));
     expect(onOpenTask).toHaveBeenCalledWith("DLY", wip);

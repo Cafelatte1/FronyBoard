@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TASK_ST, countBy, currentPeriodName, doneRatio, donutGradient, latestUpdate, parseUtc } from "../shared";
+import { TASK_ST, countBy, currentPeriodName, doneRatio, donutGradient, parseUtc } from "../shared";
 import type { BoardData, Task } from "../types";
 
 export default function Dashboard({
@@ -32,10 +32,6 @@ export default function Dashboard({
     return { ref: p, status, period, tasks };
   });
   const pooled = perProject.flatMap((p) => p.tasks);
-  // Cards: most recently touched project first (any task or the project record itself).
-  const recent = [...perProject].sort((a, b) =>
-    latestUpdate(b.ref, data.tasks[b.ref.key] ?? []).localeCompare(latestUpdate(a.ref, data.tasks[a.ref.key] ?? [])),
-  );
   const counts = countBy(pooled);
   const ratio = doneRatio(counts);
 
@@ -57,9 +53,14 @@ export default function Dashboard({
     }
   }
 
-  const wip = perProject.flatMap((p) =>
-    p.tasks.filter((t) => t.status === "in_progress").map((t) => ({ key: p.ref.key, task: t })),
-  );
+  // The WIP list is grouped by project, in the server's project order.
+  const wipGroups = perProject
+    .map((p) => ({
+      key: p.ref.key,
+      name: p.status.name ?? p.ref.key,
+      tasks: p.tasks.filter((t) => t.status === "in_progress"),
+    }))
+    .filter((g) => g.tasks.length > 0);
 
   const mainPeriod = perProject.find((p) => p.period)?.period ?? null;
   const burn = completionBuckets(pooled, burnMode, mainPeriod);
@@ -144,45 +145,39 @@ export default function Dashboard({
         </div>
       </div>
 
-      <div className="project-grid-3">
-        {recent.map(({ ref, status, period, tasks }) => {
-          const r = doneRatio(countBy(tasks));
-          return (
-            <button key={ref.key} className="card project-card" onClick={() => onOpenProject(ref.key)}>
-              <span className="project-card-head">
-                <span className="id-chip">{ref.key}</span>
-                <span className="project-card-name">{status.name ?? ref.key}</span>
-              </span>
-              <span className="project-card-goal l3">{ref.description ?? "설명이 아직 없어요."}</span>
-              <span className="card-bottom">
-                <span className="project-card-meta">
-                  <span className="mono">{period ?? "—"}</span>
-                  <span className="pct">
-                    {r.done}/{r.total} · {r.pct}%
-                  </span>
-                </span>
-                <span className="bar">
-                  <span className="bar-fill" style={{ width: `${r.pct}%` }} />
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
       <div className="card">
         <div className="list-head">
           <span className="card-title">지금 진행 중인 태스크</span>
           <span>브랜치 연결 {withBranch}건</span>
         </div>
-        <div className="rows">
-          {wip.length === 0 && <p className="muted">진행 중인 태스크가 없어요.</p>}
-          {wip.map(({ key, task }) => (
-            <button key={task.id} className="row row-btn" onClick={() => onOpenTask(key, task)}>
-              <span className="t-id">{task.id}</span>
-              <span className="t-title">{task.title}</span>
-              <span className="t-branch">{task.branch ?? "—"}</span>
-            </button>
+        <div className="wip-groups">
+          {wipGroups.length === 0 && <p className="muted">진행 중인 태스크가 없어요.</p>}
+          {wipGroups.map((g) => (
+            <div key={g.key} className="wip-group">
+              {/* a span, not a button: the rows below it are buttons of their own */}
+              <span
+                role="button"
+                tabIndex={0}
+                className="wip-group-head"
+                title={`${g.key} 프로젝트 상세로 이동`}
+                onClick={() => onOpenProject(g.key)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onOpenProject(g.key);
+                }}
+              >
+                <span className="id-chip">{g.key}</span>
+                <span className="wip-group-name">{g.name}</span>
+              </span>
+              <div className="rows">
+                {g.tasks.map((task) => (
+                  <button key={task.id} className="row row-btn" onClick={() => onOpenTask(g.key, task)}>
+                    <span className="t-id">{task.id}</span>
+                    <span className="t-title">{task.title}</span>
+                    <span className="t-branch">{task.branch ?? "—"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Projects from "../src/pages/Projects";
@@ -6,7 +6,16 @@ import { makeBoard, makeTask } from "./fixtures";
 
 beforeEach(() => localStorage.clear()); // favorites live in localStorage
 
-const noop = { setOpenKey: vi.fn(), onOpenTask: vi.fn() };
+const noop = { setOpenKey: vi.fn(), onOpenTask: vi.fn(), favs: new Set<string>(), onToggleFav: vi.fn() };
+
+/** makeBoard only has DLY; the drag test needs a second card. */
+function twoProjects() {
+  const data = makeBoard([makeTask()]);
+  data.projects.push({ ...data.projects[0], key: "BET", name: "Beta", description: "두 번째" });
+  data.statuses.BET = { ...data.statuses.DLY, project: "BET", name: "Beta" };
+  data.tasks.BET = [];
+  return data;
+}
 
 describe("project list", () => {
   it("asks for a project when there is none", () => {
@@ -26,9 +35,28 @@ describe("project list", () => {
 
   it("opens the detail when a card is clicked", async () => {
     const setOpenKey = vi.fn();
-    render(<Projects data={makeBoard()} openKey={null} setOpenKey={setOpenKey} onOpenTask={vi.fn()} />);
+    render(<Projects data={makeBoard()} openKey={null} {...noop} setOpenKey={setOpenKey} />);
     await userEvent.click(screen.getByText("Dailying"));
     expect(setOpenKey).toHaveBeenCalledWith("DLY");
+  });
+
+  it("remembers the dragged card order", () => {
+    const data = twoProjects();
+    const { unmount } = render(<Projects data={data} openKey={null} {...noop} />);
+    const cards = () => Array.from(document.querySelectorAll(".project-card"), (c) => c.textContent ?? "");
+    expect(cards()[0]).toContain("DLY");
+
+    const beta = screen.getByText("Beta").closest(".project-card")!;
+    const dly = screen.getByText("Dailying").closest(".project-card")!;
+    fireEvent.dragStart(beta);
+    fireEvent.dragOver(dly);
+    fireEvent.drop(dly);
+    expect(cards()[0]).toContain("BET");
+    expect(JSON.parse(localStorage.getItem("fronyboard_project_order")!)).toEqual(["BET", "DLY"]);
+
+    unmount();
+    render(<Projects data={data} openKey={null} {...noop} />);
+    expect(cards()[0]).toContain("BET");
   });
 });
 

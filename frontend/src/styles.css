@@ -1129,12 +1129,6 @@ svg.logo-mark {
 }
 
 
-.project-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--gap);
-}
-
 .project-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1147,6 +1141,14 @@ svg.logo-mark {
   flex-direction: column;
   gap: 11px;
   color: var(--text);
+}
+
+.project-card.dragging {
+  opacity: .5;
+}
+
+.project-card.drag-over {
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 
 .project-card:hover {
@@ -1263,6 +1265,139 @@ svg.logo-mark {
   flex: 1;
 }
 
+/* header favorites dropdown, left of the search box */
+.fav-nav {
+  position: relative;
+  flex: none;
+}
+
+.fav-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--control-h);
+  padding: 0 11px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--t-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fav-nav-btn:hover:not(:disabled),
+.fav-nav-btn.open {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.fav-nav-btn:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.fav-nav-btn svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.fav-nav-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--r-pill);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fav-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  width: 268px;
+  max-height: 236px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--e-4);
+  padding: 5px;
+  z-index: 16;
+}
+
+.fav-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 9px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fav-row:hover {
+  background: var(--surface-raised);
+}
+
+.fav-row-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.fav-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-caption);
+  font-weight: 600;
+}
+
+.fav-row-pct {
+  flex: none;
+  font-size: var(--t-meta);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.fav-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.fav-row-bottom .bar {
+  flex: 1;
+  height: 5px;
+}
+
+.fav-row-since {
+  flex: none;
+  font-size: var(--t-meta);
+  font-family: var(--font-mono);
+  color: var(--text-disabled);
+}
+
 /* ★ on a project card — a span with role=button because it lives inside the card button */
 .fav-btn {
   flex: none;
@@ -1307,6 +1442,34 @@ svg.logo-mark {
 .list-head .card-title {
   font-size: var(--t-title);
   color: var(--text);
+}
+
+/* the WIP list is grouped by project: a clickable project head over its rows */
+.wip-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.wip-group-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: -5px;
+  padding: 3px 7px 3px 5px;
+  border-radius: var(--r-md);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.wip-group-head:hover {
+  background: var(--surface-raised);
+}
+
+.wip-group-name {
+  font-size: var(--t-caption);
+  font-weight: 600;
 }
 
 .rows {
@@ -3139,7 +3302,6 @@ button.task-grid:hover {
   }
 
   .dash-mid,
-  .project-grid-3,
   .project-grid-2,
   .month-grid,
   .server-grid {
