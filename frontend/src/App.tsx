@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { clearSession, getToken, login } from "./api";
+import { clearSession, getToken, login, probeLocalMode } from "./api";
 import FavNav from "./FavNav";
 import SearchBar from "./SearchBar";
 import { currentPeriodName, fmtAgo, useBoardData, useFavorites, useIsPhone } from "./shared";
@@ -53,6 +53,19 @@ function FronyMark() {
 }
 export default function App() {
   const [authed, setAuthed] = useState(getToken() !== null);
+  // No stored session: ask the server whether it is a local-mode server before showing a login form.
+  const [probing, setProbing] = useState(!authed);
+  useEffect(() => {
+    if (!probing) return;
+    probeLocalMode().then(async (local) => {
+      if (local) {
+        await login("local", "");
+        setAuthed(true);
+      }
+      setProbing(false);
+    });
+  }, [probing]);
+  if (probing) return null;
   if (!authed) return <LoginGate onDone={() => setAuthed(true)} />;
   return (
     <Board

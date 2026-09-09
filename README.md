@@ -142,6 +142,8 @@ streamable HTTP for every machine on your network, a read-only web dashboard for
 humans, API keys per device, and OAuth for the hosted Claude / ChatGPT apps.
 Authentication is delegated to [FronyAuth](https://github.com/Cafelatte1/project-auth),
 a separate service. None of it is needed for the stdio install above.
+To see the dashboard on your own machine without any of that, run `fronyboard serve --local`
+(loopback only, no login) and open http://127.0.0.1:8642.
 [docs/self-hosting.md](docs/self-hosting.md) covers the setup;
 [docs/operations.md](docs/operations.md) is the day-2 runbook.
 

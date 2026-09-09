@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Unauthorized, api, apiSend, getToken, getUsername, login, logout } from "../src/api";
+import { Unauthorized, api, apiSend, getToken, getUsername, login, logout, probeLocalMode } from "../src/api";
 
 const fetchMock = vi.fn();
 
@@ -61,6 +61,19 @@ describe("apiSend", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(init.method).toBe("DELETE");
     expect(init.body).toBeUndefined();
+  });
+});
+
+describe("probeLocalMode", () => {
+  it("is true when /api/server answers without a token and says auth: local", async () => {
+    fetchMock.mockResolvedValue(res(200, { auth: "local" }));
+    await expect(probeLocalMode()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith("/api/server");
+  });
+
+  it("is false when /api/server demands a token", async () => {
+    fetchMock.mockResolvedValue(res(401));
+    await expect(probeLocalMode()).resolves.toBe(false);
   });
 });
 

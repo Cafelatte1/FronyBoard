@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Settings from "../src/pages/Settings";
-import { makeBoard } from "./fixtures";
+import { makeBoard, server } from "./fixtures";
 
 const fetchMock = vi.fn();
 
@@ -40,6 +40,15 @@ describe("Settings", () => {
     expect(screen.getByText("frony_ab…cd")).toBeInTheDocument();
     expect(screen.queryByText("발급된 키가 없어요")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/keys", expect.anything());
+  });
+
+  it("hides key management and the logout button in local mode", () => {
+    fetchMock.mockResolvedValue(keysRes([]));
+    const data = { ...makeBoard(), server: { ...server, auth: "local" as const, api_keys: null } };
+    render(<Settings data={data} onAuthFail={vi.fn()} />);
+    expect(screen.queryByText("로그아웃")).toBeNull();
+    expect(screen.getByText("로컬 모드 · 인증 없음")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("kicks back to login when the keys call is unauthorized", async () => {

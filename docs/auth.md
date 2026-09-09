@@ -30,8 +30,8 @@ internet, and only the `/mcp` + OAuth paths are exposed (see
 [operations.md](operations.md#hosted-mcp-clients-tailscale-funnel--oauth)).
 
 Whatever the channel, the tool log records who called (`caller` in
-`tools.jsonl`): `key:<name>`, `session:<user>`, `oauth:<app>:<user>`, or
-`stdio` — see [logging.md](logging.md).
+`tools.jsonl`): `key:<name>`, `session:<user>`, `oauth:<app>:<user>`, `stdio` or
+`local` — see [logging.md](logging.md).
 
 ## 1. Agent CLIs (API key)
 
@@ -206,3 +206,15 @@ token; the log records `caller: stdio`.
 All three end in the same middleware and the same yaml-hash comparison; there
 is no separate identity service to run. Device identity for 1–3 comes from
 Tailscale itself.
+
+## Local mode (`serve --local`)
+
+`fronyboard serve --local` (v0.31.0 / AIR-083) is the exception to everything above: the
+server binds to 127.0.0.1 only (`--host` may not name another interface), FronyAuth is never
+contacted, no header is checked, and every request is logged as caller `local`. The dashboard
+opens without a login form — `POST /api/login` hands out a session for any input — and key
+management (`/api/keys`) answers 404. DNS-rebinding protection is on in this mode, since the
+bearer check that justified turning it off is gone.
+
+It exists for one person on one machine who wants the dashboard next to a stdio-style
+install. The moment another device should see the board, run the normal mode with FronyAuth.

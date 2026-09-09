@@ -132,3 +132,15 @@ def test_verify_raises_unavailable_with_no_cache(monkeypatch):
     _patch_post(monkeypatch, [None])
     with pytest.raises(fauth.Unavailable):
         anyio.run(fauth.verify, "frony_x")
+
+
+def test_local_caller_middleware_tags_every_request():
+    seen = {}
+
+    async def inner_app(scope, receive, send):
+        seen["caller"] = scope["state"]["caller"]
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    status, _, _ = asgi_request(auth.LocalCallerMiddleware(inner_app), "POST", "/mcp", headers=[])
+    assert status == 200 and seen["caller"] == "local"

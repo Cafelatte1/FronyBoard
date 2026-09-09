@@ -14,6 +14,18 @@ export function clearSession(): void {
   localStorage.removeItem(USER_STORAGE);
 }
 
+/** A `serve --local` server answers /api/server with no token and says `auth: "local"`;
+    every other server answers 401 here, which reads as "not local". */
+export async function probeLocalMode(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/server");
+    if (!res.ok) return false;
+    return ((await res.json()) as { auth?: string }).auth === "local";
+  } catch {
+    return false;
+  }
+}
+
 export class Unauthorized extends Error {}
 
 export async function login(username: string, password: string): Promise<void> {

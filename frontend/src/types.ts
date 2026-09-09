@@ -86,9 +86,11 @@ export interface ServerInfo {
   data_root: string;
   projects: number;
   open_periods: { project: string; period: string }[];
-  api_keys: number;
+  api_keys: number | null;
   /** Absent on servers older than 0.5.2. */
   timezone?: ServerTimezone;
+  /** "local" = serve --local: no credentials, loopback only. Absent on servers before 0.31. */
+  auth?: "fauth" | "local";
 }
 
 export interface ServerTimezone {

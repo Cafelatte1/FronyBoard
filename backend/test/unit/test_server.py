@@ -32,3 +32,8 @@ def test_task_tools_accept_matching_key_and_reject_mismatch():
         server.update_task(task_id="DLY-001", title="nope", key="AIR")
     with pytest.raises(service.FronyBoardError, match="does not match"):
         server.transition_task(task_id="DLY-001", status="done", key="AIR")
+
+
+def test_serve_local_refuses_a_non_loopback_host():
+    with pytest.raises(SystemExit, match="loopback"):
+        server.serve("0.0.0.0", 8642, local=True)

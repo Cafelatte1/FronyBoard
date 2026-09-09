@@ -144,8 +144,12 @@ Runtime facts for the Settings screen:
 {"version": "0.5.2", "started_at": "2026-08-18 12:59:46",
  "data_root": "C:\\Users\\me\\AppData\\Local\\Frony\\FronyBoard\\data", "projects": 1,
  "open_periods": [{"project": "AIR", "period": "2026Q3"}], "api_keys": 1,
+ "auth": "fauth",
  "timezone": {"name": "KST", "offset_minutes": 540}}
 ```
+
+`auth` is `fauth` (bearer tokens judged by FronyAuth) or `local` (`serve --local`: no
+credentials; `api_keys` is then `null`).
 
 `open_periods` lists periods whose file has no `result` (retrospective) yet.
 Uptime is `now - started_at` (the process start).
