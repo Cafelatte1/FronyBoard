@@ -25,6 +25,10 @@ machine, every other device a client. Nothing here is needed for the stdio insta
   introspection. `serve` needs `FRONY_AUTH_URL` (default `http://127.0.0.1:8640`) and
   its own key in `FRONY_SERVICE_KEY`; without a reachable FronyAuth every request
   answers 503. Details: [auth](auth.md).
+- **Local mode** — `fronyboard serve --local` skips all of the above: loopback only, no
+  FronyAuth, no credentials, the dashboard opens without a login. One person, one machine;
+  when a second device should see the board, run the normal mode. Details:
+  [auth](auth.md#local-mode-serve---local).
 
 ```mermaid
 flowchart LR

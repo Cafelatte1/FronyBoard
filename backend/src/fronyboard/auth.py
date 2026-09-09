@@ -119,3 +119,16 @@ class BearerAuthMiddleware:
                    (b"content-length", str(len(body)).encode())] + (extra_headers or [])
         await send({"type": "http.response.start", "status": status, "headers": headers})
         await send({"type": "http.response.body", "body": body})
+
+
+class LocalCallerMiddleware:
+    """`serve --local`: no credential is checked — the socket is loopback-only — but every
+    request is tagged caller="local" so the tool log still names its source."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            scope.setdefault("state", {})["caller"] = "local"
+        await self.app(scope, receive, send)

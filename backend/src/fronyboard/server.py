@@ -5,6 +5,7 @@ Commands:
     fronyboard serve [--host H] [--port P]     streamable HTTP transport (home server)
                [--public-url URL]        the shared Funnel domain (401s advertise
                [--public-mcp-path P]     the resource metadata FronyAuth serves there)
+    fronyboard serve --local                   same, loopback only, no FronyAuth, no credentials
 
 Keys and the admin credential are issued by FronyAuth (`fauth keygen` /
 `fauth admin`, project-auth repo) — FronyBoard delegates every bearer check to it.
@@ -24,6 +25,8 @@ import os
 from mcp.server.mcpserver import MCPServer
 
 from . import auth, fauth, log, service, store, web
+
+_LOOPBACK = ("127.0.0.1", "localhost", "::1")
 
 mcp = MCPServer(
     "fronyboard",
@@ -370,7 +373,7 @@ def search_tasks(query: str, key: str | None = None, status: str | None = None,
 def recent_activity(key: str | None = None, since: str | None = None, limit: int = 50,
                     writes_only: bool = True) -> dict:
     """What changed recently and who did it: the tool calls recorded in tools.jsonl,
-    newest first — `ts`, `tool`, `caller` (key:<name> / session:<user> / oauth:… / stdio),
+    newest first — `ts`, `tool`, `caller` (key:<name> / session:<user> / oauth:… / stdio / local),
     `project`, `task` and `args` (argument names; prose fields appear as `<name>_len`);
     `ok: false` marks a rejected call. This is the mutation history; task records
     themselves keep only timestamps.
@@ -393,13 +396,17 @@ def validate(key: str) -> dict:
     return service.validate(key)
 
 
-def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: str = "/mcp") -> None:
+def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: str = "/mcp",
+          local: bool = False) -> None:
     """Run the streamable HTTP server behind bearer auth delegated to FronyAuth.
 
     OAuth itself lives in FronyAuth now (AIR-056): with `public_url` (the shared
     Funnel domain) a 401 on /mcp advertises the resource metadata that FronyAuth
     serves on that domain, so hosted clients still find their way to the login.
+    `local` is the single-user mode: loopback only, no FronyAuth, no credentials (AIR-083).
     """
+    if local and host not in _LOOPBACK:
+        raise SystemExit(f"--local serves the loopback interface only; --host {host!r} is not allowed")
     import uvicorn
     from mcp.server.transport_security import TransportSecuritySettings
     from starlette.middleware.gzip import GZipMiddleware
@@ -408,22 +415,33 @@ def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: 
     if public_url:
         path = "/" + public_mcp_path.strip("/")
         resource_metadata_url = f"{public_url.rstrip('/')}/.well-known/oauth-protected-resource{path}"
-    # Host-header (DNS rebinding) checks are disabled: clients reach the server
-    # under varying names (Tailscale name, LAN IP), and every request already
-    # requires a bearer key that a rebound browser page cannot attach.
-    app = mcp.streamable_http_app(
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+    if local:
+        # Nothing authenticates here, so a rebound browser page could otherwise reach
+        # this server — keep the host check on and pin it to the loopback names.
+        security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"],
+            allowed_origins=["http://127.0.0.1:*", "http://localhost:*"])
+    else:
+        # Host-header (DNS rebinding) checks are disabled: clients reach the server
+        # under varying names (Tailscale name, LAN IP), and every request already
+        # requires a bearer key that a rebound browser page cannot attach.
+        security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    app = mcp.streamable_http_app(transport_security=security)
+    web.LOCAL_MODE = local
     web.attach(app)
-    _boot("http", host=f"{host}:{port}", public_url=public_url, fauth=fauth.base_url())
+    _boot("http", host=f"{host}:{port}", public_url=public_url,
+          fauth=None if local else fauth.base_url(), local=local)
     try:
         # gzip sits inside auth so /mcp streams are untouched (minimum_size keeps them out)
         # and the board JSON (~130 KB) shrinks ~5x for the dashboard.
-        uvicorn.run(auth.with_mcp_cors(
-                        auth.BearerAuthMiddleware(GZipMiddleware(app, minimum_size=2048),
-                                                  protected=("/mcp", "/api"),
-                                                  open_paths=("/api/login",),
-                                                  resource_metadata_url=resource_metadata_url)),
-                    host=host, port=port, log_config=None)
+        stack = auth.LocalCallerMiddleware(GZipMiddleware(app, minimum_size=2048)) if local else \
+            auth.with_mcp_cors(
+                auth.BearerAuthMiddleware(GZipMiddleware(app, minimum_size=2048),
+                                          protected=("/mcp", "/api"),
+                                          open_paths=("/api/login",),
+                                          resource_metadata_url=resource_metadata_url))
+        uvicorn.run(stack, host=host, port=port, log_config=None)
     finally:
         log.event("INFO", "boot", "shutdown", mode="http")
 
@@ -442,9 +460,12 @@ def _boot(mode: str, **fields) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="fronyboard", description="FronyBoard MCP server")
     sub = parser.add_subparsers(dest="command")
-    serve_p = sub.add_parser("serve", help="run the HTTP server (home server mode)")
-    serve_p.add_argument("--host", default="0.0.0.0")
+    serve_p = sub.add_parser("serve", help="run the HTTP server (shared server, or --local for one machine)")
+    serve_p.add_argument("--host", default=None)
     serve_p.add_argument("--port", type=int, default=8642)
+    serve_p.add_argument("--local", action="store_true",
+                         help="single-user mode: bind to 127.0.0.1, no FronyAuth, no credentials "
+                              "— the dashboard opens without a login")
     serve_p.add_argument("--public-url", default=os.environ.get("FRONYBOARD_PUBLIC_URL") or None,
                          help="HTTPS URL hosted MCP clients use (enables OAuth); "
                               "default: FRONYBOARD_PUBLIC_URL")
@@ -464,7 +485,8 @@ def main() -> None:
 
     if args.command == "serve":
         log.setup()
-        serve(args.host, args.port, args.public_url, args.public_mcp_path)
+        host = args.host or ("127.0.0.1" if args.local else "0.0.0.0")
+        serve(host, args.port, args.public_url, args.public_mcp_path, local=args.local)
     else:
         log.setup(stderr=True)  # stdout is the MCP channel — never a log sink
         _boot("stdio")

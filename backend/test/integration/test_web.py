@@ -103,6 +103,7 @@ def test_server_info(fake_fauth):
     assert body["projects"] == 1
     assert body["open_periods"] == [{"project": "DLY", "period": "2026Q3"}]
     assert body["api_keys"] == 1
+    assert body["auth"] == "fauth"
     assert isinstance(body["timezone"]["offset_minutes"], int)
     assert body["timezone"]["name"] is None or body["timezone"]["name"].isascii()
 
@@ -113,6 +114,16 @@ def test_server_info_survives_fauth_outage(fake_fauth):
     status, body = _get("/api/server")
     assert status == 200  # deploys verify against this route — it must not depend on fauth
     assert body["api_keys"] is None
+
+
+def test_local_mode_needs_no_fauth(monkeypatch):
+    bootstrap()
+    monkeypatch.setattr(web, "LOCAL_MODE", True)
+    status, body = _request("POST", "/api/login", body={})
+    assert status == 200 and body["username"] == "local" and body["token"].startswith("fbsession_")
+    status, info = _get("/api/server")
+    assert status == 200 and info["auth"] == "local" and info["api_keys"] is None
+    assert _request("GET", "/api/keys", token=body["token"])[0] == 404
 
 
 def test_server_timezone_honours_fronyboard_tz(monkeypatch):

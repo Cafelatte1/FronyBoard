@@ -23,6 +23,7 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
 - Test: `uv run --directory backend pytest` · `cd frontend; npm test`
 - Local server (stdio): `uv run --directory backend fronyboard`
 - HTTP server: `uv run --directory backend fronyboard serve` (needs FronyAuth, see Deploy)
+- Local dashboard, no auth: `uv run --directory backend fronyboard serve --local` (loopback only)
 - Frontend build: `cd frontend; npm run build` — **`frontend/dist` is committed** (the home server only pulls)
 
 ## Deploy

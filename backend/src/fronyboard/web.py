@@ -27,6 +27,9 @@ from .service import FronyBoardError
 
 _started_at = store.now()  # module import happens at process start — close enough for uptime
 
+# Set by server.serve(local=True): no FronyAuth, no credentials, loopback only.
+LOCAL_MODE = False
+
 
 def _timezone() -> dict:
     """The zone this server is serving from, for display conversion of the naive-UTC
@@ -140,10 +143,13 @@ async def _server_info(projects: list | None = None) -> dict:
         ver = pkg_version("fronyboard")
     except PackageNotFoundError:
         ver = "dev"
-    try:
-        api_keys = len(await fauth.keys())
-    except fauth.Unavailable:
-        api_keys = None  # FronyAuth down — still answer, deploys verify against this route
+    if LOCAL_MODE:
+        api_keys = None  # no FronyAuth to ask in local mode
+    else:
+        try:
+            api_keys = len(await fauth.keys())
+        except fauth.Unavailable:
+            api_keys = None  # FronyAuth down — still answer, deploys verify against this route
     return {
         "version": ver,
         "started_at": str(_started_at),
@@ -151,6 +157,7 @@ async def _server_info(projects: list | None = None) -> dict:
         "projects": len(projects),
         "open_periods": open_periods,
         "api_keys": api_keys,
+        "auth": "local" if LOCAL_MODE else "fauth",
         "timezone": _timezone(),
     }
 
@@ -170,7 +177,14 @@ def _fauth_down() -> JSONResponse:
     return JSONResponse({"error": "auth service unavailable — try again shortly"}, status_code=503)
 
 
+def _no_keys_locally() -> JSONResponse:
+    return JSONResponse({"error": "no key management in local mode — API keys come from FronyAuth"},
+                        status_code=404)
+
+
 async def _keys(request):
+    if LOCAL_MODE:
+        return _no_keys_locally()
     denied = _require_admin(request)
     if denied is not None:
         return denied
@@ -193,6 +207,8 @@ async def _keys(request):
 
 
 async def _delete_key(request):
+    if LOCAL_MODE:
+        return _no_keys_locally()
     denied = _require_admin(request)
     if denied is not None:
         return denied
@@ -209,6 +225,8 @@ async def _delete_key(request):
 
 
 async def _login(request):
+    if LOCAL_MODE:
+        return JSONResponse({"token": auth.create_session("local"), "username": "local"})
     try:
         body = await request.json()
     except Exception:

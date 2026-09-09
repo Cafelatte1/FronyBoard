@@ -7,6 +7,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
   const username = getUsername() ?? "?";
   const server = data.server;
   const openPeriods = [...new Set(server.open_periods.map((p) => p.period))];
+  const local = server.auth === "local";
 
   return (
     <div className="settings-col">
@@ -16,11 +17,17 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
           <span className="avatar">{username.charAt(0).toUpperCase()}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="account-name">{username}</div>
-            <div className="account-sub">대시보드 로그인 · 세션은 서버 메모리에 있어 재시작하면 로그아웃됩니다</div>
+            <div className="account-sub">
+              {local
+                ? "로컬 모드 · 127.0.0.1에서만 접근, 로그인 없음"
+                : "대시보드 로그인 · 세션은 서버 메모리에 있어 재시작하면 로그아웃됩니다"}
+            </div>
           </div>
-          <button className="ghost-btn" onClick={() => logout().then(onAuthFail)}>
-            로그아웃
-          </button>
+          {!local && (
+            <button className="ghost-btn" onClick={() => logout().then(onAuthFail)}>
+              로그아웃
+            </button>
+          )}
         </div>
         <div className="note">
           로그인 계정은 서버에서 <span className="mono">aira admin &lt;username&gt;</span> 으로
@@ -28,7 +35,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
         </div>
       </section>
 
-      <KeysSection onAuthFail={onAuthFail} tz={server.timezone} />
+      {!local && <KeysSection onAuthFail={onAuthFail} tz={server.timezone} />}
 
       <section className="card">
         <div className="card-title">서버 정보</div>
@@ -42,7 +49,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
               ["DATA ROOT", server.data_root],
               ["PROJECTS", `${server.projects}개`],
               ["OPEN PERIODS", `${server.open_periods.length} · ${openPeriods.join(", ") || "—"}`],
-              ["API KEYS", `${server.api_keys}개 발급`],
+              ["API KEYS", local ? "로컬 모드 · 인증 없음" : `${server.api_keys ?? "?"}개 발급`],
             ] as const
           ).map(([label, value]) => (
             <div key={label} className="server-cell">
