@@ -273,7 +273,6 @@ export function fmtServerTime(s: string, tz: ServerTimezone | undefined): string
 
 export function fmtAgo(d: Date, now: Date = new Date()): string {
   const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
-  if (mins < 1) return "방금 전";
   if (mins < 60) return `${mins}분 전`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}시간 전`;

@@ -259,19 +259,9 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 <h1>{title}</h1>
               </div>
             )}
-            {!isPhone ? (
-              /* desktop: favorites + sync on the first line, the search box under them, right-aligned */
-              <div className="head-tools">
-                <div className="head-tools-row">
-                  {data && <FavNav data={data} favs={favs} onOpen={openDetail} />}
-                  {syncButton}
-                </div>
-                {data && <SearchBar data={data} onPick={openFromSearch} />}
-              </div>
-            ) : (
-              data && <SearchBar data={data} onPick={openFromSearch} />
-            )}
-            {!isPhone ? null : phoneDetail ? (
+            {data && !isPhone && <FavNav data={data} favs={favs} onOpen={openDetail} />}
+            {data && <SearchBar data={data} onPick={openFromSearch} />}
+            {phoneDetail ? (
               /* the detail swaps sync out for the project-info button, per the mock */
               <button
                 className={`head-info ${infoOpen ? "on" : ""}`}
