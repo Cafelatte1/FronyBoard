@@ -72,6 +72,7 @@ export interface Task {
   status: string;
   week?: number;
   tags?: string[];
+  follows?: string[];
   content?: string;
   prd?: string;
   branch?: string;

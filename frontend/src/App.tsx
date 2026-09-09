@@ -287,6 +287,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           projectKey={openTask?.key ?? null}
           months={(openTask && data?.statuses[openTask.key]?.periods[openTask.task.period]?.months) ?? []}
           tz={data?.server.timezone}
+          board={data?.tasks ?? {}}
+          onOpenTask={openFromSearch}
           onClose={() => setOpenTask(null)}
         />
 

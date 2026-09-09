@@ -2412,6 +2412,139 @@ button.task-grid:hover {
   margin-right: 2px;
 }
 
+.panel-tags-row {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.panel-tags-row .panel-tags {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.panel-links {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+.panel-links > div {
+  position: relative;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--t-badge);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.link-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.link-btn.open {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.link-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.link-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--r-pill);
+  background: var(--accent-subtle);
+  color: var(--on-accent-subtle);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.link-btn:disabled .link-count {
+  background: transparent;
+  color: var(--text-disabled);
+}
+
+.link-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 100px;
+  max-height: 152px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--e-3);
+  padding: 4px;
+  z-index: 9;
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--t-caption);
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-row:hover {
+  background: var(--accent-subtle);
+  color: var(--on-accent-subtle);
+}
+
+.link-tip {
+  position: absolute;
+  right: 112px;
+  width: 270px;
+  padding: 6px 11px;
+  box-sizing: border-box;
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--e-2);
+  font-size: var(--t-caption);
+  line-height: 1.4;
+  color: var(--text);
+  z-index: 9;
+  pointer-events: none;
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
 .panel-title {
   font-size: var(--t-title);
   font-weight: 700;
