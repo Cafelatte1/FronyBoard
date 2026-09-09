@@ -195,6 +195,15 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const phoneDetail = isPhone && openProject !== null;
   const version = data?.server.version ?? "…";
 
+  const syncButton = (
+          <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
+            <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
+              <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
+          </button>
+  );
   return (
     <div className="stage" data-density={isPhone ? "comfortable" : "compact"}>
       <div className="ambient" />
@@ -250,9 +259,19 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 <h1>{title}</h1>
               </div>
             )}
-            {data && !isPhone && <FavNav data={data} favs={favs} onOpen={openDetail} />}
-            {data && <SearchBar data={data} onPick={openFromSearch} />}
-            {phoneDetail ? (
+            {!isPhone ? (
+              /* desktop: favorites + sync on the first line, the search box under them, right-aligned */
+              <div className="head-tools">
+                <div className="head-tools-row">
+                  {data && <FavNav data={data} favs={favs} onOpen={openDetail} />}
+                  {syncButton}
+                </div>
+                {data && <SearchBar data={data} onPick={openFromSearch} />}
+              </div>
+            ) : (
+              data && <SearchBar data={data} onPick={openFromSearch} />
+            )}
+            {!isPhone ? null : phoneDetail ? (
               /* the detail swaps sync out for the project-info button, per the mock */
               <button
                 className={`head-info ${infoOpen ? "on" : ""}`}
@@ -266,13 +285,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 </svg>
               </button>
             ) : (
-              <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
-                <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
-                  <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
-              </button>
+              syncButton
             )}
           </header>
 
