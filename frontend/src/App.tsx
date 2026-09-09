@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { clearSession, getToken, login } from "./api";
+import FavNav from "./FavNav";
 import SearchBar from "./SearchBar";
-import { currentPeriodName, fmtAgo, useBoardData, useIsPhone } from "./shared";
+import { currentPeriodName, fmtAgo, useBoardData, useFavorites, useIsPhone } from "./shared";
 import TaskPanel from "./TaskPanel";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -73,6 +74,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
   const [openTask, setOpenTask] = useState<{ key: string; task: Task } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { data, error, fetchedAt, reload } = useBoardData(onAuthFail);
+  const [favs, toggleFav] = useFavorites();
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 60000);
@@ -235,6 +237,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 <h1>{title}</h1>
               </div>
             )}
+            {data && !isPhone && <FavNav data={data} favs={favs} onOpen={openDetail} />}
             {data && <SearchBar data={data} onPick={openFromSearch} />}
             {phoneDetail ? (
               /* the detail swaps sync out for the project-info button, per the mock */
@@ -273,6 +276,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 openKey={openProject}
                 setOpenKey={(key) => (key === null ? closeDetail() : openDetail(key))}
                 onOpenTask={(key, task) => setOpenTask({ key, task })}
+                favs={favs}
+                onToggleFav={toggleFav}
                 focus={detailFocus}
                 infoOpen={infoOpen}
                 onCloseInfo={() => setInfoOpen(false)}
