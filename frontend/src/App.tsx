@@ -201,7 +201,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
               <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {!syncing && fetchedAt ? `${fmtAgo(fetchedAt)} 동기화` : "동기화 중…"}
+            {!syncing && fetchedAt ? fmtAgo(fetchedAt) : "동기화 중…"}
           </button>
   );
   return (
