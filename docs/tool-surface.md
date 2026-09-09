@@ -32,9 +32,10 @@ or `get_task` brings them; `get_roadmap` drops every `meta` block unless `includ
 `recent_activity` rows carry only `ts / tool / caller / project / task / args`, plus `ok: false`
 on a rejected call. The full records stay on disk and in the log; only the wire shape shrank.
 
-Tasks may point at predecessors with `after` (v0.29.0 / AIR-078): `create_task` / `update_task`
-take the id list, `get_task` derives `followed_by`, and `list_tasks` rows carry `waiting_on`
-while predecessors are open. A pointer only — no status automation.
+Tasks may point at predecessors with `follows` (v0.29.0 / AIR-078 as `after`, renamed in
+v0.30.0 / AIR-080): `create_task` / `update_task` take the id list, `get_task` derives
+`followed_by` across every project, and `list_tasks` rows carry `waiting_on` while
+predecessors are open. A pointer only — no status automation.
 
 Several pairs are easy to confuse, so their docstrings cross-reference each other instead of relying
 on the name alone: `upsert_milestone` (a quarter, roadmap level) vs. `upsert_month` (M1/M2/M3 inside

@@ -92,7 +92,7 @@ JSON documents; the shapes are in [docs/data-model.md](docs/data-model.md).
   `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
   period under a new id and note the mapping in the closing retrospective.
-- **`after`** on a task lists the tasks it continues from (other projects allowed). It is a
+- **`follows`** on a task lists the tasks it continues from (other projects allowed). It is a
   pointer, not a lock: `get_task` shows the reverse as `followed_by`, `list_tasks` flags
   `waiting_on` while predecessors are open, and nothing is ever blocked.
 - **Timestamps** (`meta.created_at` / `updated_at` / `started_at` / `completed_at`) are

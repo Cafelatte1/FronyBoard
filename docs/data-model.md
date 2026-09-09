@@ -112,14 +112,14 @@ tasks:
     tags: [frontend]    # optional free-form labels — max 8, 24 chars each, no commas,
                         # trimmed and unique; the vocabulary is a project convention
                         # (see the project's CLAUDE.md), not a schema
-    after: [AIR-010, FAU-003]   # optional — task ids this one continues from (full ids;
+    follows: [AIR-010, FAU-003] # optional — task ids this one continues from (full ids;
                         # other projects allowed). A pointer, not a lock: no status
                         # automation. Gate: id shape, no self/duplicate, same-project
                         # ids must exist, no cycle within the project; other projects'
                         # ids are checked at write time
     content: ...        # optional markdown — see "Task content" below
     prd: ...            # optional requirement link/excerpt
-    branch: feat/AIR-012/short-desc   # optional working branch — week/content/prd/branch/tags/after
+    branch: feat/AIR-012/short-desc   # optional working branch — week/content/prd/branch/tags/follows
                         # are removed by passing an empty value to update_task (0, "" or []);
                         # title/month cannot be removed this way
     cancel_reason: ...  # required iff status is cancelled
@@ -168,9 +168,9 @@ Status invariants:
 - `done` ⇔ `meta.completed_at` present.
 - `blocked` means "may resume"; `cancelled` means "will not happen".
 
-`after` is read back two ways, never stored: `get_task` adds `followed_by` (same-project
-tasks whose `after` names this one) and `list_tasks` / `get_task` add `waiting_on` (the ids
-from `after` whose task is not yet done or cancelled) when non-empty.
+`follows` is read back two ways, never stored: `get_task` adds `followed_by` (tasks in any
+project whose `follows` names this one) and `list_tasks` / `get_task` add `waiting_on` (the ids
+from `follows` whose task is not yet done or cancelled) when non-empty.
 
 Carry-over: a task that outlives its period is not moved — recreate it in the
 next period under a new id and note the mapping in the closing `result`.
