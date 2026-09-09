@@ -1266,6 +1266,20 @@ svg.logo-mark {
 }
 
 /* header favorites dropdown, left of the search box */
+.head-tools {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.head-tools-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
 .fav-nav {
   position: relative;
   flex: none;
