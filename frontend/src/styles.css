@@ -1303,6 +1303,11 @@ svg.logo-mark {
   flex: none;
 }
 
+.fav-nav-star.on {
+  fill: var(--warning);
+  color: var(--on-warning-subtle);
+}
+
 .fav-nav-count {
   min-width: 16px;
   height: 16px;
