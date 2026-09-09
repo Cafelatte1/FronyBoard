@@ -75,12 +75,7 @@ export default function TaskPanel({
 
             <div className="panel-body">
               <div className="panel-tags-row">
-                <div className="panel-tags">
-                  <span className="panel-cap">tags</span>
-                  {(task.tags ?? []).map((tag) => (
-                    <TagChip key={tag} tag={tag} />
-                  ))}
-                </div>
+                <span className="panel-cap">tags</span>
                 <div className="panel-links">
                   <LinkButton
                     label="follows"
@@ -102,6 +97,13 @@ export default function TaskPanel({
                   />
                 </div>
               </div>
+              {task.tags && task.tags.length > 0 && (
+                <div className="panel-tags">
+                  {task.tags.map((tag) => (
+                    <TagChip key={tag} tag={tag} />
+                  ))}
+                </div>
+              )}
               <div className="field-grid">
                 <Field label="status" value={TASK_ST[task.status]?.label ?? task.status} tone="accent" />
                 <Field

@@ -2584,14 +2584,14 @@ button.task-grid:hover {
   position: relative;
   z-index: 6;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.panel-tags-row .panel-tags {
-  flex: 1;
-  min-width: 0;
-  padding-top: 2px;
+/* the chips sit on their own line under the cap so a long list wraps cleanly */
+.panel-tags-row + .panel-tags {
+  margin-top: -8px;
 }
 
 .panel-links {
