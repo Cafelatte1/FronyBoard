@@ -19,7 +19,7 @@ export interface SearchRow {
 export interface SearchGroup {
   key: string;
   name: string;
-  /** "2026Q3", or "2026Q4 외 1" when the matches span quarters. */
+  /** "2026Q3", or "2026Q4 +1" when the matches span quarters. */
   period: string;
   rows: SearchRow[];
   total: number;
@@ -75,7 +75,7 @@ export function searchTasks(data: BoardData, query: string): SearchGroup[] {
       return {
         key: p.key,
         name: data.statuses[p.key]?.name ?? p.key,
-        period: quarters.length > 1 ? `${quarters[0]} 외 ${quarters.length - 1}` : (quarters[0] ?? ""),
+        period: quarters.length > 1 ? `${quarters[0]} +${quarters.length - 1}` : (quarters[0] ?? ""),
         rows,
         total: rows.length,
       };

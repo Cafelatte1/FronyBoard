@@ -12,44 +12,44 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
   return (
     <div className="settings-col">
       <section className="card">
-        <div className="card-title">계정</div>
+        <div className="card-title">Account</div>
         <div className="account-row">
           <span className="avatar">{username.charAt(0).toUpperCase()}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="account-name">{username}</div>
             <div className="account-sub">
               {local
-                ? "로컬 모드 · 127.0.0.1에서만 접근, 로그인 없음"
-                : "대시보드 로그인 · 세션은 서버 메모리에 있어 재시작하면 로그아웃됩니다"}
+                ? "Local mode · loopback only, no login"
+                : "Dashboard login · the session lives in server memory, so a restart signs you out"}
             </div>
           </div>
           {!local && (
             <button className="ghost-btn" onClick={() => logout().then(onAuthFail)}>
-              로그아웃
+              Sign out
             </button>
           )}
         </div>
         <div className="note">
-          로그인 계정은 서버에서 <span className="mono">aira admin &lt;username&gt;</span> 으로
-          변경합니다. 모든 쓰기는 MCP 툴을 통해서만 이루어집니다 — 이 화면은 조회 전용입니다.
+          Change the login on the server with <span className="mono">fauth admin &lt;username&gt;</span>.
+          Every write goes through the MCP tools — this screen is read-only.
         </div>
       </section>
 
       {!local && <KeysSection onAuthFail={onAuthFail} tz={server.timezone} />}
 
       <section className="card">
-        <div className="card-title">서버 정보</div>
+        <div className="card-title">Server</div>
         <div className="server-grid">
           {(
             [
-              ["VERSION", `aira v${server.version}`],
+              ["VERSION", `FronyBoard v${server.version}`],
               ["HOST", window.location.host],
               ["TRANSPORT", "MCP streamable HTTP"],
               ["UPTIME", fmtUptime(server.started_at)],
               ["DATA ROOT", server.data_root],
-              ["PROJECTS", `${server.projects}개`],
+              ["PROJECTS", `${server.projects}`],
               ["OPEN PERIODS", `${server.open_periods.length} · ${openPeriods.join(", ") || "—"}`],
-              ["API KEYS", local ? "로컬 모드 · 인증 없음" : `${server.api_keys ?? "?"}개 발급`],
+              ["API KEYS", local ? "Local mode · no auth" : `${server.api_keys ?? "?"} issued`],
             ] as const
           ).map(([label, value]) => (
             <div key={label} className="server-cell">
@@ -61,8 +61,7 @@ export default function Settings({ data, onAuthFail }: { data: BoardData; onAuth
           ))}
         </div>
         <div className="hint" style={{ marginTop: 14 }}>
-          홈서버는 release 태그(vX.Y.Z) 기준으로만 배포합니다 — main에 push해도 서버에는 반영되지
-          않습니다.
+          The server deploys release tags (vX.Y.Z) only — pushing to main changes nothing there.
         </div>
       </section>
     </div>
@@ -111,7 +110,7 @@ function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTim
   };
 
   const revoke = (name: string) => {
-    if (!window.confirm(`'${name}' 키를 삭제할까요? 해당 PC는 즉시 연결이 끊깁니다.`)) return;
+    if (!window.confirm(`Revoke '${name}'? That machine loses access immediately.`)) return;
     apiSend(`/api/keys/${encodeURIComponent(name)}`, "DELETE")
       .then(() => {
         if (issued?.name === name) setIssued(null);
@@ -125,29 +124,29 @@ function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTim
     <section className="card">
       <div className="keys-head">
         <div>
-          <div className="card-title">API 키</div>
+          <div className="card-title">API keys</div>
           <div className="card-sub">
-            클라이언트 PC 1대당 1개 · 해시만 저장되며 발급 시 한 번만 표시됩니다
+            One per client machine · only the hash is stored, and the key is shown once at issue
           </div>
         </div>
         <button className="cta-btn" onClick={() => setIssuing(!issuing)}>
-          ＋ 키 발급
+          + New key
         </button>
       </div>
 
       {issuing && (
         <form className="key-issue" onSubmit={issue}>
           <input
-            placeholder="키 이름 (기기명, 예: pc2)"
+            placeholder="Key name (machine, e.g. pc2)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             autoFocus
           />
           <button className="cta-btn" type="submit" disabled={busy || !newName.trim()}>
-            발급
+            Issue
           </button>
           <button className="ghost-btn" type="button" onClick={() => setIssuing(false)}>
-            취소
+            Cancel
           </button>
         </form>
       )}
@@ -155,7 +154,7 @@ function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTim
       {issued && (
         <div className="key-reveal">
           <div className="key-reveal-label">
-            '{issued.name}' 키가 발급되었어요 — 이 키는 다시 볼 수 없어요. 지금 복사해 두세요.
+            Key '{issued.name}' issued — you cannot see it again. Copy it now.
           </div>
           <div className="key-reveal-row">
             <code>{issued.key}</code>
@@ -165,10 +164,10 @@ function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTim
                 navigator.clipboard.writeText(issued.key).then(() => setCopied(true));
               }}
             >
-              {copied ? "복사됨 ✓" : "복사"}
+              {copied ? "Copied ✓" : "Copy"}
             </button>
             <button className="ghost-btn" onClick={() => setIssued(null)}>
-              닫기
+              Close
             </button>
           </div>
         </div>
@@ -185,12 +184,12 @@ function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTim
         </div>
         {keys === null && !error && (
           <div className="key-grid">
-            <span className="muted">불러오는 중…</span>
+            <span className="muted">Loading…</span>
           </div>
         )}
         {keys !== null && keys.length === 0 && (
           <div className="key-grid">
-            <span className="muted">발급된 키가 없어요</span>
+            <span className="muted">No keys yet</span>
           </div>
         )}
         {(keys ?? []).map((k) => (
@@ -202,14 +201,14 @@ function KeysSection({ onAuthFail, tz }: { onAuthFail: () => void; tz: ServerTim
             <span className="key-fp">{k.fingerprint ?? "—"}</span>
             <span className="key-date">{fmtServerTime(k.created_at, tz).slice(0, 10)}</span>
             <button className="danger-btn" onClick={() => revoke(k.name)}>
-              삭제
+              Revoke
             </button>
           </div>
         ))}
       </div>
       <div className="hint">
-        키 삭제는 되돌릴 수 없습니다 — 해당 PC는 즉시 연결이 끊깁니다. 대시보드 로그인과 API 키는
-        서로 별개입니다.
+        Revoking is permanent — that machine loses access immediately. The dashboard login and API
+        keys are separate.
       </div>
     </section>
   );

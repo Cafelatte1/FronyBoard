@@ -66,7 +66,7 @@ mcp = MCPServer(
         "Task titles and content are written in English. Planning prose that people read on "
         "the dashboard — project description, yearly overview (goal / now / target / "
         "checklist), quarterly milestones, month goals and retrospectives — is written in "
-        "Korean.\n\n"
+        "the language the user speaks with you; keep one language per board.\n\n"
         "Reading: get_task for one id, search_tasks for text across projects, "
         "recent_activity for what changed and who did it; list_projects already carries "
         "a per-project summary."
@@ -80,8 +80,8 @@ def create_project(key: str, name: str | None = None, description: str | None = 
     """Register a new project — once per codebase, before any planning happens.
 
     `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY); `description` is one
-    line in Korean saying what the project is (shown on the dashboard cards); `repo` is
-    where its code lives (owner/name or a URL). Status starts as active.
+    line saying what the project is, in the user's language (shown on the dashboard cards);
+    `repo` is where its code lives (owner/name or a URL). Status starts as active.
 
     A fresh project holds nothing yet: set_overview (year) -> upsert_milestone (quarter)
     -> open_period must run before create_task will accept a task.
@@ -94,7 +94,7 @@ def update_project(key: str, name: str | None = None, description: str | None = 
                    repo: str | None = None, status: str | None = None) -> dict:
     """Update a project's own fields — pass at least one of name, description, repo, status.
     The key (and with it the task id prefix) never changes, and nothing here touches the
-    roadmap, periods or tasks. `name` and `description` are Korean, as in create_project.
+    roadmap, periods or tasks. `name` and `description` follow create_project's language rule.
 
     `status`: active | paused | archived. paused only changes the badge; archived hides the
     project from list_projects and refuses every other mutation until it is set back to
@@ -135,8 +135,9 @@ def set_overview(key: str, year: str, goal: str, now: str | None = None,
     there, ticked off as they land). A year needs an overview before upsert_milestone will
     add a quarter to it.
 
-    `year` is YYYY. All prose here is Korean. `now` and `target` are one short line each. `checklist` items are
-    strings (not done yet) or {text, done} maps, in display order. Calling it again
+    `year` is YYYY. All prose here is in the user's language. `now` and `target` are one
+    short line each. `checklist` items are strings (not done yet) or {text, done} maps,
+    in display order. Calling it again
     replaces the whole overview — resend the checklist to keep it; use set_check to tick a
     single item. Quarterly goals belong in upsert_milestone, not here.
     """
@@ -157,8 +158,9 @@ def upsert_milestone(key: str, year: str, quarter: str,
                      goal: str | None = None, status: str | None = None) -> dict:
     """Create or update a quarterly milestone — a year's goal for one quarter.
 
-    `year` is YYYY (its overview must exist), `quarter` is Q1-Q4, `goal` is one Korean line, `status` is
-    planned | active | done (open_period flips planned to active, close_period sets done).
+    `year` is YYYY (its overview must exist), `quarter` is Q1-Q4, `goal` is one line in the
+    user's language, `status` is planned | active | done (open_period flips planned to
+    active, close_period sets done).
     Omitted fields keep their current value.
 
     This is the roadmap level. The months inside a quarter that is already running are
@@ -185,8 +187,9 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
     Refuses while any task is still todo or in_progress. Stores `result_markdown` as the
     period's `result` and marks the milestone done.
 
-    The retrospective is written in Korean, stays under ~30 lines and holds judgment and reasons only —
-    summary vs goal, per-month outcome, carried-over tasks (old id -> new id), lessons.
+    The retrospective is written in the user's language, stays under ~30 lines and holds
+    judgment and reasons only — summary vs goal, per-month outcome, carried-over tasks
+    (old id -> new id), lessons.
     Calling it again on a closed period rewrites the retrospective and changes nothing else.
     """
     return service.close_period(key, period, result_markdown)
@@ -207,7 +210,8 @@ def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
     thirds, and what a task's `month` points at.
 
     `period` is YYYYQn and must be open, `month_id` is M1/M2/M3, `month` is YYYY-MM,
-    `goal` is one Korean line, `status` is planned | active | done. Omitted fields keep their current value.
+    `goal` is one line in the user's language, `status` is planned | active | done.
+    Omitted fields keep their current value.
 
     This is the in-period level. The quarter's own goal is upsert_milestone.
     """

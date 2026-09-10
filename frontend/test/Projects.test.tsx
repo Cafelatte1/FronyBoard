@@ -22,7 +22,7 @@ describe("project list", () => {
     const empty = makeBoard();
     empty.projects = [];
     render(<Projects data={empty} openKey={null} {...noop} />);
-    expect(screen.getByText(/프로젝트가 없어요/)).toBeInTheDocument();
+    expect(screen.getByText(/No projects yet/)).toBeInTheDocument();
   });
 
   it("renders a card per project with its key, name and progress", () => {
@@ -77,15 +77,15 @@ describe("project detail task table", () => {
     expect(screen.getByText("first todo")).toBeInTheDocument();
     expect(screen.getByText("the wip one")).toBeInTheDocument();
     expect(screen.getByText("dropped").closest(".task-grid")).toHaveClass("cancelled");
-    expect(screen.getByText(/4건/)).toHaveTextContent("2026Q3 · 4건");
+    expect(screen.getByText(/4 tasks/)).toHaveTextContent("2026Q3 · 4 tasks");
   });
 
   it("filters by status from the filter menu", async () => {
     const user = userEvent.setup();
     const { container } = renderDetail();
-    await user.click(screen.getByTitle("필터"));
+    await user.click(screen.getByTitle("Filter"));
     const menu = within(container.querySelector(".menu")!);
-    await user.click(menu.getByText("진행중"));
+    await user.click(menu.getByText("In progress"));
     expect(screen.getByText("the wip one")).toBeInTheDocument();
     expect(screen.queryByText("first todo")).not.toBeInTheDocument();
   });
@@ -93,23 +93,23 @@ describe("project detail task table", () => {
   it("narrows to cancelled tasks from the filter menu", async () => {
     const user = userEvent.setup();
     const { container } = renderDetail();
-    await user.click(screen.getByTitle("필터"));
-    await user.click(within(container.querySelector(".menu")!).getByText("취소됨"));
+    await user.click(screen.getByTitle("Filter"));
+    await user.click(within(container.querySelector(".menu")!).getByText("Cancelled"));
     expect(screen.getByText("dropped")).toBeInTheDocument();
     expect(screen.queryByText("first todo")).not.toBeInTheDocument();
-    expect(screen.getByText(/1건/)).toHaveTextContent("2026Q3 · 1건 / 전체 4건");
+    expect(screen.getByText(/1 of 4 tasks/)).toHaveTextContent("2026Q3 · 1 of 4 tasks");
   });
 
   it("tells apart 'no tasks yet' from 'nothing matches the filter'", async () => {
     const user = userEvent.setup();
     const { container, unmount } = renderDetail([makeTask()]);
-    await user.click(screen.getByTitle("필터"));
-    await user.click(within(container.querySelector(".menu")!).getByText("블록"));
-    expect(screen.getByText("조건에 맞는 태스크가 없어요.")).toBeInTheDocument();
+    await user.click(screen.getByTitle("Filter"));
+    await user.click(within(container.querySelector(".menu")!).getByText("Blocked"));
+    expect(screen.getByText("No tasks match the filter.")).toBeInTheDocument();
     unmount();
 
     renderDetail([]);
-    expect(screen.getByText(/아직 기간 파일의 태스크가 없어요/)).toBeInTheDocument();
+    expect(screen.getByText(/No tasks in this quarter yet/)).toBeInTheDocument();
   });
 
   it("starts on the page holding the focused task after a search pick", () => {
@@ -163,23 +163,23 @@ describe("roadmap checklist", () => {
     expect(screen.queryByText("design")).not.toBeInTheDocument();
     expect(screen.getByText("2/3")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "완료 2개 보기" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show 2 done" }));
     expect(screen.getByText("design")).toBeInTheDocument();
     expect(screen.getByText("ship")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "완료 2개 숨기기" }));
+    await userEvent.click(screen.getByRole("button", { name: "Hide 2 done" }));
     expect(screen.queryByText("design")).not.toBeInTheDocument();
   });
 
   it("says so when every item is done", () => {
     render(<Projects data={withChecklist([{ text: "design", done: true }])} openKey="DLY" {...noop} />);
-    expect(screen.getByText("남은 항목이 없습니다.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "완료 1개 보기" })).toBeInTheDocument();
+    expect(screen.getByText("Nothing left.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show 1 done" })).toBeInTheDocument();
   });
 
   it("offers no toggle while nothing is done", () => {
     render(<Projects data={withChecklist([{ text: "build", done: false }])} openKey="DLY" {...noop} />);
     expect(screen.getByText("build")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /완료 \d+개/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\d+ done/ })).not.toBeInTheDocument();
   });
 });
 

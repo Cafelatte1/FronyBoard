@@ -44,7 +44,7 @@ describe("TaskPanel", () => {
     );
     expect(screen.getByText("DLY-007")).toBeInTheDocument();
     expect(screen.getByText("polish the panel")).toBeInTheDocument();
-    expect(screen.getByText("2026-07 · 2주차")).toBeInTheDocument(); // month id resolved to the calendar month
+    expect(screen.getByText("2026-07 · W2")).toBeInTheDocument(); // month id resolved to the calendar month
     expect(screen.getByText("feat/DLY-007/panel")).toBeInTheDocument();
     expect(screen.getByText("frontend")).toBeInTheDocument();
     // markdown made it to the DOM as structure, not raw text
@@ -70,7 +70,7 @@ describe("TaskPanel", () => {
       />,
     );
     expect(screen.getByText("범위에서 제외")).toBeInTheDocument();
-    expect(screen.getByText(/이 태스크에는 아직/)).toBeInTheDocument();
+    expect(screen.getByText(/This task has no/)).toBeInTheDocument();
     expect(screen.getByText("content", { selector: "code" })).toBeInTheDocument();
   });
 
@@ -117,6 +117,6 @@ describe("TaskPanel", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /^follows/ }));
     fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "ZZZ-001" }));
-    expect(screen.getByText("이 보드에 없는 태스크")).toBeInTheDocument();
+    expect(screen.getByText("Not on this board")).toBeInTheDocument();
   });
 });

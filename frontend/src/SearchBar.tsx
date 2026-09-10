@@ -35,7 +35,7 @@ export default function SearchBar({
 
   const setQuery = (v: string) => {
     setQ(v);
-    setExpanded([]); // a new query folds every "모두 보기" back to 4 rows
+    setExpanded([]); // a new query folds every "Show all" back to 4 rows
   };
   const close = () => {
     setOpen(false);
@@ -73,13 +73,13 @@ export default function SearchBar({
   if (isPhone)
     return (
       <>
-        <button className="gs-icon-btn" onClick={() => setOpen(true)} title="태스크 검색" aria-label="태스크 검색">
+        <button className="gs-icon-btn" onClick={() => setOpen(true)} title="Search tasks" aria-label="Search tasks">
           <MagnifierIcon />
         </button>
         {open && (
           <div className="gs-overlay">
             <div className="gs-overlay-bar">
-              <button className="gs-back" onClick={close} title="검색 닫기" aria-label="검색 닫기">
+              <button className="gs-back" onClick={close} title="Close search" aria-label="Close search">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M11.5 4.5 6 10l5.5 5.5" />
                 </svg>
@@ -91,8 +91,8 @@ export default function SearchBar({
                   value={q}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={onKeyDown}
-                  placeholder="태스크 · ID · 내용 검색"
-                  aria-label="태스크 검색"
+                  placeholder="Search tasks, ids, content"
+                  aria-label="Search tasks"
                 />
                 {q && <ClearButton onClick={() => setQuery("")} />}
               </div>
@@ -117,8 +117,8 @@ export default function SearchBar({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="태스크 · ID · 내용 검색"
-          aria-label="태스크 검색"
+          placeholder="Search tasks, ids, content"
+          aria-label="Search tasks"
         />
         {q ? (
           <ClearButton
@@ -159,7 +159,7 @@ function Panel({
       <div className="gs-blank">
         {recent.length > 0 && (
           <>
-            <span className="gs-cap">최근 검색</span>
+            <span className="gs-cap">Recent</span>
             <div className="gs-chips">
               {recent.map((r) => (
                 <button key={r} className="gs-chip" onClick={() => onRecent(r)}>
@@ -170,7 +170,7 @@ function Panel({
           </>
         )}
         <span className="gs-guide">
-          프로젝트 키 · 태스크 ID · 제목 · 내용을 함께 찾습니다. 결과는 프로젝트별로 묶여 나옵니다.
+          Searches project keys, task ids, titles and content. Results are grouped by project.
         </span>
       </div>
     );
@@ -183,8 +183,8 @@ function Panel({
           <circle cx="10.5" cy="10.5" r="6.5" />
           <path d="m15.4 15.4 4.1 4.1M8 8l5 5M13 8l-5 5" />
         </svg>
-        <span className="gs-none-title">‘{q.trim()}’와 일치하는 태스크가 없습니다</span>
-        <span className="gs-none-sub">태스크 ID(AIR-050)나 내용에 있는 단어로도 찾을 수 있습니다.</span>
+        <span className="gs-none-title">No task matches ‘{q.trim()}’</span>
+        <span className="gs-none-sub">A task id (AIR-050) or a word from the content works too.</span>
       </div>
     );
 
@@ -192,9 +192,9 @@ function Panel({
   return (
     <div className="gs-results">
       <div className="gs-countbar">
-        <b>태스크 {hits}건</b>
+        <b>{hits} {hits === 1 ? "task" : "tasks"}</b>
         <i />
-        <span>프로젝트 {groups.length}개</span>
+        <span>{groups.length} {groups.length === 1 ? "project" : "projects"}</span>
         {!phone && <span className="gs-countbar-right">project · quarter</span>}
       </div>
       <div className="gs-list">
@@ -206,14 +206,14 @@ function Panel({
                 <span className="id-chip">{g.key}</span>
                 <span className="gs-gname">{g.name}</span>
                 <span className="gs-gperiod">{g.period}</span>
-                <span className="gs-gcount">{g.total}건</span>
+                <span className="gs-gcount">{g.total}</span>
               </div>
               {rows.map((r) => (
                 <Row key={r.task.id} r={r} phone={phone} onOpen={() => onPick(g.key, r.task)} />
               ))}
               {g.total > rows.length && (
                 <button className="gs-more" onClick={() => onExpand(g.key)}>
-                  {g.name} 결과 {g.total}건 모두 보기
+                  {`Show all ${g.total} in ${g.name}`}
                 </button>
               )}
             </div>
@@ -302,7 +302,7 @@ function MagnifierIcon({ className }: { className?: string }) {
 
 function ClearButton({ onClick }: { onClick: () => void }) {
   return (
-    <button className="gs-clear" onClick={onClick} title="검색어 지우기" aria-label="검색어 지우기">
+    <button className="gs-clear" onClick={onClick} title="Clear" aria-label="Clear">
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
         <path d="M5 5l10 10M15 5 5 15" />
       </svg>
@@ -310,7 +310,7 @@ function ClearButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** Rows shown per project group before "모두 보기" expands it. */
+/** Rows shown per project group before "Show all" expands it. */
 const PREVIEW_ROWS = 5;
 
 const RECENT_KEY = "fb.recentSearches";

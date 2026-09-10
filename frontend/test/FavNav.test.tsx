@@ -7,7 +7,7 @@ import { makeBoard, makeTask } from "./fixtures";
 describe("FavNav", () => {
   it("is disabled while nothing is starred", () => {
     render(<FavNav data={makeBoard([makeTask()])} favs={new Set()} onOpen={vi.fn()} />);
-    const btn = screen.getByTitle("즐겨찾기");
+    const btn = screen.getByTitle("Favorites");
     expect(btn).toBeDisabled();
     expect(btn).toHaveTextContent("0");
   });
@@ -16,7 +16,7 @@ describe("FavNav", () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
     render(<FavNav data={makeBoard([makeTask()])} favs={new Set(["DLY"])} onOpen={onOpen} />);
-    const btn = screen.getByTitle("즐겨찾기");
+    const btn = screen.getByTitle("Favorites");
     expect(btn).toBeEnabled();
     expect(btn).toHaveTextContent("1");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();

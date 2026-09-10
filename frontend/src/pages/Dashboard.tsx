@@ -22,7 +22,7 @@ export default function Dashboard({
   };
 
   if (data.projects.length === 0)
-    return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
+    return <p className="muted">No projects yet — register one through MCP first.</p>;
 
   // Every project's "current" period tasks, pooled for the top widgets.
   const perProject = data.projects.map((p) => {
@@ -70,28 +70,28 @@ export default function Dashboard({
     <>
       <div className="stat-grid">
         <Stat
-          label="전체 태스크"
+          label="Total tasks"
           value={ratio.total}
           delta={createdThisWeek > 0 ? `+${createdThisWeek}` : ""}
           deltaClass="dim"
-          sub={`${mainPeriod ?? ""} · 취소 제외`}
+          sub={`${mainPeriod ?? ""} · excl. cancelled`}
         />
-        <Stat label="진행 중" value={counts["in_progress"] ?? 0} delta="WIP" deltaClass="dim" sub={`브랜치 연결 ${withBranch}건`} />
+        <Stat label="In progress" value={counts["in_progress"] ?? 0} delta="WIP" deltaClass="dim" sub={`${withBranch} with a branch`} />
         <Stat
-          label="이번 분기 완료"
+          label="Done this quarter"
           value={ratio.done}
           delta={`${ratio.pct}%`}
           deltaClass="up"
           sub={
             prevDone !== null
-              ? `지난 분기 대비 ${ratio.done - prevDone >= 0 ? "+" : ""}${ratio.done - prevDone}`
-              : "완료율"
+              ? `${ratio.done - prevDone >= 0 ? "+" : ""}${ratio.done - prevDone} vs last quarter`
+              : "completion rate"
           }
         />
         <Stat
-          label="블록됨"
+          label="Blocked"
           value={counts["blocked"] ?? 0}
-          delta={counts["blocked"] ? "확인 필요" : "없음"}
+          delta={counts["blocked"] ? "needs a look" : "none"}
           deltaClass={counts["blocked"] ? "warn" : "dim"}
           sub={firstBlocked ? `${firstBlocked.id} ${firstBlocked.title}` : "—"}
         />
@@ -99,7 +99,7 @@ export default function Dashboard({
 
       <div className="dash-mid">
         <div className="card">
-          <div className="card-title">이번 분기 상태 분포</div>
+          <div className="card-title">Status this quarter</div>
           <div className="card-sub mono">
             {mainPeriod ?? "—"} · {data.projects.length} projects
           </div>
@@ -107,7 +107,7 @@ export default function Dashboard({
             <div className="donut" style={{ background: donutGradient(counts) }}>
               <div className="donut-hole">
                 <span className="donut-pct">{ratio.pct}%</span>
-                <span className="donut-cap">완료</span>
+                <span className="donut-cap">done</span>
               </div>
             </div>
             <div className="legend">
@@ -125,15 +125,15 @@ export default function Dashboard({
         <div className="card burn-card">
           <div className="burn-head">
             <div>
-              <div className="card-title">완료 추이</div>
+              <div className="card-title">Completion trend</div>
               <div className="card-sub mono">{burn.range}</div>
             </div>
             <div className="burn-tabs">
               <button className={burnMode === "daily" ? "on" : ""} onClick={() => pickBurn("daily")}>
-                일별
+                Daily
               </button>
               <button className={burnMode === "weekly" ? "on" : ""} onClick={() => pickBurn("weekly")}>
-                주간별
+                Weekly
               </button>
             </div>
           </div>
@@ -147,11 +147,11 @@ export default function Dashboard({
 
       <div className="card">
         <div className="list-head">
-          <span className="card-title">지금 진행 중인 태스크</span>
-          <span>브랜치 연결 {withBranch}건</span>
+          <span className="card-title">In progress now</span>
+          <span>{withBranch} with a branch</span>
         </div>
         <div className="wip-groups">
-          {wipGroups.length === 0 && <p className="muted">진행 중인 태스크가 없어요.</p>}
+          {wipGroups.length === 0 && <p className="muted">Nothing in progress.</p>}
           {wipGroups.map((g) => (
             <div key={g.key} className="wip-group">
               {/* a span, not a button: the rows below it are buttons of their own */}
@@ -159,7 +159,7 @@ export default function Dashboard({
                 role="button"
                 tabIndex={0}
                 className="wip-group-head"
-                title={`${g.key} 프로젝트 상세로 이동`}
+                title={`Open ${g.key}`}
                 onClick={() => onOpenProject(g.key)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") onOpenProject(g.key);
@@ -254,8 +254,8 @@ function completionBuckets(tasks: Task[], mode: BurnMode, period: string | null)
       const d = new Date((today - (6 - i)) * DAY);
       return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
     });
-    return { values, labels, sumLabel: "최근 7일 완료",
-             range: `${labels[0]} – ${labels[6]} · 오늘 포함` };
+    return { values, labels, sumLabel: "done in the last 7 days",
+             range: `${labels[0]} – ${labels[6]} · incl. today` };
   }
 
   const thisMonday = mondayOf(today);
@@ -264,8 +264,8 @@ function completionBuckets(tasks: Task[], mode: BurnMode, period: string | null)
     if (i >= 0 && i < 7) values[i]++;
   }
   const labels = values.map((_, i) => `W${isoWeek(new Date((thisMonday - (6 - i) * 7) * DAY))}`);
-  return { values, labels, sumLabel: "최근 7주 완료",
-           range: `${period ? `${period} · ` : ""}${labels[0]}–${labels[6]} · 이번 주 포함` };
+  return { values, labels, sumLabel: "done in the last 7 weeks",
+           range: `${period ? `${period} · ` : ""}${labels[0]}–${labels[6]} · incl. this week` };
 }
 
 function isoWeek(d: Date): number {

@@ -66,7 +66,7 @@ export default function TaskPanel({
                 </div>
                 <div className="panel-title">{task.title}</div>
               </div>
-              <button className="panel-close" onClick={onClose} title="닫기" aria-label="닫기">
+              <button className="panel-close" onClick={onClose} title="Close" aria-label="Close">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
                 </svg>
@@ -79,7 +79,7 @@ export default function TaskPanel({
                 <div className="panel-links">
                   <LinkButton
                     label="follows"
-                    title="follows — 이 태스크가 이어받는 선행 태스크"
+                    title="follows — the tasks this one continues from"
                     ids={followsIds}
                     open={openKind === "follows"}
                     onToggle={() => setOpenKind(openKind === "follows" ? null : "follows")}
@@ -88,7 +88,7 @@ export default function TaskPanel({
                   />
                   <LinkButton
                     label="followed by"
-                    title="followed by — 이 태스크를 선행으로 지목한 태스크"
+                    title="followed by — the tasks that continue from this one"
                     ids={followedByIds}
                     open={openKind === "followed"}
                     onToggle={() => setOpenKind(openKind === "followed" ? null : "followed")}
@@ -116,7 +116,7 @@ export default function TaskPanel({
 
               {task.cancel_reason && (
                 <div className="cancel-box">
-                  <span className="panel-cap">취소 사유 · cancel_reason</span>
+                  <span className="panel-cap">cancel_reason</span>
                   <p>{task.cancel_reason}</p>
                 </div>
               )}
@@ -126,7 +126,7 @@ export default function TaskPanel({
                 <Markdown
                   src={
                     task.content ??
-                    "이 태스크에는 아직 `content`가 없습니다.\n\n에이전트가 `update_task`로 상세를 채우면 이 자리에 표시됩니다."
+                    "This task has no `content` yet.\n\nIt shows up here once an agent fills it in with `update_task`."
                   }
                 />
               </div>
@@ -197,7 +197,7 @@ function LinkButton({
               key={id}
               className="link-row"
               role="menuitem"
-              title={findTask(id) ? undefined : "이 보드에 없는 태스크"}
+              title={findTask(id) ? undefined : "Not on this board"}
               onMouseEnter={() => setHover(i)}
               onClick={() => onPick(id)}
             >
@@ -208,7 +208,7 @@ function LinkButton({
       )}
       {open && hover !== null && (
         <div className="link-tip" style={{ top: `calc(100% + ${10 + hover * 28}px)` }}>
-          {hovered ? hovered.task.title : "이 보드에 없는 태스크"}
+          {hovered ? hovered.task.title : "Not on this board"}
         </div>
       )}
     </div>

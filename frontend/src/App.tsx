@@ -12,9 +12,9 @@ import type { Task } from "./types";
 type Page = "dashboard" | "projects" | "settings";
 
 const PAGE_TITLES: Record<Page, string> = {
-  dashboard: "대시보드",
-  projects: "프로젝트",
-  settings: "설정",
+  dashboard: "Dashboard",
+  projects: "Projects",
+  settings: "Settings",
 };
 
 /** The project detail is the one screen that gets its own history entry, so back
@@ -189,19 +189,19 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
       setSyncing(false);
     }
   };
-  const title = detailName !== null ? `${detailName} 상세` : PAGE_TITLES[page];
+  const title = detailName ?? PAGE_TITLES[page];
   // On a phone the detail keeps the app header (switched to back + project identity)
   // but still hides the tab bar — back is the way out.
   const phoneDetail = isPhone && openProject !== null;
   const version = data?.server.version ?? "…";
 
   const syncButton = (
-          <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "동기화 중" : "지금 동기화"}>
+          <button className={`synced ${syncing ? "on" : ""}`} onClick={sync} title={syncing ? "Syncing" : "Sync now"}>
             <svg className={syncing ? "spin" : ""} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M2.6 10a7.4 7.4 0 0 1 12.6-5.2l2.2 2.1M17.4 10a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.1" strokeLinecap="round" />
               <path d="M17.4 2.6v4.5h-4.5M2.6 17.4v-4.5h4.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {!syncing && fetchedAt ? fmtAgo(fetchedAt) : "동기화 중…"}
+            {!syncing && fetchedAt ? fmtAgo(fetchedAt) : "Syncing…"}
           </button>
   );
   return (
@@ -215,7 +215,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
             {isPhone ? (
               phoneDetail ? (
                 <>
-                  <button className="head-back" onClick={closeDetail} title="프로젝트 목록" aria-label="프로젝트 목록">
+                  <button className="head-back" onClick={closeDetail} title="Projects" aria-label="Projects">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 4.5 6.5 10l5.5 5.5" />
                     </svg>
@@ -235,7 +235,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
                 </div>
               )
             ) : (
-              <button className="menu-btn" onClick={() => setMenuOpen(true)} title="메뉴 열기" aria-label="메뉴 열기">
+              <button className="menu-btn" onClick={() => setMenuOpen(true)} title="Open menu" aria-label="Open menu">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />
                 </svg>
@@ -266,8 +266,8 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               <button
                 className={`head-info ${infoOpen ? "on" : ""}`}
                 onClick={() => setInfoOpen(true)}
-                title="프로젝트 정보"
-                aria-label="프로젝트 정보"
+                title="Project info"
+                aria-label="Project info"
               >
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
                   <circle cx="10" cy="10" r="7.4" />
@@ -282,7 +282,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
           <div className={`content ${phoneDetail ? "detail" : ""}`}>
             {isPhone && !phoneDetail && <h1 className="page-title">{title}</h1>}
             {error && <p className="error">{error}</p>}
-            {!data && !error && <p className="muted">불러오는 중…</p>}
+            {!data && !error && <p className="muted">Loading…</p>}
             {data && page === "dashboard" && (
               <Dashboard data={data} onOpenProject={openDetail} onOpenTask={(key, task) => setOpenTask({ key, task })} />
             )}
@@ -316,16 +316,16 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
         {isPhone ? (
           !phoneDetail && (
           <nav className="tabbar">
-            <TabItem label="대시보드" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
-            <TabItem label="프로젝트" on={page === "projects"} onClick={() => go("projects")} icon="folder" />
-            <TabItem label="설정" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
+            <TabItem label="Dashboard" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
+            <TabItem label="Projects" on={page === "projects"} onClick={() => go("projects")} icon="folder" />
+            <TabItem label="Settings" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
           </nav>
           )
         ) : (
           <>
           <div className="backdrop" onClick={() => setMenuOpen(false)} />
           <aside className="sidebar" aria-hidden={!menuOpen}>
-            <button className="side-close" onClick={() => setMenuOpen(false)} title="메뉴 닫기" aria-label="메뉴 닫기">
+            <button className="side-close" onClick={() => setMenuOpen(false)} title="Close menu" aria-label="Close menu">
               <span className="side-close-grip" />
             </button>
             <div className="drawer-head">
@@ -336,21 +336,21 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               </div>
             </div>
 
-            <div className="nav-label">메뉴</div>
-            <NavItem label="대시보드" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
+            <div className="nav-label">Menu</div>
+            <NavItem label="Dashboard" on={page === "dashboard"} onClick={() => go("dashboard")} icon="grid" />
             <NavItem
-              label="프로젝트"
+              label="Projects"
               on={page === "projects"}
               onClick={() => go("projects")}
               icon="folder"
               count={data?.projects.length}
             />
-            <NavItem label="설정" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
+            <NavItem label="Settings" on={page === "settings"} onClick={() => go("settings")} icon="gear" />
 
             <div className="side-foot">
               <span
                 className={`dot ${error ? "off" : ""}`}
-                title={error ? "서버 연결 안 됨" : "서버 연결됨"}
+                title={error ? "Server unreachable" : "Server connected"}
               />
               <span className="foot-ver">
                 v{version} · {window.location.host}
@@ -440,7 +440,7 @@ function LoginGate({ onDone }: { onDone: () => void }) {
             <span className="logo-name">Board</span>
           </span>
         </span>
-        <p className="login-sub">대시보드 로그인으로 전체 프로젝트를 조회합니다</p>
+        <p className="login-sub">Sign in to browse every project</p>
         <form
           className="login-form"
           onSubmit={(e) => {
@@ -454,16 +454,16 @@ function LoginGate({ onDone }: { onDone: () => void }) {
               .finally(() => setBusy(false));
           }}
         >
-          <input placeholder="아이디" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+          <input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
           <input
             type="password"
-            placeholder="비밀번호"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           <button className="cta-btn" type="submit" disabled={busy}>
             {busy && <span className="cta-spin" />}
-            {busy ? "로그인 중…" : "로그인"}
+            {busy ? "Signing in…" : "Sign in"}
           </button>
         </form>
         {error && (

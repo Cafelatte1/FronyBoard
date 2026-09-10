@@ -95,18 +95,18 @@ export function useIsPhone(): boolean {
 }
 
 export const TASK_ST: Record<string, { label: string; swatch: string }> = {
-  done: { label: "완료", swatch: "var(--success)" },
-  in_progress: { label: "진행중", swatch: "var(--accent)" },
-  todo: { label: "대기", swatch: "var(--border-strong)" },
-  blocked: { label: "블록", swatch: "var(--danger)" },
-  cancelled: { label: "취소", swatch: "var(--neutral-subtle)" },
+  done: { label: "Done", swatch: "var(--success)" },
+  in_progress: { label: "In progress", swatch: "var(--accent)" },
+  todo: { label: "Todo", swatch: "var(--border-strong)" },
+  blocked: { label: "Blocked", swatch: "var(--danger)" },
+  cancelled: { label: "Cancelled", swatch: "var(--neutral-subtle)" },
 };
 
 export const MILESTONE_ST: Record<string, string> = {
-  active: "진행",
-  done: "완료",
-  planned: "예정",
-  none: "없음", // a roadmap quarter with no period file
+  active: "Active",
+  done: "Done",
+  planned: "Planned",
+  none: "None", // a roadmap quarter with no period file
 };
 
 // ------------------------------------------------------------------ sorting
@@ -114,10 +114,10 @@ export const MILESTONE_ST: Record<string, string> = {
 export type SortKey = "id" | "created" | "status" | "month";
 
 export const SORTS: { key: SortKey; label: string; col: string }[] = [
-  { key: "id", label: "ID 순", col: "ID" },
-  { key: "created", label: "최근 생성 순", col: "CREATED" },
-  { key: "status", label: "상태 순", col: "STATUS" },
-  { key: "month", label: "월 · 주차 순", col: "MONTH" },
+  { key: "id", label: "ID", col: "ID" },
+  { key: "created", label: "Newest", col: "CREATED" },
+  { key: "status", label: "Status", col: "STATUS" },
+  { key: "month", label: "Month · week", col: "MONTH" },
 ];
 
 const STATUS_ORDER = ["in_progress", "blocked", "todo", "done", "cancelled"];
@@ -229,7 +229,7 @@ export function monthOf(months: MonthInfo[], monthId: string): string {
 }
 
 export function weekLabel(week: number | undefined): string {
-  return week ? `${week}주차` : "—";
+  return week ? `W${week}` : "—";
 }
 
 export function donutGradient(counts: Record<string, number>): string {
@@ -273,18 +273,18 @@ export function fmtServerTime(s: string, tz: ServerTimezone | undefined): string
 
 export function fmtAgo(d: Date, now: Date = new Date()): string {
   const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
-  if (mins < 60) return `${mins}분 전`;
+  if (mins < 60) return `${mins} min ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  return `${Math.floor(hours / 24)}일 전`;
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.floor(hours / 24)} d ago`;
 }
 
 export function fmtUptime(startedAt: string): string {
   const mins = Math.floor((Date.now() - parseUtc(startedAt).getTime()) / 60000);
-  if (mins < 60) return `${Math.max(mins, 0)}분`;
+  if (mins < 60) return `${Math.max(mins, 0)} min`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}시간 ${mins % 60}분`;
-  return `${Math.floor(hours / 24)}일 ${hours % 24}시간`;
+  if (hours < 24) return `${hours}h ${mins % 60}m`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
 
 // ------------------------------------------------------------ small pieces
@@ -306,7 +306,7 @@ export function TagChip({ tag }: { tag: string }) {
   );
 }
 
-export const PROJECT_ST: Record<string, string> = { active: "운영 중", paused: "보류", archived: "보관" };
+export const PROJECT_ST: Record<string, string> = { active: "Active", paused: "Paused", archived: "Archived" };
 
 export function ProjectStatusChip({ status }: { status: string | undefined }) {
   const s = status ?? "active";

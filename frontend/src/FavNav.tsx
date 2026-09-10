@@ -52,7 +52,7 @@ export default function FavNav({
         disabled={rows.length === 0}
         aria-expanded={open}
         aria-haspopup="menu"
-        title="즐겨찾기"
+        title="Favorites"
         onClick={() => setOpen((v) => !v)}
       >
         <svg className={`fav-nav-star ${rows.length > 0 ? "on" : ""}`} viewBox="0 0 20 20" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none">
@@ -84,7 +84,7 @@ export default function FavNav({
                 <span className="bar">
                   <span className="bar-fill" style={{ width: `${row.pct}%` }} />
                 </span>
-                <span className="fav-row-since">갱신 {row.updated ? row.updated.slice(5, 10) : "—"}</span>
+                <span className="fav-row-since">updated {row.updated ? row.updated.slice(5, 10) : "—"}</span>
               </span>
             </button>
           ))}

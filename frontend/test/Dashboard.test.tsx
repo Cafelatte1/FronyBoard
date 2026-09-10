@@ -9,7 +9,7 @@ describe("Dashboard", () => {
     const empty = makeBoard();
     empty.projects = [];
     render(<Dashboard data={empty} onOpenProject={vi.fn()} onOpenTask={vi.fn()} />);
-    expect(screen.getByText(/프로젝트가 없어요/)).toBeInTheDocument();
+    expect(screen.getByText(/No projects yet/)).toBeInTheDocument();
   });
 
   it("counts the current period's tasks and lists the WIP ones", () => {
@@ -19,18 +19,18 @@ describe("Dashboard", () => {
       makeTask({ id: "DLY-003", status: "todo" }),
     ]);
     render(<Dashboard data={data} onOpenProject={vi.fn()} onOpenTask={vi.fn()} />);
-    expect(screen.getByText("전체 태스크").parentElement).toHaveTextContent("3");
+    expect(screen.getByText("Total tasks").parentElement).toHaveTextContent("3");
     // the WIP list shows the in_progress task with its branch
     expect(screen.getByText("wire the API")).toBeInTheDocument();
     expect(screen.getByText("feat/DLY-002/api")).toBeInTheDocument();
     // ...under a group header naming its project
-    expect(screen.getByTitle("DLY 프로젝트 상세로 이동")).toBeInTheDocument();
-    expect(screen.queryByText(/진행 중인 태스크가 없어요/)).not.toBeInTheDocument();
+    expect(screen.getByTitle("Open DLY")).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing in progress/)).not.toBeInTheDocument();
   });
 
   it("shows the empty WIP message when nothing is in progress", () => {
     render(<Dashboard data={makeBoard([makeTask()])} onOpenProject={vi.fn()} onOpenTask={vi.fn()} />);
-    expect(screen.getByText(/진행 중인 태스크가 없어요/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing in progress/)).toBeInTheDocument();
   });
 
   it("opens a project from a WIP group header and a task from its rows", async () => {

@@ -25,10 +25,10 @@ describe("Settings", () => {
     fetchMock.mockResolvedValue(keysRes([]));
     render(<Settings data={makeBoard()} onAuthFail={vi.fn()} />);
     expect(screen.getByText("admin")).toBeInTheDocument();
-    expect(screen.getByText("aira v0.16.1")).toBeInTheDocument();
+    expect(screen.getByText("FronyBoard v0.16.1")).toBeInTheDocument();
     expect(screen.getByText("C:/data/fronyboard")).toBeInTheDocument();
     expect(screen.getByText("1 · 2026Q3")).toBeInTheDocument();
-    expect(await screen.findByText("발급된 키가 없어요")).toBeInTheDocument();
+    expect(await screen.findByText("No keys yet")).toBeInTheDocument();
   });
 
   it("lists the issued API keys once they load", async () => {
@@ -38,7 +38,7 @@ describe("Settings", () => {
     render(<Settings data={makeBoard()} onAuthFail={vi.fn()} />);
     expect(await screen.findByText("pc1")).toBeInTheDocument();
     expect(screen.getByText("frony_ab…cd")).toBeInTheDocument();
-    expect(screen.queryByText("발급된 키가 없어요")).not.toBeInTheDocument();
+    expect(screen.queryByText("No keys yet")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/keys", expect.anything());
   });
 
@@ -46,8 +46,8 @@ describe("Settings", () => {
     fetchMock.mockResolvedValue(keysRes([]));
     const data = { ...makeBoard(), server: { ...server, auth: "local" as const, api_keys: null } };
     render(<Settings data={data} onAuthFail={vi.fn()} />);
-    expect(screen.queryByText("로그아웃")).toBeNull();
-    expect(screen.getByText("로컬 모드 · 인증 없음")).toBeInTheDocument();
+    expect(screen.queryByText("Sign out")).toBeNull();
+    expect(screen.getByText("Local mode · no auth")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
