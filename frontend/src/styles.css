@@ -1537,7 +1537,7 @@ svg.logo-mark {
   white-space: nowrap;
 }
 
-/* 현재 · 목표 · 체크리스트 — the active year's focus row under the roadmap timeline */
+/* Now · target · checklist — the active year's focus row under the roadmap timeline */
 .focus {
   margin-top: 18px;
   display: grid;
@@ -3297,7 +3297,7 @@ button.task-grid:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* NAME | FINGERPRINT | CREATED | 삭제 does not fit — stack it */
+  /* NAME | FINGERPRINT | CREATED | REVOKE does not fit — stack it */
   .key-grid {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -3425,7 +3425,7 @@ button.task-grid:hover {
     font-size: 17px;
   }
 
-  /* icon only — the "N분 전 동기화" label has no room next to the brand.
+  /* icon only — the "N min ago" label has no room next to the brand.
      font-size:0 drops the text node; the svg carries its own size. */
   .synced {
     width: var(--hit-min);
@@ -3528,7 +3528,7 @@ button.task-grid:hover {
     padding: 0;
   }
 
-  /* "태스크" is already the screen title — the bar keeps only the count */
+  /* "Tasks" is already the screen title — the bar keeps only the count */
   .table-top .card-title {
     display: none;
   }
@@ -3617,7 +3617,7 @@ button.task-grid:hover {
     font-size: 16px;
   }
 
-  /* ---- pager: [< 이전]  1 2 3  [다음 >] ---- */
+  /* ---- pager: [< Prev]  1 2 3  [Next >] ---- */
   .pager {
     justify-content: space-between;
     gap: var(--s-2);

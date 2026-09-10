@@ -87,7 +87,7 @@ function ProjectList({
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
   if (data.projects.length === 0)
-    return <p className="muted">프로젝트가 없어요 — MCP로 먼저 등록해 주세요.</p>;
+    return <p className="muted">No projects yet — register one through MCP first.</p>;
   const ordered = applyOrder(data.projects, order);
   const drop = (targetKey: string) => {
     if (!dragKey || dragKey === targetKey) return;
@@ -99,7 +99,7 @@ function ProjectList({
   };
   return (
     <>
-      <span className="hint-text">카드를 누르면 상세 화면으로 이동하고, 끌어서 순서를 바꿀 수 있습니다.</span>
+      <span className="hint-text">Click a card to open the project; drag to reorder.</span>
       <div className="project-grid-2">
         {ordered.map((p) => {
           const fav = favs.has(p.key);
@@ -146,7 +146,7 @@ function ProjectList({
                 <ProjectStatusChip status={p.status} />
                 <span className="project-card-period">{period ?? "—"}</span>
               </span>
-              <span className="project-card-goal">{p.description ?? "설명이 아직 없어요."}</span>
+              <span className="project-card-goal">{p.description ?? "No description yet."}</span>
               <span className={`project-card-repo ${p.repo ? "" : "none"}`}>
                 <RepoIcon />
                 <span className="repo-name">{p.repo ?? "—"}</span>
@@ -156,7 +156,7 @@ function ProjectList({
               </span>
               <span className="card-bottom">
                 <span className="project-card-meta">
-                  <span>진행률</span>
+                  <span>Progress</span>
                   <span className="pct">
                     {r.done}/{r.total} · {r.pct}%
                   </span>
@@ -177,8 +177,8 @@ function ProjectList({
                   role="button"
                   tabIndex={0}
                   className={`fav-btn ${fav ? "on" : ""}`}
-                  title={fav ? "즐겨찾기 해제" : "즐겨찾기에 추가"}
-                  aria-label={fav ? "즐겨찾기 해제" : "즐겨찾기에 추가"}
+                  title={fav ? "Remove from favorites" : "Add to favorites"}
+                  aria-label={fav ? "Remove from favorites" : "Add to favorites"}
                   aria-pressed={fav}
                   onClick={onFav}
                   onKeyDown={(e) => {
@@ -200,10 +200,10 @@ function ProjectList({
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 
-/** "2026Q3" -> "3분기" — the year is read off the roadmap stepper above the period. */
+/** "2026Q3" -> "Q3" — the year is read off the roadmap stepper above the period. */
 function quarterLabel(periodId: string): string {
   const m = /Q([1-4])$/.exec(periodId);
-  return m ? `${m[1]}분기` : periodId;
+  return m ? `Q${m[1]}` : periodId;
 }
 
 /** The current year's now / target / checklist, shared by the web roadmap card and the
@@ -246,21 +246,21 @@ function useFocus(projectKey: string | undefined, year: string | null, overview:
 }
 type Focus = ReturnType<typeof useFocus>;
 
-/** 현재 · 목표 · 체크리스트 — one row on web (1 : 1 : 1.5), stacked in the phone sheet. */
+/** Now · target · checklist — one row on web (1 : 1 : 1.5), stacked in the phone sheet. */
 function FocusRow({ focus }: { focus: Focus }) {
   return (
     <div className="focus">
       <div className="focus-block focus-now">
-        <span className="focus-label">현재</span>
+        <span className="focus-label">Now</span>
         <span className="focus-text">{focus.now ?? "—"}</span>
       </div>
       <div className="focus-block focus-target">
-        <span className="focus-label">목표</span>
+        <span className="focus-label">Target</span>
         <span className="focus-text">{focus.target ?? "—"}</span>
       </div>
       <div className="focus-block focus-list">
         <span className="focus-list-head">
-          <span className="focus-label">체크리스트</span>
+          <span className="focus-label">Checklist</span>
           {focus.total > 0 && (
             <>
               <span className="bar focus-bar">
@@ -283,11 +283,11 @@ function FocusRow({ focus }: { focus: Focus }) {
                   <span className="check-text">{c.text}</span>
                 </button>
               ))}
-              {focus.items.length === 0 && <span className="focus-empty">남은 항목이 없습니다.</span>}
+              {focus.items.length === 0 && <span className="focus-empty">Nothing left.</span>}
             </div>
             {focus.done > 0 && (
               <button className="focus-toggle" onClick={focus.toggleAll}>
-                {focus.showAll ? `완료 ${focus.done}개 숨기기` : `완료 ${focus.done}개 보기`}
+                {focus.showAll ? `Hide ${focus.done} done` : `Show ${focus.done} done`}
               </button>
             )}
           </>
@@ -385,7 +385,7 @@ function ProjectDetail({
           </span>
         </div>
         <span className="summary-desc">
-          {ref?.description ?? "설명이 아직 없어요 — update_project로 추가할 수 있어요."}
+          {ref?.description ?? "No description yet — add one with update_project."}
         </span>
         <div className="summary-facts">
           <span className="fact">
@@ -404,12 +404,12 @@ function ProjectDetail({
           <span className="fact">
             <span className="fact-label">periods</span>
             <span className="fact-value mono">
-              {periodNames.length}개 분기 · {[...new Set(periodNames.map((n) => n.slice(0, 4)))].sort().join(", ") || "—"}
+              {periodNames.length} quarters · {[...new Set(periodNames.map((n) => n.slice(0, 4)))].sort().join(", ") || "—"}
             </span>
           </span>
           <span className="fact">
-            <span className="fact-label">분기 목표</span>
-            <span className="fact-value muted">{currentInfo?.goal ?? "열린 기간 없음"}</span>
+            <span className="fact-label">Quarter goal</span>
+            <span className="fact-value muted">{currentInfo?.goal ?? "No open period"}</span>
           </span>
         </div>
       </div>
@@ -457,7 +457,7 @@ function ProjectDetail({
             header (App.tsx); here only the period stepper remains, standalone */}
         {periodId && period && (
           <div className="pdet-qnav">
-              <button className="pdet-nav" disabled={!older} onClick={() => older && selectPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
+              <button className="pdet-nav" disabled={!older} onClick={() => older && selectPeriod(older)} title={older ? `Open ${older}` : "No earlier quarter"} aria-label="Previous quarter">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
               </button>
               <span className="pdet-qmid">
@@ -469,18 +469,18 @@ function ProjectDetail({
                   <span className="pdet-qpct">{periodRatio.pct}%</span>
                 </span>
               </span>
-              <button className="pdet-nav" disabled={!newer} onClick={() => newer && selectPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
+              <button className="pdet-nav" disabled={!newer} onClick={() => newer && selectPeriod(newer)} title={newer ? `Open ${newer}` : "No later quarter"} aria-label="Next quarter">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
               </button>
           </div>
         )}
 
-        {table ?? <p className="muted">열린 분기가 없어요 — ⓘ 를 눌러 프로젝트 정보를 볼 수 있어요.</p>}
+        {table ?? <p className="muted">No open quarter — tap ⓘ for project info.</p>}
 
         {infoOpen && (
           <InfoSheet onClose={onCloseInfo}>
             <span className="pdet-desc">
-              {ref?.description ?? "설명이 아직 없어요 — update_project로 추가할 수 있어요."}
+              {ref?.description ?? "No description yet — add one with update_project."}
             </span>
 
             <div className="pdet-card pdet-facts">
@@ -489,9 +489,9 @@ function ProjectDetail({
               <Fact
                 label="PERIODS"
                 mono
-                value={`${periodNames.length}개 분기 · ${[...new Set(periodNames.map((n) => n.slice(0, 4)))].sort().join(", ") || "—"}`}
+                value={`${periodNames.length} quarters · ${[...new Set(periodNames.map((n) => n.slice(0, 4)))].sort().join(", ") || "—"}`}
               />
-              <Fact label="분기 목표" value={currentInfo?.goal ?? "열린 기간 없음"} />
+              <Fact label="Quarter goal" value={currentInfo?.goal ?? "No open period"} />
             </div>
 
             <PhoneRoadmap
@@ -507,7 +507,7 @@ function ProjectDetail({
 
             {periodId && period && (
               <div className="pdet-card">
-                <span className="pdet-card-title">{periodId} 월 진행</span>
+                <span className="pdet-card-title">{periodId} months</span>
                 {(period.months.length > 0 ? period.months : null)?.map((m) => {
                   const r = doneRatio(m.task_counts);
                   return (
@@ -522,7 +522,7 @@ function ProjectDetail({
                       </span>
                     </span>
                   );
-                }) ?? <span className="muted">월 계획이 없는 분기</span>}
+                }) ?? <span className="muted">No months planned</span>}
               </div>
             )}
           </InfoSheet>
@@ -537,7 +537,7 @@ function ProjectDetail({
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12.5 4.5 7 10l5.5 5.5" />
         </svg>
-        프로젝트 목록
+        Projects
       </button>
 
       {about}
@@ -567,12 +567,12 @@ function InfoSheet({ onClose, children }: { onClose: () => void; children: React
 
   return (
     <div className="sheet-layer">
-      <button className="sheet-scrim" onClick={onClose} aria-label="닫기" />
-      <div className="info-sheet" role="dialog" aria-label="프로젝트 정보">
+      <button className="sheet-scrim" onClick={onClose} aria-label="Close" />
+      <div className="info-sheet" role="dialog" aria-label="Project info">
         <span className="sheet-grip" />
         <div className="sheet-head">
-          <span className="sheet-title">프로젝트 정보</span>
-          <button className="sheet-close" onClick={onClose} title="닫기" aria-label="닫기">
+          <span className="sheet-title">Project info</span>
+          <button className="sheet-close" onClick={onClose} title="Close" aria-label="Close">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
               <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
             </svg>
@@ -608,8 +608,8 @@ function PhoneRoadmap({
   if (!year) {
     return (
       <div className="pdet-card">
-        <span className="pdet-card-title">로드맵</span>
-        <span className="muted">로드맵이 아직 없어요.</span>
+        <span className="pdet-card-title">Roadmap</span>
+        <span className="muted">No roadmap yet.</span>
       </div>
     );
   }
@@ -624,17 +624,17 @@ function PhoneRoadmap({
     <div className="pdet-card pdet-road">
       <div className="pdet-road-head">
         <span className="ynav">
-          <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="이전 연도" aria-label="이전 연도">
+          <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="Previous year" aria-label="Previous year">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
           </button>
           <span className="ynav-year">{year}</span>
-          <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="다음 연도" aria-label="다음 연도">
+          <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="Next year" aria-label="Next year">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
           </button>
         </span>
         <span className="pdet-road-title">
-          <span className="pdet-card-title">로드맵</span>
-          <span className="pdet-road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
+          <span className="pdet-card-title">Roadmap</span>
+          <span className="pdet-road-goal">{yd?.overview.goal ?? "No yearly goal for this year yet."}</span>
         </span>
       </div>
 
@@ -649,7 +649,7 @@ function PhoneRoadmap({
               className={`pdet-q q-${st} ${pid === periodId ? "sel" : ""}`}
               disabled={!hasFile}
               onClick={() => onPeriod(pid)}
-              title={hasFile ? `${pid} 보기` : `${pid} — 기간 파일 없음`}
+              title={hasFile ? `Open ${pid}` : `${pid} — no period file`}
             >
               <span className="pdet-q-top">
                 <span className="pdet-q-dot" />
@@ -691,11 +691,11 @@ function PeriodChrome({
     <>
       <div className="pstep">
         <span className="ynav">
-          <button className="ynav-btn lg" disabled={!older} onClick={() => older && onPeriod(older)} title={older ? `${older} 보기` : "이전 분기 없음"} aria-label="이전 분기">
+          <button className="ynav-btn lg" disabled={!older} onClick={() => older && onPeriod(older)} title={older ? `Open ${older}` : "No earlier quarter"} aria-label="Previous quarter">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
           </button>
           <span className="pstep-id">{quarterLabel(name)}</span>
-          <button className="ynav-btn lg" disabled={!newer} onClick={() => newer && onPeriod(newer)} title={newer ? `${newer} 보기` : "다음 분기 없음"} aria-label="다음 분기">
+          <button className="ynav-btn lg" disabled={!newer} onClick={() => newer && onPeriod(newer)} title={newer ? `Open ${newer}` : "No later quarter"} aria-label="Next quarter">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
           </button>
         </span>
@@ -711,7 +711,7 @@ function PeriodChrome({
 
       {period.months.length > 0 && (
         <div className="card">
-          <span className="rollup-cap">월별 진행률</span>
+          <span className="rollup-cap">Progress by month</span>
           <div className="rollup">
             {period.months.map((m) => {
               const r = doneRatio(m.task_counts);
@@ -734,7 +734,7 @@ function PeriodChrome({
   );
 }
 
-/** Year stepper + goal → quarter timeline (dots are buttons) → 현재/목표/체크리스트 on the active year. */
+/** Year stepper + goal → quarter timeline (dots are buttons) → Now/Target/Checklist on the active year. */
 function RoadmapCard({
   roadmap,
   status,
@@ -758,8 +758,8 @@ function RoadmapCard({
   if (!year) {
     return (
       <div className="card">
-        <div className="card-title">로드맵</div>
-        <p className="muted">로드맵이 아직 없어요.</p>
+        <div className="card-title">Roadmap</div>
+        <p className="muted">No roadmap yet.</p>
       </div>
     );
   }
@@ -774,16 +774,16 @@ function RoadmapCard({
     <div className="card">
       <div className="road-head">
         <span className="ynav">
-          <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="이전 연도" aria-label="이전 연도">
+          <button className="ynav-btn" disabled={!prev} onClick={() => prev && onYear(prev)} title="Previous year" aria-label="Previous year">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
           </button>
           <span className="ynav-year">{year}</span>
-          <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="다음 연도" aria-label="다음 연도">
+          <button className="ynav-btn" disabled={!next} onClick={() => next && onYear(next)} title="Next year" aria-label="Next year">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
           </button>
         </span>
-        <span className="card-title">로드맵</span>
-        <span className="road-goal">{yd?.overview.goal ?? "이 해의 연간 목표가 아직 없어요."}</span>
+        <span className="card-title">Roadmap</span>
+        <span className="road-goal">{yd?.overview.goal ?? "No yearly goal for this year yet."}</span>
       </div>
 
       <div className="qtl">
@@ -798,7 +798,7 @@ function RoadmapCard({
               className={`q q-${st} ${sel ? "sel" : ""} ${hasFile ? "" : "nofile"}`}
               disabled={!hasFile}
               onClick={() => onPeriod(pid)}
-              title={hasFile ? `${pid} 보기` : `${pid} — 기간 파일 없음`}
+              title={hasFile ? `Open ${pid}` : `${pid} — no period file`}
             >
               <span className="q-line">
                 <span className={`q-seg ${i === 0 ? "hide" : lit(i) ? "lit" : ""}`} />
@@ -829,15 +829,15 @@ function pageNums(pageNo: number, pageCount: number, max: number): number[] {
 const FILTERS = ["all", "in_progress", "todo", "blocked", "done", "cancelled"] as const;
 type Filter = (typeof FILTERS)[number];
 
-/** Menu/button colours per filter key — "전체" and "취소됨" are not regular status chips. */
+/** Menu/button colours per filter key — "All" and "Cancelled" are not regular status chips. */
 function filterDot(f: Filter): string {
   if (f === "all") return "var(--text-muted)";
   if (f === "cancelled") return "var(--text-disabled)";
   return TASK_ST[f].swatch;
 }
 function filterLabel(f: Filter): string {
-  if (f === "all") return "전체";
-  if (f === "cancelled") return "취소됨";
+  if (f === "all") return "All";
+  if (f === "cancelled") return "Cancelled";
   return TASK_ST[f].label;
 }
 
@@ -888,7 +888,7 @@ function TaskTable({
   const from = (pageNo - 1) * ROWS_PER_PAGE;
   const rows = sorted.slice(from, from + ROWS_PER_PAGE);
   const sortDef = SORTS.find((s) => s.key === sort)!;
-  // Beside the 이전/다음 pills a phone fits five number buttons (168 + 36x5 = 348 of
+  // Beside the Prev/Next pills a phone fits five number buttons (168 + 36x5 = 348 of
   // the 361px it has); past that the row would push the pills off the screen.
   const nums = pageNums(pageNo, pageCount, isPhone ? 5 : pageCount);
 
@@ -898,8 +898,8 @@ function TaskTable({
     setMenu(null);
   };
 
-  // Multi-select: "전체" clears the selection, and picking every status folds back
-  // to 전체. The menu stays open so several statuses can be toggled in one visit.
+  // Multi-select: "All" clears the selection, and picking every status folds back
+  // to All. The menu stays open so several statuses can be toggled in one visit.
   const toggleStatus = (f: Filter) => {
     setStatuses((cur) => {
       if (f === "all") return [];
@@ -917,9 +917,12 @@ function TaskTable({
       <div className="task-table">
         <div className="table-top">
           <span className="table-title">
-            <span className="card-title">태스크</span>
+            <span className="card-title">Tasks</span>
             <span className="table-summary">
-              {name} · {sorted.length}건{tasks.length !== sorted.length && ` / 전체 ${tasks.length}건`}
+              {name} ·{" "}
+              {tasks.length !== sorted.length
+                ? `${sorted.length} of ${tasks.length} tasks`
+                : `${sorted.length} tasks`}
             </span>
           </span>
 
@@ -927,12 +930,12 @@ function TaskTable({
             <button
               className={`filter-btn ${statuses.length > 0 ? "on" : ""}`}
               onClick={() => setMenu(menu === "filter" ? null : "filter")}
-              title="필터"
+              title="Filter"
             >
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M3 5.2h14M5.6 10h8.8M8.2 14.8h3.6" />
               </svg>
-              필터
+              Filter
               <span className="dots">
                 {(statuses.length > 0 ? selFilters.slice(0, 3) : (["all"] as const)).map((f) => (
                   <span key={f} className="fdot" style={{ background: filterDot(f) }} />
@@ -942,7 +945,7 @@ function TaskTable({
             </button>
             {menu === "filter" && (
               <div className="menu">
-                <span className="menu-cap">상태</span>
+                <span className="menu-cap">Status</span>
                 {FILTERS.map((f) => (
                   <button
                     key={f}
@@ -962,16 +965,16 @@ function TaskTable({
             <button
               className={`filter-btn ${menu === "sort" ? "open" : ""}`}
               onClick={() => setMenu(menu === "sort" ? null : "sort")}
-              title="정렬"
+              title="Sort"
             >
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 3.5v13M6 16.5 3.2 13.7M6 3.5 8.8 6.3M14 16.5v-13M14 3.5l2.8 2.8M14 3.5 11.2 6.3" />
               </svg>
-              정렬<span className="sort-label">{sortDef.label}</span>
+              Sort<span className="sort-label">{sortDef.label}</span>
             </button>
             {menu === "sort" && (
               <div className="menu narrow">
-                <span className="menu-cap">정렬 기준</span>
+                <span className="menu-cap">Sort by</span>
                 {SORTS.map((s) => (
                   <button key={s.key} className={`menu-item ${sort === s.key ? "on" : ""}`} onClick={() => pick(setSort)(s.key)}>
                     <span className="grow">{s.label}</span>
@@ -1011,7 +1014,7 @@ function TaskTable({
         ))}
         {sorted.length === 0 && (
           <span className="empty-row">
-            {tasks.length === 0 ? "이 분기에는 아직 기간 파일의 태스크가 없어요." : "조건에 맞는 태스크가 없어요."}
+            {tasks.length === 0 ? "No tasks in this quarter yet." : "No tasks match the filter."}
           </span>
         )}
         {sorted.length > 0 && (
@@ -1019,10 +1022,10 @@ function TaskTable({
             <span className="range">
               {from + 1}–{Math.min(from + ROWS_PER_PAGE, sorted.length)} / {sorted.length}
             </span>
-            <button className="pg edge" disabled={pageNo <= 1} onClick={() => setPage(pageNo - 1)} title="이전 페이지" aria-label="이전 페이지">
+            <button className="pg edge" disabled={pageNo <= 1} onClick={() => setPage(pageNo - 1)} title="Previous page" aria-label="Previous page">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
               {/* the phone pager spells the edges out — see the mockup */}
-              <span className="pg-word">이전</span>
+              <span className="pg-word">Prev</span>
             </button>
             <span className="pg-nums">
               {nums.map((n) => (
@@ -1031,8 +1034,8 @@ function TaskTable({
                 </button>
               ))}
             </span>
-            <button className="pg edge" disabled={pageNo >= pageCount} onClick={() => setPage(pageNo + 1)} title="다음 페이지" aria-label="다음 페이지">
-              <span className="pg-word">다음</span>
+            <button className="pg edge" disabled={pageNo >= pageCount} onClick={() => setPage(pageNo + 1)} title="Next page" aria-label="Next page">
+              <span className="pg-word">Next</span>
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
             </button>
           </div>
