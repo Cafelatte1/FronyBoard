@@ -411,14 +411,6 @@ input::placeholder {
 
 .head-titles {
   gap: 5px;
-  padding-left: 8px;
-}
-
-.head-meta {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
 }
 
 .crumb {
@@ -429,7 +421,6 @@ input::placeholder {
 
 .head h1 {
   margin: 0;
-  padding-left: 12px;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -539,7 +530,7 @@ input::placeholder {
 .drawer-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 0 4px 14px;
 }
 
@@ -549,10 +540,12 @@ svg.logo-mark {
   flex: none;
 }
 
-/* The lockup comes in two forms, both built from the same three parts:
-   stacked (mark over FRONY / Board) for the drawer and the phone header, and
-   inline (mark + FRONY | Board on one baseline) for the header and login card.
-   Sizes are set per context; the parts themselves never change. */
+/* The product lockup comes in the design system's two forms, both built from the
+   same three parts: A, inline (mark + FRONY | Board on one baseline), for the
+   drawer and the login card, and B, stacked (mark over FRONY / Board), where the
+   width is not there — the phone header. Every A size follows the same ratios off
+   the product name: FRONY 0.9, separator 0.75, mark 1.15, mark-to-text 0.32,
+   separator-to-glyphs 0.28. Sizes are set per context; the parts never change. */
 .logo-text {
   flex: 1;
   min-width: 0;
@@ -588,7 +581,7 @@ svg.logo-mark {
   color: var(--text);
 }
 
-/* stacked: the wordmark is a small cap line above the product name */
+/* B, stacked: the wordmark is a small cap line above the product name */
 .logo-text .logo-frony {
   font-size: 9px;
   letter-spacing: 0.16em;
@@ -600,47 +593,36 @@ svg.logo-mark {
   font-weight: 600;
 }
 
+/* A, in the drawer: product name 19px */
 .drawer-head .logo-mark {
-  width: 29px;
-  height: 29px;
+  width: 22px;
+  height: 22px;
 }
 
-/* inline, small: sits beside the crumb in the header */
-.head-lockup {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.drawer-head .logo-inline {
+  gap: 5.5px;
 }
 
-.head-lockup .logo-mark {
-  width: 14px;
-  height: 14px;
-}
-
-.head-lockup .logo-inline {
-  gap: 3.4px;
-}
-
-.head-lockup .logo-frony {
-  font-size: 11px;
+.drawer-head .logo-frony {
+  font-size: 17px;
   letter-spacing: 0.015em;
   padding-right: 0.015em;
 }
 
-.head-lockup .logo-sep {
-  height: 9px;
+.drawer-head .logo-sep {
+  height: 14px;
 }
 
-.head-lockup .logo-name {
-  font-size: 12px;
+.drawer-head .logo-name {
+  font-size: 19px;
   font-weight: 500;
 }
 
 .side-close {
   position: absolute;
-  top: 16px;
-  right: -11px;
+  top: 40px;
+  /* the whole tab sits outside, so the drawer's right border is where it starts */
+  right: -22px;
   width: 22px;
   height: 36px;
   display: flex;
@@ -3400,7 +3382,7 @@ button.task-grid:hover {
     height: 19px;
   }
 
-  /* same stacked lockup as the drawer, one step down */
+  /* B, the stacked lockup, at its floor: product name 15px */
   .logo-text {
     gap: 1px;
   }
@@ -3411,14 +3393,6 @@ button.task-grid:hover {
 
   .logo-text .logo-name {
     font-size: 15px;
-  }
-
-  .head-titles {
-    padding-left: 0;
-  }
-
-  .head h1 {
-    padding-left: 0;
   }
 
   .head h1 {

@@ -245,17 +245,7 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
               !phoneDetail && <span className="head-spacer" />
             ) : (
               <div className="head-titles">
-                <div className="head-meta">
-                  <span className="head-lockup">
-                    <FronyMark />
-                    <span className="logo-inline">
-                      <span className="logo-frony">FRONY</span>
-                      <span className="logo-sep" />
-                      <span className="logo-name">Board</span>
-                    </span>
-                  </span>
-                  {crumb && <div className="crumb">{crumb}</div>}
-                </div>
+                {crumb && <div className="crumb">{crumb}</div>}
                 <h1>{title}</h1>
               </div>
             )}
@@ -330,10 +320,11 @@ function Board({ onAuthFail }: { onAuthFail: () => void }) {
             </button>
             <div className="drawer-head">
               <FronyMark />
-              <div className="logo-text">
+              <span className="logo-inline">
                 <span className="logo-frony">FRONY</span>
+                <span className="logo-sep" />
                 <span className="logo-name">Board</span>
-              </div>
+              </span>
             </div>
 
             <div className="nav-label">Menu</div>
