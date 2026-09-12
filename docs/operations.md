@@ -2,7 +2,7 @@
 
 **When to read**: when deploying, restarting, backing up or diagnosing the home-server instance
 **Code**: `scripts/deploy.ps1`, `scripts/register-task.ps1`, `scripts/fronyboard-server.cmd.example`
-**Related**: [auth](auth.md), [self-hosting](self-hosting.md)
+**Related**: [self-hosting](self-hosting.md)
 
 ---
 
@@ -142,8 +142,7 @@ registry; `FRONY_OAUTH_FILE` overrides, and the launcher pins it for the SYSTEM
 account like `FRONY_AUTH_FILE`) — delete a `grants` entry to sign one app out, or
 disconnect the connector in the app. Other Frony services exposed on their own
 Funnel path (`--set-path /cache http://127.0.0.1:9412`) verify the same tokens
-from that file instead of running OAuth themselves — see
-[auth.md](auth.md#other-frony-services-behind-the-same-login). Five failed
+from that file instead of running OAuth themselves. Five failed
 logins from one address (all Funnel traffic counts as one address) lock the
 login for 15 minutes; the same limit guards `/api/login`.
 

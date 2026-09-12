@@ -165,5 +165,4 @@ The three docs under [docs/](docs/) cover what the code cannot tell you — runn
 this on your own machines:
 
 - [docs/self-hosting.md](docs/self-hosting.md) — running FronyBoard as a shared server: clients, dashboard, hosted apps, deploy
-- [docs/auth.md](docs/auth.md) — access channels (CLI agents, desktop, dashboard, hosted apps) and how each authenticates
 - [docs/operations.md](docs/operations.md) — home server runbook

@@ -2,7 +2,7 @@
 
 **When to read**: when running FronyBoard as a shared HTTP server for several machines or for the hosted Claude / ChatGPT apps, instead of the local stdio install in the README
 **Code**: `backend/src/fronyboard/web.py`, `backend/src/fronyboard/fauth.py`, `scripts/`
-**Related**: [operations](operations.md) (day-2 runbook), [auth](auth.md)
+**Related**: [operations](operations.md) (day-2 runbook)
 
 ---
 
@@ -24,11 +24,11 @@ machine, every other device a client. Nothing here is needed for the stdio insta
   the dashboard login for every Frony service and verifies each token through
   introspection. `serve` needs `FRONY_AUTH_URL` (default `http://127.0.0.1:8640`) and
   its own key in `FRONY_SERVICE_KEY`; without a reachable FronyAuth every request
-  answers 503. Details: [auth](auth.md).
+  answers 503. Every credential — API keys, the dashboard login, OAuth clients and
+  tokens — belongs to FronyAuth; FronyBoard never judges one itself.
 - **Local mode** — `fronyboard serve --local` skips all of the above: loopback only, no
   FronyAuth, no credentials, the dashboard opens without a login. One person, one machine;
-  when a second device should see the board, run the normal mode. Details:
-  [auth](auth.md#local-mode-serve---local).
+  when a second device should see the board, run the normal mode.
 
 ```mermaid
 flowchart LR
@@ -133,9 +133,7 @@ uv run fronyboard serve
 Add `https://<machine>.<tailnet>.ts.net/board/mcp` as a custom connector in the app;
 the approval page asks for the dashboard login. Access tokens last 24 hours and
 refresh silently for 90 days; API keys keep working unchanged. The Funnel path
-layout and the OAuth flow are in [operations](operations.md), "Hosted MCP clients";
-how other Frony services accept the same tokens is in
-[auth](auth.md#other-frony-services-behind-the-same-login).
+layout and the OAuth flow are in [operations](operations.md), "Hosted MCP clients".
 
 ## Dashboard
 

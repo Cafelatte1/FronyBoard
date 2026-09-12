@@ -36,11 +36,13 @@ Procedure: push the tag, then on the server run `scripts\deploy.ps1 -Tag vX.Y.Z`
 - **A document store in SQLite** (v0.25.0, AIR-073). Until v0.24 each project was a YAML tree; the same records now sit as JSON in two tables, so the service and validation layers were untouched while writes became atomic and backup became one file. Not normalised on purpose: at ~15 projects a relational schema would cost a rewrite of the service layer for no visible gain. Concurrency is still the per-project lock.
 - **Server-issued ids and timestamps.** Agents must not invent either; it keeps the record trustworthy.
 - **Soft delete only.** Tasks are cancelled, projects archived. History is input to the retrospective.
+- **No credential is judged here** (v0.18.0, AIR-056). `BearerAuthMiddleware` hands every key and OAuth token to FronyAuth's `/introspect` and caches the verdict; only dashboard sessions stay local. One registry serves every Frony service, so a revoked device key dies everywhere at once.
 
 ## Docs
 
-`docs/` holds only what the code cannot answer — running this on real machines: `self-hosting.md`, `auth.md` (access channels, the OAuth contract), `operations.md` (home-server runbook). Update them in the same branch when deploy, the auth channels or the server setup changes.
-Docs that only described the codebase were deleted in v0.33.0 — read the code instead. Do not write new ones.
+`docs/` holds only what the code cannot answer — running this on real machines: `self-hosting.md` and `operations.md` (home-server runbook). Update them in the same branch when deploy or the server setup changes.
+Docs that only described the codebase were deleted — read the code instead. Do not write new ones.
+Authentication is not documented here: FronyAuth (project-auth) is its single owner.
 
 ## Design mocks
 
