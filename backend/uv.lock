@@ -251,7 +251,7 @@ wheels = [
 
 [[package]]
 name = "fronyboard"
-version = "0.32.0"
+version = "0.32.1"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

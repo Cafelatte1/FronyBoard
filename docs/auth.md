@@ -2,7 +2,7 @@
 
 **When to read**: when changing how a request is authenticated (API key, dashboard session, OAuth) or which access channel serves it
 **Code**: `backend/src/fronyboard/auth.py`, `backend/src/fronyboard/fauth.py`
-**Related**: [operations](operations.md), [logging](logging.md)
+**Related**: [operations](operations.md), [self-hosting](self-hosting.md)
 
 ---
 
@@ -31,7 +31,7 @@ internet, and only the `/mcp` + OAuth paths are exposed (see
 
 Whatever the channel, the tool log records who called (`caller` in
 `tools.jsonl`): `key:<name>`, `session:<user>`, `oauth:<app>:<user>`, `stdio` or
-`local` — see [logging.md](logging.md).
+`local`.
 
 ## 1. Agent CLIs (API key)
 

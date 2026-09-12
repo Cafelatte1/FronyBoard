@@ -2,7 +2,7 @@
 
 **When to read**: when deploying, restarting, backing up or diagnosing the home-server instance
 **Code**: `scripts/deploy.ps1`, `scripts/register-task.ps1`, `scripts/fronyboard-server.cmd.example`
-**Related**: [auth](auth.md), [logging](logging.md), [http-api](http-api.md)
+**Related**: [auth](auth.md), [self-hosting](self-hosting.md)
 
 ---
 
@@ -232,5 +232,5 @@ root; `FRONYBOARD_LOG_DIR` overrides), rotated daily and gzipped:
   calls, unhandled exceptions with `trace`. **Look here first when something is wrong.**
 - `tools.jsonl` — one line per MCP tool call (who, what, which record, ms, ok).
 
-Field reference and query recipes: [logging.md](logging.md). A tool line and its
-server follow-ups share a `req` id.
+The field set is fixed and lives in `backend/src/fronyboard/log.py`. A tool line
+and its server follow-ups share a `req` id.

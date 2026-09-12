@@ -16,7 +16,6 @@ Plan data is not in this repo. It lives in the server's data root (`%LOCALAPPDAT
   - `test/unit/`, `test/integration/` — pytest; integration drives the ASGI app with a fake FronyAuth
 - `frontend/` — FronyBoard dashboard (React + Vite). Build output is served by the backend, so there is one deploy. `test/` is vitest.
 - `scripts/` — server-side PowerShell: `deploy.ps1`, `register-task.ps1`, `fronyboard-server.cmd.example` (the real launcher is git-ignored), `bootstrap-server.ps1`, `configure_mcp_settings.ps1`
-- Folder rules for every Frony repo: `docs/templates/template_LAYOUT.md`.
 
 ## Commands (from the repo root)
 
@@ -32,9 +31,16 @@ Runs on the home server (Tailscale, port 8642; the address is in `~/HomeServerIn
 The server deploys **release tags only** (`vX.Y.Z`); pushing to main changes nothing. Pushing a tag also runs `.github/workflows/publish.yml`, which publishes the package to PyPI and the MCP Registry after checking the tag against `backend/pyproject.toml` and `server.json`.
 Procedure: push the tag, then on the server run `scripts\deploy.ps1 -Tag vX.Y.Z` (`docs/self-hosting.md`, `docs/operations.md`). Keys come from `fauth keygen` or the dashboard Settings page.
 
+## Decisions
+
+- **A document store in SQLite** (v0.25.0, AIR-073). Until v0.24 each project was a YAML tree; the same records now sit as JSON in two tables, so the service and validation layers were untouched while writes became atomic and backup became one file. Not normalised on purpose: at ~15 projects a relational schema would cost a rewrite of the service layer for no visible gain. Concurrency is still the per-project lock.
+- **Server-issued ids and timestamps.** Agents must not invent either; it keeps the record trustworthy.
+- **Soft delete only.** Tasks are cancelled, projects archived. History is input to the retrospective.
+
 ## Docs
 
-`docs/INDEX.md` lists every doc with when to read it. Read the matching doc before changing auth, schema, tools, routes or deploy, and update it in the same branch. `docs/templates/` holds the docs conventions shared with the other Frony repos.
+`docs/` holds only what the code cannot answer — running this on real machines: `self-hosting.md`, `auth.md` (access channels, the OAuth contract), `operations.md` (home-server runbook). Update them in the same branch when deploy, the auth channels or the server setup changes.
+Docs that only described the codebase were deleted in v0.33.0 — read the code instead. Do not write new ones.
 
 ## Design mocks
 

@@ -2,7 +2,7 @@
 
 **When to read**: when running FronyBoard as a shared HTTP server for several machines or for the hosted Claude / ChatGPT apps, instead of the local stdio install in the README
 **Code**: `backend/src/fronyboard/web.py`, `backend/src/fronyboard/fauth.py`, `scripts/`
-**Related**: [operations](operations.md) (day-2 runbook), [auth](auth.md), [http-api](http-api.md), [frontend](frontend.md)
+**Related**: [operations](operations.md) (day-2 runbook), [auth](auth.md)
 
 ---
 
@@ -155,4 +155,3 @@ npm run build     # refresh frontend/dist, then commit it
 
 `npm run dev` starts a dev server that proxies `/api` to a locally running
 `fronyboard serve` (override the target with `AIRA_API=http://<server>:8642`).
-Pages and data loading: [frontend](frontend.md).

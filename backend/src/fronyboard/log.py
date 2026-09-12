@@ -7,7 +7,7 @@ Two files under the log root (`FRONYBOARD_LOG_DIR`, default `<data root>/../logs
     server.jsonl  boot/shutdown, auth events, HTTP 4xx/5xx, rejected tool calls
                   and unhandled exceptions with tracebacks (kept 30 days)
 
-Every line is a flat JSON object with a fixed field set (see docs/logging.md).
+Every line is a flat JSON object with a fixed field set.
 Nothing is emitted until `setup()` runs, so importing this module (tests, CLI
 subcommands) stays silent. stdout is never a sink — in stdio mode it carries MCP.
 """

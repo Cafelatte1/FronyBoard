@@ -41,8 +41,7 @@ talks to it over a pipe. No HTTP, no network, no credentials — `web.py` and
 `fauth.py` are never called. Data is written to `%LOCALAPPDATA%\Frony\FronyBoard\data`
 (`~/.Frony/FronyBoard/data` where `LOCALAPPDATA` is unset); set `AIRA_DATA_DIR` to
 relocate it. Logs (JSON Lines, one line per MCP tool call plus server events) go to
-the sibling `logs` folder — `FRONYBOARD_LOG_DIR` overrides; see
-[docs/logging.md](docs/logging.md).
+the sibling `logs` folder — `FRONYBOARD_LOG_DIR` overrides.
 
 To share one FronyBoard between several machines, or to use it from the Claude and
 ChatGPT apps, run it as an HTTP server instead — see
@@ -77,7 +76,8 @@ fronyboard.db
 ```
 
 A project is two kinds of records — the roadmap, and one record per period. Both are
-JSON documents; the shapes are in [docs/data-model.md](docs/data-model.md).
+JSON documents; the schema and the rules that guard it are in
+`backend/src/fronyboard/validation.py`.
 
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
   periods and are never reused. They are the only link between FronyBoard and a codebase:
@@ -161,10 +161,9 @@ serving), `server.py` (MCP tool surface + CLI). `frontend/` — the dashboard (R
 Vite), built to static files that the backend serves; its build output
 `frontend/dist` is committed so a server needs no Node toolchain.
 
-More docs under [docs/](docs/INDEX.md):
+The three docs under [docs/](docs/) cover what the code cannot tell you — running
+this on your own machines:
 
 - [docs/self-hosting.md](docs/self-hosting.md) — running FronyBoard as a shared server: clients, dashboard, hosted apps, deploy
 - [docs/auth.md](docs/auth.md) — access channels (CLI agents, desktop, dashboard, hosted apps) and how each authenticates
-- [docs/http-api.md](docs/http-api.md) — the FronyBoard JSON API
-- [docs/data-model.md](docs/data-model.md) — field-level schema and validation rules
 - [docs/operations.md](docs/operations.md) — home server runbook
