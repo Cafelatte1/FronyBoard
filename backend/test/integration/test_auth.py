@@ -75,7 +75,7 @@ def test_hosted_stack_serves_its_own_resource_metadata(fake_fauth):
     assert status == 200
     doc = json.loads(body)
     assert doc["resource"] == "https://board.frony.app/mcp"
-    assert doc["authorization_servers"] == ["https://auth.frony.app/"]
+    assert doc["authorization_servers"] == ["https://auth.frony.app"]  # slash-free, as FronyAuth publishes it
     assert doc["bearer_methods_supported"] == ["header"]
     assert doc["resource_name"] == "FronyBoard"
     status, headers, _ = asgi_request(stack, "POST", "/mcp")

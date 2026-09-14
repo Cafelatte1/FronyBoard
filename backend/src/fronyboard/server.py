@@ -350,11 +350,14 @@ def build_app(host: str, public_url: str | None = None, public_auth_url: str | N
         if not public_auth_url:
             raise SystemExit("--public-url needs --public-auth-url (FronyAuth's public issuer)")
         from mcp.server.auth.routes import build_resource_metadata_url, create_protected_resource_routes
-        from pydantic import AnyHttpUrl
-        resource = AnyHttpUrl(f"{public_url.rstrip('/')}/mcp")
-        resource_metadata_url = str(build_resource_metadata_url(resource))
+        from mcp.server.auth.settings import AuthSettings
+        # AuthSettings keeps a path-less URL slash-free (a bare AnyHttpUrl appends "/"); RFC 8414
+        # clients compare the issuer string exactly, and FronyAuth publishes it the same way.
+        urls = AuthSettings(issuer_url=public_auth_url.rstrip("/"),
+                            resource_server_url=f"{public_url.rstrip('/')}/mcp")
+        resource_metadata_url = str(build_resource_metadata_url(urls.resource_server_url))
         metadata_routes = create_protected_resource_routes(
-            resource, [AnyHttpUrl(public_auth_url)], resource_name="FronyBoard")
+            urls.resource_server_url, [urls.issuer_url], resource_name="FronyBoard")
     if local:
         # Nothing authenticates here, so a rebound browser page could otherwise reach
         # this server — keep the host check on and pin it to the loopback names.
