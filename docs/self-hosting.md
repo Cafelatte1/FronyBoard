@@ -16,7 +16,7 @@ machine, every other device a client. Nothing here is needed for the stdio insta
   board. Every request carries a bearer token: an API key per device, or an OAuth
   access token for hosted apps.
 - **The dashboard** at `http://<server>:8642/` — the human-facing, read-only view of
-  the same data (yearly overview, milestones, per-month progress, the task table;
+  the same data (yearly overview, milestones, the task table;
   click a row for the full record). It signs in with a dashboard login; writes still
   go only through the MCP tools.
 - **Authentication delegated to FronyAuth** — a separate service

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { searchTasks, type Hit, type SearchGroup, type SearchRow } from "./search";
-import { TASK_ST, useIsPhone, weekLabel } from "./shared";
+import { TASK_ST, useIsPhone } from "./shared";
 import type { BoardData, Task } from "./types";
 
 /** Header search (AIR-032): a 264px input with a result dropdown on desktop, a
@@ -226,7 +226,7 @@ function Panel({
 
 function Row({ r, phone, onOpen }: { r: SearchRow; phone: boolean; onOpen: () => void }) {
   const st = r.task.status;
-  const meta = `${r.task.month}${r.task.week ? ` · ${weekLabel(r.task.week)}` : ""}`;
+  const meta = r.task.period;
   if (phone)
     return (
       <button className="gs-row ph" onClick={onOpen}>

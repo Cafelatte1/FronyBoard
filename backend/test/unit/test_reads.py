@@ -13,11 +13,11 @@ from conftest import bootstrap
 
 def _seed(key="DLY"):
     bootstrap(key)
-    service.create_task(key, "2026Q3", title="Add login flow", month="M1",
-                        content="## objective\nUsers sign in with email.\n## action\n- filter module")
-    service.create_task(key, "2026Q3", title="Fix table filter", month="M1",
+    service.create_task(key, "2026Q3", title="Add login flow",
+                        content="the filter module owns the session check")
+    service.create_task(key, "2026Q3", title="Fix table filter",
                         content="dropdown clips when the list is short")
-    service.create_task(key, "2026Q3", title="Drop legacy sync", month="M1")
+    service.create_task(key, "2026Q3", title="Drop legacy sync")
     service.transition_task(key, f"{key}-002", "in_progress", branch=f"fix/{key}-002/filter")
     service.transition_task(key, f"{key}-003", "cancelled", reason="not needed")
     return key
@@ -44,13 +44,11 @@ def test_get_task_unknown_id_and_bad_shape():
 
 # ---------------------------------------------------------------- search_tasks
 
-def test_search_matches_title_id_and_content_with_snippet():
+def test_search_matches_title_id_and_content():
     _seed()
     by_title = service.search_tasks("login")
     assert [h["id"] for h in by_title["hits"]] == ["DLY-001"]
     assert by_title["hits"][0]["match"] == "title"
-    assert "snippet" not in by_title["hits"][0]
-    assert "content" not in by_title["hits"][0]
 
     by_id = service.search_tasks("dly-002")
     assert by_id["hits"][0]["match"] == "id"
@@ -58,8 +56,8 @@ def test_search_matches_title_id_and_content_with_snippet():
     by_content = service.search_tasks("clips")
     hit = by_content["hits"][0]
     assert hit["id"] == "DLY-002" and hit["match"] == "content"
-    assert "clips" in hit["snippet"]
-    assert hit["snippet"].endswith("short")  # short content: no trailing ellipsis
+    assert hit["content"] == "dropdown clips when the list is short"
+    assert "content" not in service.search_tasks("legacy", include_cancelled=True)["hits"][0]
 
 
 def test_search_orders_by_status_then_id_and_hides_cancelled():
@@ -94,13 +92,11 @@ def test_search_across_projects_key_filter_limit_and_empty_query():
 
 # ---------------------------------------------------------------- list_tasks / list_projects
 
-def test_list_tasks_omits_prose_unless_asked_and_filters_updated_since():
+def test_list_tasks_carries_content_and_filters_updated_since():
     key = _seed()
     rows = service.list_tasks(key)["tasks"]
-    assert rows and all("content" not in t and "prd" not in t for t in rows)
     assert rows[0]["meta"]["created_at"] and rows[0]["title"] == "Add login flow"
-    full = service.list_tasks(key, include_content=True)["tasks"]
-    assert full[0]["content"].startswith("## objective")
+    assert rows[0]["content"] == "the filter module owns the session check"
 
     assert service.list_tasks(key, updated_since="1h")["count"] == 2
     assert service.list_tasks(key, updated_since="2999-01-01T00:00:00")["count"] == 0
@@ -176,12 +172,12 @@ def test_recent_activity_without_logs_is_empty(tmp_path, monkeypatch):
 
 # ---------------------------------------------------------------- write echoes / roadmap meta
 
-def test_writes_echo_without_prose_and_roadmap_hides_meta():
+def test_writes_echo_the_full_task_and_roadmap_hides_meta():
     key = bootstrap()
-    made = service.create_task(key, "2026Q3", title="t", month="M1", content="body", prd="spec")["task"]
-    assert "content" not in made and "prd" not in made and made["id"] == f"{key}-001"
+    made = service.create_task(key, "2026Q3", title="t", content="body")["task"]
+    assert made["content"] == "body" and made["id"] == f"{key}-001"
     upd = service.update_task(key, f"{key}-001", content="new body")["task"]
-    assert "content" not in upd and upd["meta"]["updated_at"]
+    assert upd["content"] == "new body" and upd["meta"]["updated_at"]
     assert service.get_task(f"{key}-001")["task"]["content"] == "new body"
 
     plan = service.get_roadmap(key)["roadmap"]

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { parseMd, type Span } from "./markdown";
-import { StatusChip, TagChip, TASK_ST, fmtServerTime, monthOf, tzLabel, weekLabel } from "./shared";
-import type { MonthInfo, ServerTimezone, Task } from "./types";
+import { StatusChip, TagChip, TASK_ST, fmtServerTime, tzLabel } from "./shared";
+import type { ServerTimezone, Task } from "./types";
 
 type TaskHit = { key: string; task: Task };
 
@@ -10,7 +9,6 @@ type TaskHit = { key: string; task: Task };
 export default function TaskPanel({
   task,
   projectKey,
-  months,
   tz,
   board,
   onOpenTask,
@@ -18,7 +16,6 @@ export default function TaskPanel({
 }: {
   task: Task | null;
   projectKey: string | null;
-  months: MonthInfo[];
   tz: ServerTimezone | undefined;
   board: Record<string, Task[]>;
   onOpenTask: (key: string, task: Task) => void;
@@ -106,10 +103,6 @@ export default function TaskPanel({
               )}
               <div className="field-grid">
                 <Field label="status" value={TASK_ST[task.status]?.label ?? task.status} tone="accent" />
-                <Field
-                  label="month"
-                  value={task.week ? `${monthOf(months, task.month)} · ${weekLabel(task.week)}` : monthOf(months, task.month)}
-                />
                 <Field label="branch" value={task.branch ?? "—"} tone={task.branch ? undefined : "dim"} />
                 <Field label="project" value={projectKey ?? "—"} />
               </div>
@@ -123,20 +116,8 @@ export default function TaskPanel({
 
               <div className="panel-section">
                 <span className="panel-cap">content</span>
-                <Markdown
-                  src={
-                    task.content ??
-                    "This task has no `content` yet.\n\nIt shows up here once an agent fills it in with `update_task`."
-                  }
-                />
+                <p className={`panel-note ${task.content ? "" : "dim"}`}>{task.content ?? "—"}</p>
               </div>
-
-              {task.prd && (
-                <div className="panel-section sep">
-                  <span className="panel-cap">prd</span>
-                  <div className="panel-prd">{task.prd}</div>
-                </div>
-              )}
 
               <div className="panel-section sep">
                 <span className="panel-cap">meta · {tzLabel(tz)}</span>
@@ -234,41 +215,5 @@ function Field({ label, value, tone }: { label: string; value: string; tone?: "a
         {value}
       </span>
     </span>
-  );
-}
-
-function Markdown({ src }: { src: string }) {
-  return (
-    <div className="md">
-      {parseMd(src).map((b, i) =>
-        b.kind === "code" ? (
-          <pre key={i} className="md-code">
-            {b.text}
-          </pre>
-        ) : (
-          <div key={i} className={`md-${b.kind}`}>
-            <Spans spans={b.spans} />
-          </div>
-        ),
-      )}
-    </div>
-  );
-}
-
-function Spans({ spans }: { spans: Span[] }) {
-  return (
-    <>
-      {spans.map((s, i) =>
-        s.kind === "code" ? (
-          <code key={i}>{s.text}</code>
-        ) : s.kind === "strong" ? (
-          <strong key={i}>{s.text}</strong>
-        ) : s.kind === "em" ? (
-          <em key={i}>{s.text}</em>
-        ) : (
-          <span key={i}>{s.text}</span>
-        ),
-      )}
-    </>
   );
 }

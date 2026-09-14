@@ -8,7 +8,7 @@ from conftest import bootstrap
 
 def test_task_tools_derive_key_from_task_id():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
 
     out = server.update_task(task_id="DLY-001", title="renamed")
     assert out["task"]["title"] == "renamed"
@@ -24,7 +24,7 @@ def test_task_tools_derive_key_from_task_id():
 
 def test_task_tools_accept_matching_key_and_reject_mismatch():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
 
     out = server.update_task(task_id="DLY-001", title="ok", key="DLY")
     assert out["task"]["title"] == "ok"

@@ -88,9 +88,8 @@ def _tasks(request):
     q = request.query_params
     return service.list_tasks(
         request.path_params["key"],
-        period=q.get("period"), status=q.get("status"), month=q.get("month"),
+        period=q.get("period"), status=q.get("status"),
         include_cancelled=q.get("include_cancelled") in ("1", "true"),
-        include_content=True,
     )
 
 
@@ -98,10 +97,8 @@ async def _board(request):
     """Everything the dashboard needs in one round trip (AIR-072): server facts, the
     project list and, per project, status / roadmap / every task including cancelled ones
     and content. Replaces the 2 + 3n calls the SPA used to make on load.
-    `?content=0` leaves task content out (~30 KB instead of ~190 KB gzipped): the SPA
-    paints from that first and fetches the full board right after."""
-    with_content = request.query_params.get("content") not in ("0", "false")
-    board = service.board(include_content=with_content)
+    Task content is one short line now, so there is no light variant."""
+    board = service.board()
     return JSONResponse({"server": await _server_info(board["projects"]), **board})
 
 

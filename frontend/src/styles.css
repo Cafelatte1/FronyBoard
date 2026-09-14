@@ -2069,62 +2069,6 @@ svg.logo-mark {
   flex: none;
 }
 
-.rollup-cap {
-  font-size: var(--t-badge);
-  font-weight: 600;
-  letter-spacing: 0.7px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.rollup {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-}
-
-.rollup-row {
-  display: flex;
-  align-items: center;
-  gap: var(--gap);
-  min-height: var(--row-h);
-  border-top: 1px solid var(--border);
-  font-size: var(--t-body);
-}
-
-.r-id {
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  font-weight: 600;
-  color: var(--on-accent-subtle);
-  width: 58px;
-  flex: none;
-}
-
-.r-goal {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rollup-row .chip {
-  flex: none;
-}
-
-.r-ratio {
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  color: var(--text-muted);
-}
-
-.r-bar {
-  width: 130px;
-  height: 6px;
-  flex: none;
-}
-
 .filter-btn {
   display: flex;
   align-items: center;
@@ -2808,11 +2752,16 @@ button.task-grid:hover {
   border-top: 1px solid var(--border);
 }
 
-.panel-prd {
-  font-size: var(--t-caption);
-  line-height: var(--lh-body);
-  text-wrap: pretty;
+.panel-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.panel-note.dim {
+  color: var(--text-muted);
 }
 
 .meta-row {
@@ -4030,48 +3979,6 @@ button.task-grid:hover {
   .pdet-road .check-box svg {
     width: 10px;
     height: 10px;
-  }
-
-  .pdet-month {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .pdet-month-top {
-    display: flex;
-    align-items: center;
-    gap: var(--s-2);
-  }
-
-  .pdet-month-id {
-    flex: none;
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    font-weight: 700;
-  }
-
-  .pdet-month-goal {
-    flex: 1;
-    min-width: 0;
-    font-size: var(--t-caption);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .pdet-month-ratio {
-    flex: none;
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .pdet-month-bar {
-    width: 100%;
-    height: 6px;
-    background: var(--surface);
   }
 
   /* ---- task panel: full screen ---- */

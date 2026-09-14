@@ -28,7 +28,7 @@ def test_projects_and_status():
 
     status, body = _get("/api/projects/DLY/status")
     assert status == 200
-    assert body["periods"]["2026Q3"]["months"][0]["id"] == "M1"
+    assert body["periods"]["2026Q3"]["open_tasks"] == []
 
     status, body = _get("/api/projects/DLY/roadmap")
     assert status == 200
@@ -37,34 +37,32 @@ def test_projects_and_status():
 
 def test_board_bundles_everything_the_dashboard_loads(fake_fauth):
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="keep", month="M1", content="## objective\nwhy")
-    service.create_task(key, "2026Q3", title="gone", month="M1")
+    service.create_task(key, "2026Q3", title="keep", content="why it exists")
+    service.create_task(key, "2026Q3", title="gone")
     service.transition_task(key, "DLY-002", "cancelled", reason="no")
     status, body = _get("/api/board")
     assert status == 200
     assert set(body) == {"server", "projects", "statuses", "roadmaps", "tasks"}
     assert body["server"]["projects"] == 1 and body["server"]["timezone"]
     assert [p["key"] for p in body["projects"]] == ["DLY"]
-    assert body["statuses"]["DLY"]["periods"]["2026Q3"]["months"][0]["id"] == "M1"
+    assert [t["id"] for t in body["statuses"]["DLY"]["periods"]["2026Q3"]["open_tasks"]] \
+        == ["DLY-001"]
     assert body["roadmaps"]["DLY"]["years"]["2026"]["overview"]["goal"] == "ship it"
     assert [t["id"] for t in body["tasks"]["DLY"]] == ["DLY-001", "DLY-002"]  # cancelled included
-    assert body["tasks"]["DLY"][0]["content"].startswith("## objective")  # content included
-    status, light = _get("/api/board", "content=0")
-    assert status == 200 and "content" not in light["tasks"]["DLY"][0]
-    assert [t["id"] for t in light["tasks"]["DLY"]] == ["DLY-001", "DLY-002"]
+    assert body["tasks"]["DLY"][0]["content"] == "why it exists"  # content included
 
 
 def test_tasks_route_keeps_content_for_the_panel():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="keep", month="M1", content="body")
+    service.create_task(key, "2026Q3", title="keep", content="body")
     status, body = _get("/api/projects/DLY/tasks")
     assert status == 200 and body["tasks"][0]["content"] == "body"
 
 
 def test_tasks_filters_and_cancelled_toggle():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="keep", month="M1")
-    service.create_task(key, "2026Q3", title="drop", month="M1")
+    service.create_task(key, "2026Q3", title="keep")
+    service.create_task(key, "2026Q3", title="drop")
     service.transition_task(key, "DLY-002", "cancelled", reason="descoped")
 
     status, body = _get("/api/projects/DLY/tasks")
@@ -173,11 +171,10 @@ def test_key_management_answers_503_when_fauth_is_down(fake_fauth):
     assert _request("DELETE", "/api/keys/x", token=session)[0] == 503
 
 
-def test_tasks_period_status_month_filters():
+def test_tasks_period_and_status_filters():
     key = bootstrap()
-    service.upsert_month(key, "2026Q3", "M2", month="2026-08", goal="polish", status="planned")
-    service.create_task(key, "2026Q3", title="a", month="M1")
-    service.create_task(key, "2026Q3", title="b", month="M2")
+    service.create_task(key, "2026Q3", title="a")
+    service.create_task(key, "2026Q3", title="b")
     service.transition_task(key, "DLY-001", "in_progress")
 
     status, body = _get("/api/projects/DLY/tasks", query="period=2026Q3")
@@ -185,8 +182,6 @@ def test_tasks_period_status_month_filters():
     assert body["count"] == 2
     _, body = _get("/api/projects/DLY/tasks", query="status=in_progress")
     assert [t["id"] for t in body["tasks"]] == ["DLY-001"]
-    _, body = _get("/api/projects/DLY/tasks", query="month=M2")
-    assert [t["id"] for t in body["tasks"]] == ["DLY-002"]
     status, body = _get("/api/projects/DLY/tasks", query="period=1999Q1")
     assert status == 400
 

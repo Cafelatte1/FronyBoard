@@ -29,7 +29,7 @@ def test_tool_calls_land_in_tools_jsonl(logs):
         async with Client(server.mcp) as c:
             await c.call_tool("list_projects", {})
             await c.call_tool("create_task", {"key": "DLY", "period": "2026Q3", "title": "t",
-                                              "month": "M1", "content": "x" * 50})
+                                              "content": "x" * 50})
             await c.call_tool("update_task", {"task_id": "DLY-001"})  # nothing to update
 
     anyio.run(run)
@@ -40,7 +40,7 @@ def test_tool_calls_land_in_tools_jsonl(logs):
     created = rows[1]
     assert created["ok"] is True and created["warnings"] == 0
     assert created["project"] == "DLY" and created["period"] == "2026Q3"
-    assert created["args"] == {"title": "t", "month": "M1", "content_len": 50}
+    assert created["args"] == {"title": "t", "content_len": 50}
     assert "content" not in created["args"]
 
     rejected = rows[2]
@@ -67,6 +67,6 @@ def test_event_lines_have_fixed_shape(logs):
 
 
 def test_summarize_args_hides_prose():
-    out = log.summarize_args({"title": "x", "content": "abc", "goal": "", "week": None, "status": "done",
+    out = log.summarize_args({"title": "x", "content": "abc", "goal": "", "branch": None, "status": "done",
                               "result_markdown": "## 회고"})  # close_period's argument name
     assert out == {"title": "x", "content_len": 3, "goal_len": 0, "status": "done", "result_markdown_len": 5}

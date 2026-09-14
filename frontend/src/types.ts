@@ -34,26 +34,28 @@ export interface Roadmap {
   years: Record<string, { overview: Overview; milestones?: Record<string, Milestone> }>;
 }
 
-export interface MonthInfo {
+export interface OpenTask {
   id: string;
-  month: string;
-  goal?: string;
-  status: "planned" | "active" | "done";
-  task_counts: Record<string, number>;
+  title: string;
+  status: string;
+  tags?: string[];
+  branch?: string;
+  content?: string;
+  waiting_on?: string[];
 }
 
 export interface PeriodStatus {
   goal: string | null;
   milestone_status: string | null;
-  months: MonthInfo[];
   task_counts: Record<string, number>;
   closed: boolean;
-  in_progress: string[];
+  open_tasks: OpenTask[];
 }
 
 export interface StatusResp {
   project: string;
   name: string | null;
+  overview: Overview | null;
   periods: Record<string, PeriodStatus>;
 }
 
@@ -68,13 +70,10 @@ export interface Task {
   period: string;
   id: string;
   title: string;
-  month: string;
   status: string;
-  week?: number;
   tags?: string[];
   follows?: string[];
   content?: string;
-  prd?: string;
   branch?: string;
   cancel_reason?: string;
   meta: TaskMeta;

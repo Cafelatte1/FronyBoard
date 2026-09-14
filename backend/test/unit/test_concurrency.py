@@ -11,7 +11,7 @@ def test_parallel_create_task_yields_unique_sequential_ids():
 
     with ThreadPoolExecutor(max_workers=10) as pool:
         results = list(pool.map(
-            lambda i: service.create_task(key, "2026Q3", title=f"task {i}", month="M1"),
+            lambda i: service.create_task(key, "2026Q3", title=f"task {i}"),
             range(10)))
 
     ids = sorted(r["task"]["id"] for r in results)
@@ -21,7 +21,7 @@ def test_parallel_create_task_yields_unique_sequential_ids():
 
 def test_parallel_update_and_transition_keep_both_writes():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(service.update_task, key, "DLY-001", "renamed"),

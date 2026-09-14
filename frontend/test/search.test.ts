@@ -4,7 +4,7 @@ import { makeBoard, makeTask } from "./fixtures";
 
 const board = () =>
   makeBoard([
-    makeTask({ id: "DLY-001", title: "로깅 파이프라인", content: "## Why\njsonl 로그를 남긴다", status: "done" }),
+    makeTask({ id: "DLY-001", title: "로깅 파이프라인", content: "jsonl 로그를 남긴다", status: "done" }),
     makeTask({ id: "DLY-002", title: "검색 기능", content: "드롭다운", status: "in_progress", branch: "feat/DLY-002/search" }),
     makeTask({ id: "DLY-003", title: "정리", status: "cancelled", cancel_reason: "x", tags: ["infra"] }),
   ]);

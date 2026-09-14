@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Unauthorized, api } from "./api";
-import type { BoardData, MonthInfo, ProjectRef, ServerTimezone, StatusResp, Task } from "./types";
+import type { BoardData, ProjectRef, ServerTimezone, StatusResp, Task } from "./types";
 
 // ---------------------------------------------------------------- data hooks
 
@@ -32,13 +32,10 @@ export function useBoardData(onAuthFail: () => void) {
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
 
-  const reload = useCallback((first = false) => {
+  const reload = useCallback(() => {
     return (async () => {
       // One round trip for the whole board (AIR-072): the server assembles what used to
-      // be 2 + 3n requests, and the SPA keeps it in memory as before. On the first load
-      // the board is painted from the light response (no task content, ~30 KB) and the
-      // full one (~190 KB gzipped, needed by TaskPanel and the header search) follows.
-      if (first) setData(await api<BoardData>("/api/board?content=0"));
+      // be 2 + 3n requests, and the SPA keeps it in memory.
       const board = await api<BoardData>("/api/board");
       setData(board);
       setFetchedAt(new Date());
@@ -51,7 +48,7 @@ export function useBoardData(onAuthFail: () => void) {
   }, []);
 
   useEffect(() => {
-    void reload(true);
+    void reload();
   }, [reload]);
 
   // Auto refresh: every minute while the tab is visible, and right away when the
@@ -111,26 +108,23 @@ export const MILESTONE_ST: Record<string, string> = {
 
 // ------------------------------------------------------------------ sorting
 
-export type SortKey = "id" | "created" | "status" | "month";
+export type SortKey = "id" | "created" | "status";
 
 export const SORTS: { key: SortKey; label: string; col: string }[] = [
   { key: "id", label: "ID", col: "ID" },
   { key: "created", label: "Newest", col: "CREATED" },
   { key: "status", label: "Status", col: "STATUS" },
-  { key: "month", label: "Month · week", col: "MONTH" },
 ];
 
 const STATUS_ORDER = ["in_progress", "blocked", "todo", "done", "cancelled"];
 
-/** Stable sort by the chosen key; ties fall back to id. `monthOrder` is the period's month ids. */
-export function sortTasks(tasks: Task[], key: SortKey, monthOrder: string[]): Task[] {
+/** Stable sort by the chosen key; ties fall back to id. */
+export function sortTasks(tasks: Task[], key: SortKey): Task[] {
   const byId = (a: Task, b: Task) => a.id.localeCompare(b.id);
   const cmp: Record<SortKey, (a: Task, b: Task) => number> = {
     id: byId,
     created: (a, b) => b.meta.created_at.localeCompare(a.meta.created_at) || byId(a, b),
     status: (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || byId(a, b),
-    month: (a, b) =>
-      monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month) || (a.week ?? 9) - (b.week ?? 9) || byId(a, b),
   };
   return [...tasks].sort(cmp[key]);
 }
@@ -221,15 +215,6 @@ export function currentPeriodName(status: StatusResp): string | null {
   const names = Object.keys(status.periods).sort();
   const active = [...names].reverse().find((n) => status.periods[n].milestone_status === "active");
   return active ?? names[names.length - 1] ?? null;
-}
-
-/** The month a task sits in, as its calendar month ("2026-07"); falls back to the id. */
-export function monthOf(months: MonthInfo[], monthId: string): string {
-  return months.find((m) => m.id === monthId)?.month ?? monthId;
-}
-
-export function weekLabel(week: number | undefined): string {
-  return week ? `W${week}` : "—";
 }
 
 export function donutGradient(counts: Record<string, number>): string {

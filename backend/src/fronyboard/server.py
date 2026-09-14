@@ -32,44 +32,14 @@ mcp = MCPServer(
     "fronyboard",
     middleware=[log.ToolLogMiddleware()],
     instructions=(
-        "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's "
-        "own store, not in the codebase you are working on — record agreed plans, "
-        "tasks and retrospectives through these tools, never as files in the repo.\n\n"
-        "Which project: the codebase declares its FronyBoard project key in a "
-        "`## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by "
-        "FronyBoard (project key: DLY)'). No such declaration means the project is not "
-        "FronyBoard-managed — do not ask for a key; at most, suggest registering it once. "
-        "When registering a codebase (create_project), also add that `## FronyBoard` "
-        "declaration to its CLAUDE.md.\n\n"
-        "Task workflow: when starting branch-sized work, transition its task to in_progress "
-        "and record the branch name (branch names look like feat/DLY-042/short-desc — the "
-        "task id is the only link between FronyBoard and the codebase). When the work is "
-        "merged, transition it to done; if you cannot observe the merge, ask the user before "
-        "marking done. If branch-sized work has no task yet, offer create_task first; trivial "
-        "fixes need no task. A task's `follows` lists the tasks it continues from: when you hand "
-        "scope to a later task (\"Out of scope -> X\") or build on another task's result, set "
-        "`follows` on the receiving task — ids from other projects are allowed. It is a pointer, "
-        "not a lock: nothing is blocked, list_tasks only reports `waiting_on` for predecessors "
-        "not yet done.\n\n"
-        "Planning flow: create_project -> set_overview (year) -> upsert_milestone (quarter) "
-        "-> open_period -> upsert_month + create_task -> transition_task as work progresses "
-        "-> close_period with a retrospective. A task that outlives its period is not moved: "
-        "recreate it in the next period under a new id, leave the old one blocked, and map "
-        "old id -> new id in the closing retrospective.\n\n"
-        "Every mutation is validated before it is written; ids and timestamps are issued by "
-        "the server — never invent them. Nothing is ever hard-deleted: transition_task to "
-        "cancelled drops a task, update_project(status='archived') retires a project.\n\n"
-        "Task content: `content` is markdown that a human reads in a narrow side panel and "
-        "an agent reads to pick the task up cold, so follow the template in create_task "
-        "(objective / action / criteria, under ~25 lines): objective says why and what will "
-        "be observably different, action is implementation-level, criteria are verifiable. "
-        "Task titles and content are written in English. Planning prose that people read on "
-        "the dashboard — project description, yearly overview (goal / now / target / "
-        "checklist), quarterly milestones, month goals and retrospectives — is written in "
-        "the language the user speaks with you; keep one language per board.\n\n"
-        "Reading: get_task for one id, search_tasks for text across projects, "
-        "recent_activity for what changed and who did it; list_projects already carries "
-        "a per-project summary."
+        "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's own store, not in the codebase you are working on — record plans, tasks and retrospectives through these tools, never as files in the repo.\n\n"
+        "Which project: the codebase declares its FronyBoard project key in a `## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by FronyBoard (project key: DLY)'). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When registering a codebase (create_project), also add that `## FronyBoard` declaration to its CLAUDE.md.\n\n"
+        "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (it is the whole resume: the year's overview, each period's goal and every open task with its one-line note) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
+        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task is a title plus an optional one-line `content` of at most 200 characters: the one fact the next agent cannot get from the code — an interpretation you chose, a scope you left out, the check that proves it done. Everything else lives in the code and the commits. `follows` lists the tasks this one continues from (other projects allowed); it is a pointer, not a lock.\n\n"
+        "Planning: create_project -> set_overview (year) -> upsert_milestone (quarter) -> open_period; create_task works right after open_period, nothing else has to exist first. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
+        "Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
+        "Language: task titles and content are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
+        "Other reads: get_task for one id, list_tasks to narrow by period / status / tags, search_tasks for text across projects, recent_activity for what changed and who did it; list_projects already carries a per-project summary."
     ),
 )
 
@@ -162,9 +132,6 @@ def upsert_milestone(key: str, year: str, quarter: str,
     user's language, `status` is planned | active | done (open_period flips planned to
     active, close_period sets done).
     Omitted fields keep their current value.
-
-    This is the roadmap level. The months inside a quarter that is already running are
-    upsert_month.
     """
     return service.upsert_milestone(key, year, quarter, goal, status)
 
@@ -172,7 +139,7 @@ def upsert_milestone(key: str, year: str, quarter: str,
 @mcp.tool()
 def open_period(key: str, period: str) -> dict:
     """Start working in a quarter: opens its period and flips a planned milestone to active.
-    Required before upsert_month or create_task will accept that period.
+    Required before create_task will accept that period.
 
     `period` is YYYYQn (e.g. 2026Q3) and its roadmap milestone must already exist —
     upsert_milestone first.
@@ -188,7 +155,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
     period's `result` and marks the milestone done.
 
     The retrospective is written in the user's language, stays under ~30 lines and holds
-    judgment and reasons only — summary vs goal, per-month outcome, carried-over tasks
+    judgment and reasons only — summary vs goal, what landed and what did not, carried-over tasks
     (old id -> new id), lessons.
     Calling it again on a closed period rewrites the retrospective and changes nothing else.
     """
@@ -204,98 +171,59 @@ def get_retrospective(key: str, period: str) -> dict:
 
 
 @mcp.tool()
-def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
-                 goal: str | None = None, status: str | None = None) -> dict:
-    """Create or update a month inside an open period — the quarter's goal split into
-    thirds, and what a task's `month` points at.
-
-    `period` is YYYYQn and must be open, `month_id` is M1/M2/M3, `month` is YYYY-MM,
-    `goal` is one line in the user's language, `status` is planned | active | done.
-    Omitted fields keep their current value.
-
-    This is the in-period level. The quarter's own goal is upsert_milestone.
-    """
-    return service.upsert_month(key, period, month_id, month, goal, status)
-
-
-@mcp.tool()
-def create_task(key: str, period: str, title: str, month: str,
-                week: int | None = None, content: str | None = None,
-                prd: str | None = None, tags: list[str] | None = None,
-                follows: list[str] | None = None) -> dict:
+def create_task(key: str, period: str, title: str, content: str | None = None,
+                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
     """Create a task — one issue/branch-sized unit of work — with status todo.
 
-    The id is assigned from the project-global sequence and never reused.
-    `period` is YYYYQn and must be open. Every task belongs to a month: `month` is a month
-    id (M1/M2/M3), not YYYY-MM, and must already exist in that period (get_status lists
-    them, upsert_month creates them). `week` is the week-of-month (1-5) and `prd` is an
-    optional link to or excerpt of the requirement behind it.
+    The id is assigned from the project-global sequence and never reused. `period` is
+    YYYYQn and must be open; nothing else has to exist first.
 
-    `tags` are free-form labels for cutting across months and status ("frontend",
-    "bug", "infra"): up to 8 per task, 24 characters each, no commas. Reuse the
-    wording already in use on the project (list_tasks shows it) instead of coining
-    a new spelling for the same thing.
+    `title` is a short English imperative ("Add multi-select status filter") — it is what
+    every reader sees, so it has to say the whole thing.
+
+    `content` is optional: one line, at most 200 characters, English. It carries the one
+    fact the next agent cannot recover from the code — the interpretation you chose, the
+    scope you left out, or the check that proves it done. Line breaks are folded into
+    spaces; a longer text is rejected, not cut. Rationale beyond that goes in the commit.
+
+    `tags` are free-form labels ("frontend", "bug", "infra"): up to 8 per task, 24
+    characters each, no commas. Reuse the wording already in use on the project
+    (list_tasks shows it) instead of coining a new spelling for the same thing.
 
     `follows` lists the task ids this one continues from (a predecessor whose result it
     builds on, or the task that handed it this scope) — full ids, other projects allowed.
     It is a pointer, not a dependency lock: nothing blocks, and get_task shows the reverse
     as `followed_by`.
-
-    `title` is a short English imperative ("Add multi-select status filter").
-    Returns the stored record without `content`/`prd` (you already have them); get_task
-    reads the full record back.
-
-    `content` is markdown, read by a human in a narrow panel and by an agent picking the
-    task up cold. Write it in English and use this template (keep it under ~25 lines):
-
-        ## objective
-        1-3 sentences: why this work exists and what will be observably different once
-        it is done. For a bug: symptom -> cause. "Out of scope: ..." only if needed.
-        ## action
-        - implementation-level approach and files to touch (may be left empty until
-          work starts; fill it in with update_task once the approach is known)
-        ## criteria
-        - verifiable completion conditions ("do X, see Y" — not "checked")
-
-    Record decisions inline as "(YYYY-MM-DD decided)". The rationale lives here and
-    only here: commit messages list what changed and reference the task id.
     """
-    return service.create_task(key, period, title, month, week, content, prd, tags, follows)
+    return service.create_task(key, period, title, content, tags, follows)
 
 
 @mcp.tool()
-def update_task(task_id: str, title: str | None = None,
-                month: str | None = None, week: int | None = None, content: str | None = None,
-                prd: str | None = None, branch: str | None = None,
-                tags: list[str] | None = None, follows: list[str] | None = None,
-                key: str | None = None) -> dict:
+def update_task(task_id: str, title: str | None = None, content: str | None = None,
+                branch: str | None = None, tags: list[str] | None = None,
+                follows: list[str] | None = None, key: str | None = None) -> dict:
     """Update a task's fields — everything except status, which is transition_task.
-    `branch` records the working branch name, `month` is a month id (M1/M2/M3) that exists
-    in the task's period, `week` is 1-5.
-
-    `content` replaces the whole markdown body — keep the create_task template (objective /
-    action / criteria); fill in action once the approach is known.
+    `branch` records the working branch name; `content` replaces the one-line note
+    (same rule as create_task: one line, at most 200 characters).
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
-    not just the new ones. Returns the record without `content`/`prd`.
-    `follows` likewise replaces the whole predecessor list.
+    not just the new ones. `follows` likewise replaces the whole predecessor list.
 
     Omitted fields are left as they are. To remove an optional field pass an empty value:
-    `week=0`, `content=""`, `prd=""`, `branch=""`, `tags=[]`, `follows=[]` (title and month
-    cannot be removed).
+    `content=""`, `branch=""`, `tags=[]`, `follows=[]` (title cannot be removed).
 
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
     """
     return service.update_task(service.resolve_key(key, task_id), task_id,
-                               title, month, week, content, prd, branch, tags, follows)
+                               title, content, branch, tags, follows)
 
 
 @mcp.tool()
 def transition_task(task_id: str, status: str, branch: str | None = None,
                     reason: str | None = None, key: str | None = None) -> dict:
     """Move a task to a new status: todo | in_progress | done | blocked | cancelled. The
-    only tool that changes status — title, month, content and tags are update_task.
+    only tool that changes status — title, content and tags are update_task.
 
     `task_id` is the full id, e.g. DLY-042; the project is derived from that prefix, so
     `key` may be omitted (if given it must match). Call when work starts (in_progress,
@@ -313,35 +241,34 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 
 @mcp.tool()
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               month: str | None = None, include_cancelled: bool = False,
-               tags: list[str] | None = None, updated_since: str | None = None,
-               include_content: bool = False) -> dict:
-    """List one project's tasks, optionally narrowed by period, status, month, tags or
-    recency. Use get_status when the counts are all you need, get_task when you know the
-    id, search_tasks to find tasks by text across projects.
+               include_cancelled: bool = False, tags: list[str] | None = None,
+               updated_since: str | None = None) -> dict:
+    """List one project's tasks, optionally narrowed by period, status, tags or recency.
+    get_status already lists the open ones; use this for done or cancelled tasks, a closed
+    period, or a tag cut. get_task when you know the id, search_tasks for text across
+    projects.
 
     `period` is YYYYQn (all periods, closed ones included, when omitted), `status` is one of
-    todo | in_progress | done | blocked | cancelled, `month` is a month id (M1/M2/M3), not
-    YYYY-MM. `tags` narrows to the tasks carrying *all* of the given labels; pass one tag to
-    match on it alone, and call again per tag when you want the union.
-    `updated_since` keeps tasks touched after a duration ("24h", "7d") or ISO timestamp.
-    Rows carry everything but the markdown bodies (`content`, `prd`); pass
-    `include_content=True` to get them, or get_task for one task. A row carries `waiting_on`
-    (the ids from its `follows` not yet done) only when there are any.
-    Cancelled tasks are excluded unless `include_cancelled` is set or `status` is 'cancelled'.
+    todo | in_progress | done | blocked | cancelled. `tags` narrows to the tasks carrying
+    *all* of the given labels; pass one tag to match on it alone, and call again per tag
+    when you want the union. `updated_since` keeps tasks touched after a duration ("24h",
+    "7d") or ISO timestamp. A row carries `waiting_on` (the ids from its `follows` not yet
+    done) only when there are any. Cancelled tasks are excluded unless `include_cancelled`
+    is set or `status` is 'cancelled'.
     """
-    return service.list_tasks(key, period, status, month, include_cancelled, tags,
-                              updated_since, include_content)
+    return service.list_tasks(key, period, status, include_cancelled, tags, updated_since)
 
 
 @mcp.tool()
 def get_status(key: str) -> dict:
-    """Where a project stands, per period: the milestone goal and status, its months (each
-    with its own task counts), overall task counts by status, whether the period is closed,
-    and the ids of in-progress tasks. Closed periods are included.
+    """The resume: everything an agent needs to pick a project up cold, in one call. The
+    latest year's overview (goal / now / target / checklist), and per period its milestone
+    goal and status, task counts by status, whether it is closed, and `open_tasks` — every
+    todo / blocked / in_progress task with its title, tags, branch, one-line content and
+    `waiting_on`. Closed periods are included.
 
-    The quickest way to find the current period and the month ids create_task needs.
-    No task detail — list_tasks for the tasks themselves, get_roadmap for the plan as written.
+    Call it once at the start of a session; there is nothing to poll for afterwards.
+    Done and cancelled tasks are list_tasks; the plan as written is get_roadmap.
     """
     return service.get_status(key)
 
@@ -365,9 +292,9 @@ def search_tasks(query: str, key: str | None = None, status: str | None = None,
     matching project key returns all of its tasks. Closed periods are included; cancelled
     tasks only with `include_cancelled` (or `status='cancelled'`).
 
-    Hits are compact (no content), ordered by project, then in_progress -> blocked -> todo
-    -> done -> cancelled, then id; `match` says which field hit and a content-only hit adds
-    a ~60-character `snippet`. `key` narrows to one project, `limit` (default 20) caps the
+    Hits are compact, ordered by project, then in_progress -> blocked -> todo
+    -> done -> cancelled, then id; `match` says which field hit; a task's one-line `content`
+    is included when it has one. `key` narrows to one project, `limit` (default 20) caps the
     hits while `count` still reports the total. Follow up with get_task for the full record.
     """
     return service.search_tasks(query, key, status, include_cancelled, limit)
@@ -461,6 +388,13 @@ def _boot(mode: str, **fields) -> None:
               logs=str(log.log_dir()), tz=os.environ.get("FRONYBOARD_TZ"), **fields)
 
 
+def _strip_legacy() -> None:
+    """Drop the fields the task model no longer has; silent when there was nothing to drop."""
+    report = store.strip_legacy()
+    if any(report.values()):
+        log.event("INFO", "boot", "strip_legacy", **report)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="fronyboard", description="FronyBoard MCP server")
     sub = parser.add_subparsers(dest="command")
@@ -489,10 +423,12 @@ def main() -> None:
 
     if args.command == "serve":
         log.setup()
+        _strip_legacy()
         host = args.host or ("127.0.0.1" if args.local else "0.0.0.0")
         serve(host, args.port, args.public_url, args.public_mcp_path, local=args.local)
     else:
         log.setup(stderr=True)  # stdout is the MCP channel — never a log sink
+        _strip_legacy()
         _boot("stdio")
         try:
             mcp.run()

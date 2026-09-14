@@ -71,8 +71,8 @@ FronyBoard-managed.
 fronyboard.db
 ├── projects   one row per project (key e.g. DLY): the roadmap record —
 │              yearly overview (goal / now / target / checklist) + quarterly milestones
-└── periods    one row per opened period (e.g. 2026Q3): monthly milestones (M1, M2, ...)
-               + tasks ({KEY}-001, ...) + `result` (retrospective, written when the period closes)
+└── periods    one row per opened period (e.g. 2026Q3): tasks ({KEY}-001, ...)
+               + `result` (retrospective, written when the period closes)
 ```
 
 A project is two kinds of records — the roadmap, and one record per period. Both are
@@ -82,9 +82,12 @@ JSON documents; the schema and the rules that guard it are in
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
   periods and are never reused. They are the only link between FronyBoard and a codebase:
   use them in branch names (`feat/DLY-042/short-desc`) and record the branch on the task.
-- **Reference chain**: `task.month → months[].id`, `period file → roadmap milestone`.
-  Rollups follow this chain — months are the grouping unit.
-- **Statuses** — milestones and months: `planned | active | done`;
+- **A task is a title** (v0.33.0, AIR-086) plus status, tags, `follows`, branch and an
+  optional one-line `content` of at most 200 characters. Agents read titles and status;
+  the body nobody read, and the month/week slots that only existed to schedule it, are gone.
+  Time is `meta.completed_at`.
+- **Reference chain**: `period → roadmap milestone` (the quarter). That is the only one.
+- **Statuses** — milestones: `planned | active | done`;
   tasks: `todo | in_progress | done | blocked | cancelled`.
 - **`cancelled` is the soft delete** — there is no hard delete. Cancelling requires a
   reason, keeps the record (and its id) forever, and hides the task from queries by
@@ -110,22 +113,18 @@ JSON documents; the schema and the rules that guard it are in
 | Projects | `create_project`, `update_project`, `list_projects`, `get_roadmap`, `get_status`, `validate` |
 | Roadmap | `set_overview`, `set_check`, `upsert_milestone` |
 | Periods | `open_period`, `close_period`, `get_retrospective` |
-| Planning | `upsert_month`, `create_task`, `update_task`, `transition_task` |
+| Planning | `create_task`, `update_task`, `transition_task` |
 | Queries | `list_tasks`, `get_task`, `search_tasks`, `recent_activity` |
 
 `update_task` and `transition_task` derive the project from the task id prefix
 (`DLY-042` → `DLY`), so their `key` parameter is optional. Re-calling
 `close_period` on a closed period rewrites its retrospective.
 
-The two `upsert_*` tools sit at different levels: `upsert_milestone` is a quarter
-in the roadmap, `upsert_month` is one of the three months inside a period that is
-already open. A task's `month` is a month id (`M1`/`M2`/`M3`), never `YYYY-MM`.
-
 Typical flow:
 
 ```
 create_project → set_overview → upsert_milestone → open_period
-→ upsert_month / create_task
+→ create_task
 → transition_task in_progress (with branch) → ... → transition_task done
 → close_period (retrospective)
 ```

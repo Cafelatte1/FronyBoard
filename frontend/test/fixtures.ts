@@ -7,7 +7,6 @@ export function makeTask(over: Partial<Task> = {}): Task {
     period: "2026Q3",
     id: "DLY-001",
     title: "core loop",
-    month: "M1",
     status: "todo",
     meta: { created_at: "2026-07-01 09:00:00", updated_at: "2026-07-01 09:00:00" },
     ...over,
@@ -28,14 +27,14 @@ export function makeBoard(tasks: Task[] = []): BoardData {
   const status: StatusResp = {
     project: "DLY",
     name: "Dailying",
+    overview: null,
     periods: {
       "2026Q3": {
         goal: "MVP",
         milestone_status: "active",
-        months: [{ id: "M1", month: "2026-07", goal: "core", status: "active", task_counts: {} }],
         task_counts: {},
         closed: false,
-        in_progress: [],
+        open_tasks: [],
       },
     },
   };

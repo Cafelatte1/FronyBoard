@@ -2,9 +2,10 @@
 
 Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,
-status enums, the task.month reference, milestone <-> period consistency,
+status enums, milestone <-> period consistency,
 id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
-ordering (updated_at >= created_at), and the task `follows` list (id shape, no
+ordering (updated_at >= created_at), task content shape (one line, ≤200 chars),
+and the task `follows` list (id shape, no
 self/duplicate, same-project ids exist, no cycle).
 """
 
@@ -19,11 +20,11 @@ MILESTONE_STATUS = {"planned", "active", "done"}
 TASK_STATUS = {"todo", "in_progress", "done", "blocked", "cancelled"}
 QUARTER_KEY = re.compile(r"^Q[1-4]$")
 PERIOD_NAME = re.compile(r"^\d{4}Q[1-4]$")
-MONTH_ID = re.compile(r"^M\d+$")
 PROJECT_KEY = re.compile(r"^[A-Z]{2,5}$")
 PROJECT_STATUS = {"active", "paused", "archived"}
 MAX_TAGS = 8
 MAX_TAG_LEN = 24
+MAX_CONTENT = 200
 TASK_ID = re.compile(r"^[A-Z]{2,5}-\d{3,}$")
 
 
@@ -177,26 +178,6 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
     if data.get("result") is not None and not isinstance(data["result"], str):
         r.err(f"{name}: result must be a markdown string")
 
-    month_ids = set()
-    months = data.get("months")
-    if months is None:
-        r.err(f"{name}: missing months")
-    else:
-        for m in months:
-            where = f"{name} months[{m.get('id')}]"
-            if not MONTH_ID.fullmatch(str(m.get("id", ""))):
-                r.err(f"{where}: id must look like M1, M2, ...")
-            if m.get("id") in month_ids:
-                r.err(f"{where}: duplicate id")
-            month_ids.add(m.get("id"))
-            if not m.get("month") or not m.get("goal"):
-                r.err(f"{where}: missing month/goal")
-            if m.get("month") and not re.fullmatch(r"\d{4}-\d{2}", str(m["month"])):
-                r.err(f"{where}: month must be 'YYYY-MM' ({m.get('month')!r})")
-            if m.get("status") not in MILESTONE_STATUS:
-                r.err(f"{where}: status must be one of {sorted(MILESTONE_STATUS)}")
-            _check_meta(m, where, r)
-
     for t in data.get("tasks") or []:
         tid = t.get("id")
         where = f"{name} tasks[{tid}]"
@@ -207,8 +188,6 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
         all_task_ids.add(tid)
         if not t.get("title"):
             r.err(f"{where}: missing title")
-        if t.get("month") not in month_ids:
-            r.err(f"{where}: month '{t.get('month')}' not found in objective months")
         if t.get("status") not in TASK_STATUS:
             r.err(f"{where}: status must be one of {sorted(TASK_STATUS)}")
         if t.get("status") == "cancelled":
@@ -227,13 +206,17 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
                 r.err(f"{where}: a done task must have meta.completed_at")
         elif meta.get("completed_at") is not None:
             r.err(f"{where}: meta.completed_at is only valid on a done task")
-        week = t.get("week")
-        if week is not None and not (isinstance(week, int) and 1 <= week <= 5):
-            r.err(f"{where}: week must be an integer 1-5 (week of month) ({week!r})")
         _check_tags(t.get("tags"), where, r)
         _check_follows(t.get("follows"), tid, where, r)
-        if t.get("content") is not None and not isinstance(t["content"], str):
-            r.err(f"{where}: content must be a markdown string")
+        content = t.get("content")
+        if content is not None:
+            if not isinstance(content, str):
+                r.err(f"{where}: content must be a string")
+            else:
+                if "\n" in content or "\r" in content:
+                    r.err(f"{where}: content must be a single line")
+                if len(content) > MAX_CONTENT:
+                    r.err(f"{where}: content is longer than {MAX_CONTENT} characters")
         _check_meta(t, where, r)
 
 

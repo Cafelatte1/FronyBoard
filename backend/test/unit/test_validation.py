@@ -25,7 +25,7 @@ def test_planned_milestone_without_period_file_is_a_warning():
 def test_orphan_period_record_is_a_warning():
     key = bootstrap()
     state = store.load_state(key)
-    state.periods["2025Q1"] = store.PeriodState(data={"months": [], "tasks": []})
+    state.periods["2025Q1"] = store.PeriodState(data={"tasks": []})
     store.save_period(state, "2025Q1")
     report = _report(key)
     assert not report.errors
@@ -67,7 +67,7 @@ def test_meta_timestamps_must_be_ordered_naive_utc():
 
 def test_task_status_field_invariants():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
 
     state = store.load_state(key)
     state.periods["2026Q3"].data["tasks"][0]["cancel_reason"] = "leftover"
@@ -80,23 +80,25 @@ def test_task_status_field_invariants():
     assert any("only valid on a done task" in e for e in report.errors)
 
 
-def test_month_format_and_task_month_reference():
+def test_content_must_be_one_short_line():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
     state = store.load_state(key)
-    state.periods["2026Q3"].data["months"][0]["month"] = "2026/07"
-    report = validation.validate_state(state)
-    assert any("must be 'YYYY-MM'" in e for e in report.errors)
+    task = state.periods["2026Q3"].data["tasks"][0]
 
-    state = store.load_state(key)
-    state.periods["2026Q3"].data["tasks"][0]["month"] = "M9"
-    report = validation.validate_state(state)
-    assert any("'M9' not found" in e for e in report.errors)
+    def errors(content):
+        task["content"] = content
+        return " ".join(validation.validate_state(state).errors)
+
+    assert "content must be a single line" in errors("one\ntwo")
+    assert "content is longer than 200 characters" in errors("x" * 201)
+    assert not errors("x" * 200)
+    assert "content must be a string" in errors(3)
 
 
 def test_duplicate_task_ids_are_an_error():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
     state = store.load_state(key)
     tasks = state.periods["2026Q3"].data["tasks"]
     tasks.append(dict(tasks[0]))
@@ -106,7 +108,7 @@ def test_duplicate_task_ids_are_an_error():
 
 def test_tag_rules_are_enforced():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="x", month="M1")
+    service.create_task(key, "2026Q3", title="x")
     state = store.load_state(key)
     task = state.periods["2026Q3"].data["tasks"][0]
 
@@ -126,8 +128,8 @@ def test_tag_rules_are_enforced():
 
 def test_follows_rules_are_enforced():
     key = bootstrap()
-    service.create_task(key, "2026Q3", title="first", month="M1")
-    service.create_task(key, "2026Q3", title="second", month="M1")
+    service.create_task(key, "2026Q3", title="first")
+    service.create_task(key, "2026Q3", title="second")
     state = store.load_state(key)
     task = state.periods["2026Q3"].data["tasks"][1]
 

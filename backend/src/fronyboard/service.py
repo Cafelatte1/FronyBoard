@@ -159,7 +159,7 @@ def list_projects(include_archived: bool = False) -> dict:
     return _jsonable({"projects": projects, "data_root": str(store.data_root())})
 
 
-def board(include_content: bool = False) -> dict:
+def board() -> dict:
     """Everything the dashboard shows, with each project loaded once (AIR-072): the
     list_projects entries plus, per project, get_status / the roadmap without meta /
     every task including cancelled ones. Loading through the per-project reads cost
@@ -170,7 +170,7 @@ def board(include_content: bool = False) -> dict:
         projects.append(_project_entry(state))
         statuses[key] = _status(state)
         roadmaps[key] = _without_meta(state.roadmap)
-        tasks[key] = _tasks(state, include_cancelled=True, include_content=include_content)
+        tasks[key] = _tasks(state, include_cancelled=True)
     return _jsonable({"projects": projects, "statuses": statuses, "roadmaps": roadmaps,
                       "tasks": tasks})
 
@@ -296,7 +296,7 @@ def open_period(key: str, period: str) -> dict:
     milestone = _milestone_for(state, period)
     if period in state.periods:
         raise FronyBoardError(f"period {period} is already open")
-    state.periods[period] = PeriodState(data={"months": [], "tasks": []})
+    state.periods[period] = PeriodState(data={"tasks": []})
     if milestone["status"] == "planned":
         milestone["status"] = "active"
         store.touch_meta(milestone)
@@ -336,30 +336,6 @@ def get_retrospective(key: str, period: str) -> dict:
     if not p.has_result:
         raise FronyBoardError(f"period {period} is not closed yet — no retrospective")
     return {"period": period, "result": p.data["result"]}
-
-
-@_locked
-def upsert_month(key: str, period: str, month_id: str, month: str | None = None,
-                 goal: str | None = None, status: str | None = None) -> dict:
-    state = store.load_state(key)
-    _require_period(state, period)
-    months = state.periods[period].data.setdefault("months", [])
-    m = next((m for m in months if m.get("id") == month_id), None)
-    if m is None:
-        m = {"id": month_id, "month": month, "goal": goal,
-             "status": status or "planned", "meta": store.new_meta()}
-        months.append(m)
-    else:
-        if month is not None:
-            m["month"] = month
-        if goal is not None:
-            m["goal"] = goal
-        if status is not None:
-            m["status"] = status
-    store.touch_meta(m)
-    warnings = _gate(state)
-    store.save_period(state, period)
-    return _ok({"period": period, "month": m}, warnings)
 
 
 # ------------------------------------------------------------------- tasks
@@ -437,17 +413,22 @@ def _check_foreign_follows(state: ProjectState, follows: list[str]) -> None:
         _find_task(store.load_state(other), ref)
 
 
+def _clean_content(value: str | None) -> str | None:
+    """Fold the one-line note into a single line; None when there is nothing left. The
+    200-character cap stays a validation error — a long note is rejected, not silently cut."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise FronyBoardError("content must be a string")
+    return " ".join(value.split()) or None
+
+
 @_locked
-def create_task(key: str, period: str, title: str, month: str,
-                week: int | None = None, content: str | None = None,
-                prd: str | None = None, tags: list[str] | None = None,
-                follows: list[str] | None = None) -> dict:
+def create_task(key: str, period: str, title: str, content: str | None = None,
+                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
     state = store.load_state(key)
     _require_period(state, period)
-    task: dict = {"id": _next_task_id(state), "title": title,
-                  "month": month, "status": "todo"}
-    if week is not None:
-        task["week"] = week
+    task: dict = {"id": _next_task_id(state), "title": title, "status": "todo"}
     tags = _clean_tags(tags)
     if tags:
         task["tags"] = tags
@@ -455,32 +436,23 @@ def create_task(key: str, period: str, title: str, month: str,
     if follows:
         _check_foreign_follows(state, follows)
         task["follows"] = follows
-    if content is not None:
+    content = _clean_content(content)
+    if content:
         task["content"] = content
-    if prd is not None:
-        task["prd"] = prd
     task["meta"] = store.new_meta()
     state.periods[period].data.setdefault("tasks", []).append(task)
     warnings = _gate(state)
     store.save_period(state, period)
-    return _ok({"period": period, "task": _without_prose(task)}, warnings)
+    return _ok({"period": period, "task": task}, warnings)
 
 
-# Optional task fields; an "empty" value (0 / "" / []) passed to update_task removes them.
-_CLEARABLE = {"week", "content", "prd", "branch", "tags", "follows"}
-_PROSE = ("content", "prd")
-
-
-def _without_prose(task: dict) -> dict:
-    """The task record minus its markdown bodies. Writes echo this shape (the caller already
-    has the text) and list_tasks returns it by default; get_task carries the full record."""
-    return {k: v for k, v in task.items() if k not in _PROSE}
+# Optional task fields; an "empty" value ("" / []) passed to update_task removes them.
+_CLEARABLE = {"content", "branch", "tags", "follows"}
 
 
 @_locked
 def update_task(key: str, task_id: str, title: str | None = None,
-                month: str | None = None, week: int | None = None, content: str | None = None,
-                prd: str | None = None, branch: str | None = None,
+                content: str | None = None, branch: str | None = None,
                 tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
@@ -490,21 +462,22 @@ def update_task(key: str, task_id: str, title: str | None = None,
         follows = _clean_follows(follows)
         if follows:
             _check_foreign_follows(state, follows)
-    fields = {"title": title, "month": month, "week": week,
-              "content": content, "prd": prd, "branch": branch, "tags": tags,
+    if content is not None:
+        content = _clean_content(content) or ""   # an empty result clears the field
+    fields = {"title": title, "content": content, "branch": branch, "tags": tags,
               "follows": follows}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise FronyBoardError("nothing to update — pass at least one field (status changes go through transition_task)")
     for k, v in changed.items():
-        if k in _CLEARABLE and v in (0, "", []):
+        if k in _CLEARABLE and v in ("", []):
             task.pop(k, None)
         else:
             task[k] = v
     store.touch_meta(task)
     warnings = _gate(state)
     store.save_period(state, period)
-    return _ok({"period": period, "task": _without_prose(task)}, warnings)
+    return _ok({"period": period, "task": task}, warnings)
 
 
 @_locked
@@ -559,21 +532,18 @@ def _waiting_on(t: dict, status_of) -> list[str]:
 
 
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
-               month: str | None = None, include_cancelled: bool = False,
-               tags: list[str] | None = None, updated_since: str | None = None,
-               include_content: bool = False) -> dict:
+               include_cancelled: bool = False, tags: list[str] | None = None,
+               updated_since: str | None = None) -> dict:
     state = store.load_state(key)
     if period is not None:
         _require_period(state, period)
-    results = _tasks(state, period, status, month, include_cancelled, tags, updated_since,
-                     include_content)
+    results = _tasks(state, period, status, include_cancelled, tags, updated_since)
     return _jsonable({"tasks": results, "count": len(results)})
 
 
 def _tasks(state: ProjectState, period: str | None = None, status: str | None = None,
-           month: str | None = None, include_cancelled: bool = False,
-           tags: list[str] | None = None, updated_since: str | None = None,
-           include_content: bool = False) -> list:
+           include_cancelled: bool = False, tags: list[str] | None = None,
+           updated_since: str | None = None) -> list:
     wanted = set(_clean_tags(tags))   # a task must carry all of them
     cutoff = _naive_utc(_since(updated_since)) if updated_since else None
     status_of = _status_lookup(state)
@@ -587,15 +557,13 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
                 continue
             if status is not None and t.get("status") != status:
                 continue
-            if month is not None and t.get("month") != month:
-                continue
             if wanted and not wanted <= set(t.get("tags") or []):
                 continue
             if cutoff is not None:
                 u = (t.get("meta") or {}).get("updated_at")
                 if not isinstance(u, datetime.datetime) or u < cutoff:
                     continue
-            row = {"period": pname, **(t if include_content else _without_prose(t))}
+            row = {"period": pname, **t}
             waiting = _waiting_on(t, status_of)
             if waiting:
                 row["waiting_on"] = waiting
@@ -606,7 +574,6 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
 # ---------------------------------------------------------------- reads
 
 _STATUS_ORDER = ("in_progress", "blocked", "todo", "done", "cancelled")
-_SNIPPET_AROUND = 30   # same window as the dashboard search (frontend/src/search.ts)
 _READ_TOOLS = frozenset({"list_projects", "get_roadmap", "get_retrospective", "list_tasks",
                          "get_status", "validate", "get_task", "search_tasks",
                          "recent_activity"})
@@ -635,9 +602,12 @@ def _naive_utc(ts: datetime.datetime) -> datetime.datetime:
 
 
 def _compact(period: str, t: dict) -> dict:
-    return {"period": period, "id": t.get("id"), "title": t.get("title"),
-            "status": t.get("status"), "month": t.get("month"), "tags": t.get("tags") or [],
-            "updated_at": (t.get("meta") or {}).get("updated_at")}
+    row = {"period": period, "id": t.get("id"), "title": t.get("title"),
+           "status": t.get("status"), "tags": t.get("tags") or [],
+           "updated_at": (t.get("meta") or {}).get("updated_at")}
+    if "content" in t:
+        row["content"] = t.get("content")
+    return row
 
 
 def get_task(task_id: str) -> dict:
@@ -657,16 +627,6 @@ def get_task(task_id: str) -> dict:
     if waiting:
         record["waiting_on"] = waiting
     return _jsonable({"project": key, "task": record})
-
-
-def _snippet(content: str, q: str) -> str | None:
-    flat = re.sub(r"\s+", " ", content)
-    i = flat.lower().find(q)
-    if i < 0:
-        return None
-    start = max(0, i - _SNIPPET_AROUND)
-    end = min(len(flat), i + len(q) + _SNIPPET_AROUND)
-    return ("…" if start > 0 else "") + flat[start:end] + ("…" if end < len(flat) else "")
 
 
 def search_tasks(query: str, key: str | None = None, status: str | None = None,
@@ -702,10 +662,7 @@ def search_tasks(query: str, key: str | None = None, status: str | None = None,
                     match = "content"
                 else:
                     continue
-                hit = {"project": pkey, **_compact(pname, t), "match": match}
-                if match == "content":
-                    hit["snippet"] = _snippet(content, q)
-                hits.append(hit)
+                hits.append({"project": pkey, **_compact(pname, t), "match": match})
 
     def order(h):
         st = h["status"]
@@ -787,32 +744,47 @@ def get_status(key: str) -> dict:
     return _jsonable(_status(store.load_state(key)))
 
 
+_OPEN_STATUS = ("in_progress", "blocked", "todo")
+
+
+def _open_task(t: dict, status_of) -> dict:
+    """One open task as get_status carries it: the resume line, nothing an agent
+    would have to fetch separately."""
+    row = {"id": t.get("id"), "title": t.get("title"), "status": t.get("status")}
+    for field in ("tags", "branch", "content"):
+        if t.get(field):
+            row[field] = t[field]
+    waiting = _waiting_on(t, status_of)
+    if waiting:
+        row["waiting_on"] = waiting
+    return row
+
+
 def _status(state: ProjectState) -> dict:
+    status_of = _status_lookup(state)
+    years = state.roadmap.get("years") or {}
+    overview = _without_meta((years[max(years)] or {}).get("overview")) if years else None
     periods = {}
     for pname in sorted(state.periods):
         p = state.periods[pname]
         milestone = state.roadmap.get("years", {}).get(pname[:4], {}) \
             .get("milestones", {}).get(pname[4:], {})
         counts: dict[str, int] = {}
-        month_counts: dict[str, dict[str, int]] = {}
         for t in p.data.get("tasks") or []:
             status = t.get("status", "?")
             counts[status] = counts.get(status, 0) + 1
-            per_month = month_counts.setdefault(t.get("month"), {})
-            per_month[status] = per_month.get(status, 0) + 1
+        open_tasks = sorted((t for t in p.data.get("tasks") or []
+                             if t.get("status") in _OPEN_STATUS),
+                            key=lambda t: (_STATUS_ORDER.index(t["status"]), t.get("id") or ""))
         periods[pname] = {
             "goal": milestone.get("goal"),
             "milestone_status": milestone.get("status"),
-            "months": [{"id": m.get("id"), "month": m.get("month"), "goal": m.get("goal"),
-                        "status": m.get("status"),
-                        "task_counts": month_counts.get(m.get("id"), {})}
-                       for m in p.data.get("months") or []],
             "task_counts": counts,
             "closed": p.has_result,
-            "in_progress": [t["id"] for t in p.data.get("tasks") or []
-                            if t.get("status") == "in_progress"],
+            "open_tasks": [_open_task(t, status_of) for t in open_tasks],
         }
-    return {"project": state.key, "name": state.roadmap.get("name"), "periods": periods}
+    return {"project": state.key, "name": state.roadmap.get("name"),
+            "overview": overview, "periods": periods}
 
 
 def validate(key: str) -> dict:

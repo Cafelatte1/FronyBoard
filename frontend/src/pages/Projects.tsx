@@ -442,7 +442,6 @@ function ProjectDetail({
       <TaskTable
         key={periodId}
         name={periodId}
-        period={period}
         tasks={allTasks.filter((t) => t.period === periodId)}
         tz={data.server.timezone}
         onOpenTask={onOpenTask}
@@ -504,27 +503,6 @@ function ProjectDetail({
               onYear={goYear}
               onPeriod={selectPeriod}
             />
-
-            {periodId && period && (
-              <div className="pdet-card">
-                <span className="pdet-card-title">{periodId} months</span>
-                {(period.months.length > 0 ? period.months : null)?.map((m) => {
-                  const r = doneRatio(m.task_counts);
-                  return (
-                    <span key={m.id} className="pdet-month">
-                      <span className="pdet-month-top">
-                        <span className="pdet-month-id">{m.month}</span>
-                        <span className="pdet-month-goal">{m.goal ?? "—"}</span>
-                        <span className="pdet-month-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
-                      </span>
-                      <span className="bar pdet-month-bar">
-                        {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
-                      </span>
-                    </span>
-                  );
-                }) ?? <span className="muted">No months planned</span>}
-              </div>
-            )}
           </InfoSheet>
         )}
       </>
@@ -667,8 +645,8 @@ function PhoneRoadmap({
   );
 }
 
-/** The period stepper and the monthly rollup — the part of a period that is not its
-    task list. Split out so a phone can move it into the detail sheet. */
+/** The period stepper — the part of a period that is not its task list. Split out so a
+    phone can move it into the detail sheet. */
 function PeriodChrome({
   name,
   names,
@@ -708,28 +686,6 @@ function PeriodChrome({
           <span className="bar-fill" style={{ width: `${ratio.pct}%` }} />
         </span>
       </div>
-
-      {period.months.length > 0 && (
-        <div className="card">
-          <span className="rollup-cap">Progress by month</span>
-          <div className="rollup">
-            {period.months.map((m) => {
-              const r = doneRatio(m.task_counts);
-              return (
-                <div key={m.id} className="rollup-row">
-                  <span className="r-id">{m.month}</span>
-                  <span className="r-goal">{m.goal ?? "—"}</span>
-                  <MilestoneChip status={m.status} />
-                  <span className="r-ratio">{r.total ? `${r.done}/${r.total}` : "—"}</span>
-                  <span className="bar r-bar">
-                    {r.total > 0 && <span className="bar-fill" style={{ width: `${r.pct}%` }} />}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -845,14 +801,12 @@ function filterLabel(f: Filter): string {
     (reset whenever the period changes — see key=). */
 function TaskTable({
   name,
-  period,
   tasks,
   tz,
   onOpenTask,
   initialTaskId,
 }: {
   name: string;
-  period: PeriodStatus;
   tasks: Task[];
   tz: ServerTimezone | undefined;
   onOpenTask: (t: Task) => void;
@@ -864,7 +818,7 @@ function TaskTable({
   const [sort, setSort] = useState<SortKey>("created");
   const [page, setPage] = useState(() => {
     if (!target) return 1;
-    const list = sortTasks(tasks, "created", period.months.map((m) => m.id));
+    const list = sortTasks(tasks, "created");
     const idx = list.findIndex((t) => t.id === target.id);
     return idx < 0 ? 1 : Math.floor(idx / ROWS_PER_PAGE) + 1;
   });
@@ -882,7 +836,7 @@ function TaskTable({
 
   const counts = countBy(tasks);
   const visible = tasks.filter((t) => statuses.length === 0 || statuses.includes(t.status as Filter));
-  const sorted = sortTasks(visible, sort, period.months.map((m) => m.id));
+  const sorted = sortTasks(visible, sort);
   const pageCount = Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE));
   const pageNo = Math.min(page, pageCount);
   const from = (pageNo - 1) * ROWS_PER_PAGE;
