@@ -3,8 +3,9 @@
 Commands:
     fronyboard                                 stdio transport (local development)
     fronyboard serve [--host H] [--port P]     streamable HTTP transport (home server)
-               [--public-url URL]        the shared Funnel domain (401s advertise
-               [--public-mcp-path P]     the resource metadata FronyAuth serves there)
+               [--public-url URL]        this server's public origin (https://board.frony.app);
+               [--public-auth-url URL]   FronyAuth's public issuer — together they publish the
+                                         RFC 9728 metadata that 401s on /mcp advertise
     fronyboard serve --local                   same, loopback only, no FronyAuth, no credentials
 
 Keys and the admin credential are issued by FronyAuth (`fauth keygen` /
@@ -327,25 +328,33 @@ def validate(key: str) -> dict:
     return service.validate(key)
 
 
-def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: str = "/mcp",
-          local: bool = False) -> None:
-    """Run the streamable HTTP server behind bearer auth delegated to FronyAuth.
+def build_app(host: str, public_url: str | None = None, public_auth_url: str | None = None,
+              local: bool = False):
+    """The ASGI stack `serve` runs: MCP + dashboard behind bearer auth delegated to FronyAuth.
 
-    OAuth itself lives in FronyAuth now (AIR-056): with `public_url` (the shared
-    Funnel domain) a 401 on /mcp advertises the resource metadata that FronyAuth
-    serves on that domain, so hosted clients still find their way to the login.
+    OAuth itself lives in FronyAuth (AIR-056). Every Frony service has its own host since
+    the Cloudflare Tunnel move (board.frony.app / auth.frony.app), so this server publishes
+    its own RFC 9728 resource metadata at /.well-known/oauth-protected-resource/mcp:
+    `public_url` is this service's origin, `public_auth_url` FronyAuth's public issuer.
+    A 401 on /mcp points at that document, so hosted clients find their way to the login.
     `local` is the single-user mode: loopback only, no FronyAuth, no credentials (AIR-083).
     """
     if local and host not in _LOOPBACK:
         raise SystemExit(f"--local serves the loopback interface only; --host {host!r} is not allowed")
-    import uvicorn
     from mcp.server.transport_security import TransportSecuritySettings
     from starlette.middleware.gzip import GZipMiddleware
 
     resource_metadata_url = None
+    metadata_routes = []
     if public_url:
-        path = "/" + public_mcp_path.strip("/")
-        resource_metadata_url = f"{public_url.rstrip('/')}/.well-known/oauth-protected-resource{path}"
+        if not public_auth_url:
+            raise SystemExit("--public-url needs --public-auth-url (FronyAuth's public issuer)")
+        from mcp.server.auth.routes import build_resource_metadata_url, create_protected_resource_routes
+        from pydantic import AnyHttpUrl
+        resource = AnyHttpUrl(f"{public_url.rstrip('/')}/mcp")
+        resource_metadata_url = str(build_resource_metadata_url(resource))
+        metadata_routes = create_protected_resource_routes(
+            resource, [AnyHttpUrl(public_auth_url)], resource_name="FronyBoard")
     if local:
         # Nothing authenticates here, so a rebound browser page could otherwise reach
         # this server — keep the host check on and pin it to the loopback names.
@@ -359,19 +368,31 @@ def serve(host: str, port: int, public_url: str | None = None, public_mcp_path: 
         # requires a bearer key that a rebound browser page cannot attach.
         security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
     app = mcp.streamable_http_app(transport_security=security)
+    # The metadata route is open by design (RFC 9728 discovery happens before any credential)
+    # and sits outside the protected prefixes; it must precede the dashboard's "/" mount.
+    app.router.routes.extend(metadata_routes)
     web.LOCAL_MODE = local
     web.attach(app)
+    # gzip sits inside auth so /mcp streams are untouched (minimum_size keeps them out)
+    # and the board JSON (~130 KB) shrinks ~5x for the dashboard.
+    if local:
+        return auth.LocalCallerMiddleware(GZipMiddleware(app, minimum_size=2048))
+    return auth.with_mcp_cors(
+        auth.BearerAuthMiddleware(GZipMiddleware(app, minimum_size=2048),
+                                  protected=("/mcp", "/api"),
+                                  open_paths=("/api/login",),
+                                  resource_metadata_url=resource_metadata_url))
+
+
+def serve(host: str, port: int, public_url: str | None = None, public_auth_url: str | None = None,
+          local: bool = False) -> None:
+    """Run the streamable HTTP server (see `build_app`)."""
+    import uvicorn
+
+    stack = build_app(host, public_url, public_auth_url, local=local)
     _boot("http", host=f"{host}:{port}", public_url=public_url,
           fauth=None if local else fauth.base_url(), local=local)
     try:
-        # gzip sits inside auth so /mcp streams are untouched (minimum_size keeps them out)
-        # and the board JSON (~130 KB) shrinks ~5x for the dashboard.
-        stack = auth.LocalCallerMiddleware(GZipMiddleware(app, minimum_size=2048)) if local else \
-            auth.with_mcp_cors(
-                auth.BearerAuthMiddleware(GZipMiddleware(app, minimum_size=2048),
-                                          protected=("/mcp", "/api"),
-                                          open_paths=("/api/login",),
-                                          resource_metadata_url=resource_metadata_url))
         uvicorn.run(stack, host=host, port=port, log_config=None)
     finally:
         log.event("INFO", "boot", "shutdown", mode="http")
@@ -405,11 +426,11 @@ def main() -> None:
                          help="single-user mode: bind to 127.0.0.1, no FronyAuth, no credentials "
                               "— the dashboard opens without a login")
     serve_p.add_argument("--public-url", default=os.environ.get("FRONYBOARD_PUBLIC_URL") or None,
-                         help="HTTPS URL hosted MCP clients use (enables OAuth); "
-                              "default: FRONYBOARD_PUBLIC_URL")
-    serve_p.add_argument("--public-mcp-path", default=os.environ.get("FRONYBOARD_PUBLIC_MCP_PATH") or "/mcp",
-                         help="path of the MCP endpoint under --public-url, e.g. /board/mcp; "
-                              "default: FRONYBOARD_PUBLIC_MCP_PATH or /mcp")
+                         help="this server's public HTTPS origin, e.g. https://board.frony.app "
+                              "(enables OAuth for hosted MCP clients); default: FRONYBOARD_PUBLIC_URL")
+    serve_p.add_argument("--public-auth-url", default=os.environ.get("FRONYBOARD_PUBLIC_AUTH_URL") or None,
+                         help="public URL of FronyAuth, the OAuth issuer (required with --public-url); "
+                              "default: FRONYBOARD_PUBLIC_AUTH_URL")
     mig_p = sub.add_parser("migrate", help="copy the pre-v0.25 YAML tree into fronyboard.db (once)")
     mig_p.add_argument("--source", default=None, help="projects/ folder; default <data root>/projects")
     mig_p.add_argument("--dry-run", action="store_true", help="list what would be copied, write nothing")
@@ -425,7 +446,7 @@ def main() -> None:
         log.setup()
         _strip_legacy()
         host = args.host or ("127.0.0.1" if args.local else "0.0.0.0")
-        serve(host, args.port, args.public_url, args.public_mcp_path, local=args.local)
+        serve(host, args.port, args.public_url, args.public_auth_url, local=args.local)
     else:
         log.setup(stderr=True)  # stdout is the MCP channel — never a log sink
         _strip_legacy()

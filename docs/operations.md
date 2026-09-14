@@ -82,8 +82,9 @@ done once, on the server:
 1. `git fetch --tags; git checkout v0.28.0` in the checkout, so the new scripts are on disk.
 2. Create `C:\Users\<user>\fronyboard-server.cmd` from `scripts\fronyboard-server.cmd.example`,
    copying `FRONY_SERVICE_KEY` and the paths from the old `aira-server.cmd`. `AIRA_TZ`,
-   `AIRA_PUBLIC_URL`, `AIRA_PUBLIC_MCP_PATH` (and `AIRA_LOG_DIR` if set) become
-   `FRONYBOARD_*`; `AIRA_DATA_DIR` stays as it is.
+   `AIRA_PUBLIC_URL` (and `AIRA_LOG_DIR` if set) become `FRONYBOARD_*`;
+   `AIRA_DATA_DIR` stays as it is. (`AIRA_PUBLIC_MCP_PATH` has no successor since
+   v0.34.0 — the MCP path is always `/mcp`.)
 3. Elevated PowerShell: `schtasks /End /TN "AIRA Server"`, then
    `Get-Process aira -ErrorAction SilentlyContinue | Stop-Process -Force`, then
    `schtasks /Delete /TN "AIRA Server" /F`, then `scripts\register-task.ps1` — registers
@@ -109,61 +110,41 @@ powershell -NoProfile -File scripts\deploy.ps1   # restart it if not (no -Tag = 
 A restart (reboot or task restart) clears all dashboard sessions — everyone
 signs in again. API keys are unaffected.
 
-## Hosted MCP clients (Tailscale Funnel + OAuth)
+## Hosted MCP clients (Cloudflare Tunnel + OAuth)
 
 The Claude / ChatGPT apps connect from the vendor's servers, so the MCP
-endpoint is also reachable from the public internet through Tailscale Funnel.
+endpoint is also reachable from the public internet. Since 2026-09 every Frony
+service has its own hostname under `frony.app`, published through one
+Cloudflare Tunnel on the server (the tunnel, DNS and service registrations are
+managed there, not in this repo):
+
+    https://board.frony.app  -> http://127.0.0.1:8642  (FronyBoard: /mcp, dashboard, /api)
+    https://auth.frony.app   -> http://127.0.0.1:8640  (FronyAuth: OAuth issuer + approval page)
+
 The OAuth authorization server is **FronyAuth** (project-auth, `:8640`) since
-v0.18.0 — FronyBoard only advertises FronyAuth's resource metadata on a 401
-(`FRONYBOARD_PUBLIC_URL` + `FRONYBOARD_PUBLIC_MCP_PATH` in `fronyboard-server.cmd`). The public
-layout is *root = auth, one prefix per service*:
-
-    https://<server>.<tailnet>.ts.net/board/mcp  -> http://127.0.0.1:8642/mcp  (FronyBoard)
-    https://<server>.<tailnet>.ts.net/{.well-known,register,authorize,token,revoke,oauth,fonts,favicon.ico}
-                                                                       -> http://127.0.0.1:8640/*    (FronyAuth)
-    https://<gpu-server>.<tailnet>.ts.net/cache/*            -> http://127.0.0.1:9412/*    (FronyHome, its own machine)
-
-Funnel exposes only these path prefixes — the dashboard and `/api` stay
-tailnet-only:
+v0.18.0. FronyBoard publishes its own RFC 9728 resource metadata (v0.34.0 —
+before the move FronyAuth served it on the shared Funnel domain):
 
 | path | purpose |
 |---|---|
-| `/board/mcp` | the MCP endpoint (bearer: API key or OAuth access token) |
-| `/mcp` | the same endpoint at its pre-prefix address — kept for connectors registered before 2026-08-27 |
-| `/.well-known` | OAuth discovery (`oauth-authorization-server`, `oauth-protected-resource/board/mcp`) |
-| `/register`, `/authorize`, `/token`, `/revoke` | OAuth endpoints (MCP SDK) |
-| `/oauth` | the approval page (`/oauth/login`, `/oauth/deny`) — asks for the dashboard login |
+| `/mcp` | the MCP endpoint (bearer: API key or OAuth access token) |
+| `/.well-known/oauth-protected-resource/mcp` | resource metadata, open: `resource` = `https://board.frony.app/mcp`, `authorization_servers` = FronyAuth |
 
-Flow: the app finds the metadata, registers itself, sends the browser to
-`/oauth/login`, and exchanges the code for tokens. Access tokens last 24 h and
-refresh silently for 90 days; after that the app asks for the login again.
-Clients and token hashes live in the Frony-wide `Frony\oauth.yaml` (next to the key
-registry; `FRONY_OAUTH_FILE` overrides, and the launcher pins it for the SYSTEM
-account like `FRONY_AUTH_FILE`) — delete a `grants` entry to sign one app out, or
-disconnect the connector in the app. Other Frony services exposed on their own
-Funnel path (`--set-path /cache http://127.0.0.1:9412`) verify the same tokens
-from that file instead of running OAuth themselves. Five failed
-logins from one address (all Funnel traffic counts as one address) lock the
-login for 15 minutes; the same limit guards `/api/login`.
+Both come from `FRONYBOARD_PUBLIC_URL` + `FRONYBOARD_PUBLIC_AUTH_URL` in
+`fronyboard-server.cmd`. A 401 on `/mcp` carries
+`WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`;
+the app fetches that document, registers at FronyAuth, sends the browser to the
+approval page (dashboard login) and exchanges the code for tokens. Access tokens
+last 24 h and refresh silently for 90 days; after that the app asks for the login
+again. Clients, grants and the login lockout are FronyAuth's (project-auth docs).
 
-The Funnel config is stored by tailscaled and survives reboots. Prerequisites
-on the admin console (done 2026-08-27): `nodeAttrs` grants `funnel` to
-`autogroup:member`, and DNS -> HTTPS Certificates is enabled.
+Checks after a deploy:
 
 ```powershell
-$ts = "C:\Program Files\Tailscale\tailscale.exe"
-& $ts funnel status
-foreach ($p in "/.well-known", "/register", "/authorize", "/token", "/revoke", "/oauth", "/fonts", "/favicon.ico") {
-    & $ts funnel --bg --set-path $p "http://127.0.0.1:8640$p"     # FronyAuth (re-)enable
-}
-& $ts funnel --bg --set-path /board/mcp http://127.0.0.1:8642/mcp   # FronyBoard
-& $ts funnel --bg --set-path /mcp http://127.0.0.1:8642/mcp         # pre-prefix address, old connectors
-& $ts funnel --https=443 off                                      # close everything
+curl https://board.frony.app/.well-known/oauth-protected-resource/mcp   # 200, no credential
+curl -i https://board.frony.app/mcp                                     # 401 + WWW-Authenticate
+curl -i -X OPTIONS https://board.frony.app/mcp                          # preflight passes without a credential
 ```
-
-Gotcha: the stored funnel config is keyed by the machine's DNS name at the time
-it was written — after a machine rename, `--set-path <p> off` reports "handler
-does not exist". `tailscale serve reset` and re-add instead.
 
 ## API keys
 

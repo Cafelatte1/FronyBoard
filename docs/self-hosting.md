@@ -95,7 +95,7 @@ as `<server>` — only your enrolled devices can reach it, from anywhere.
 Every env var the server reads lives in the launcher and nowhere else:
 `AIRA_DATA_DIR`, `FRONYBOARD_TZ`, `FRONYBOARD_LOG_DIR`, `FRONY_AUTH_URL`,
 `FRONY_SERVICE_KEY`, and for hosted apps `FRONYBOARD_PUBLIC_URL` /
-`FRONYBOARD_PUBLIC_MCP_PATH`.
+`FRONYBOARD_PUBLIC_AUTH_URL`.
 
 ## Clients
 
@@ -120,20 +120,22 @@ issue or revoke keys.
 
 The Claude and ChatGPT apps connect from the vendor's servers, not from your
 device, so they need a public HTTPS address and log in with OAuth instead of a
-static key. Expose the MCP path (and FronyAuth's OAuth paths) with
-[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) and start the server
-with that address:
+static key. Give this server its own public hostname (a Cloudflare Tunnel or any
+reverse proxy that forwards the host to `:8642`), do the same for FronyAuth, and
+start the server with both addresses:
 
 ```powershell
-$env:FRONYBOARD_PUBLIC_URL = "https://<machine>.<tailnet>.ts.net"   # or: fronyboard serve --public-url …
-$env:FRONYBOARD_PUBLIC_MCP_PATH = "/board/mcp"                       # the Funnel path that proxies to /mcp
+$env:FRONYBOARD_PUBLIC_URL = "https://board.frony.app"        # or: fronyboard serve --public-url …
+$env:FRONYBOARD_PUBLIC_AUTH_URL = "https://auth.frony.app"    # FronyAuth's public issuer
 uv run fronyboard serve
 ```
 
-Add `https://<machine>.<tailnet>.ts.net/board/mcp` as a custom connector in the app;
-the approval page asks for the dashboard login. Access tokens last 24 hours and
-refresh silently for 90 days; API keys keep working unchanged. The Funnel path
-layout and the OAuth flow are in [operations](operations.md), "Hosted MCP clients".
+With both set the server publishes its OAuth resource metadata at
+`/.well-known/oauth-protected-resource/mcp` (open, no credential) and a 401 on
+`/mcp` points there. Add `https://board.frony.app/mcp` as a custom connector in
+the app; the approval page asks for the dashboard login. Access tokens last 24
+hours and refresh silently for 90 days; API keys keep working unchanged. The
+public layout and the OAuth flow are in [operations](operations.md), "Hosted MCP clients".
 
 ## Dashboard
 

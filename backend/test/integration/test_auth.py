@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from fronyboard import auth, fauth
+from fronyboard import auth, fauth, server
 from conftest import asgi_request
 
 
@@ -57,13 +57,35 @@ def test_middleware_answers_503_when_fauth_is_down(fake_fauth):
 
 
 def test_401_on_mcp_advertises_resource_metadata(fake_fauth):
-    url = "https://auth.example.ts.net/.well-known/oauth-protected-resource/board/mcp"
+    url = "https://board.example/.well-known/oauth-protected-resource/mcp"
     status, headers, _ = _run_middleware([], path="/mcp", resource_metadata_url=url)
     assert status == 401
     assert headers["www-authenticate"] == f'Bearer resource_metadata="{url}"'
     # only /mcp carries the pointer — an /api 401 does not
     status, headers, _ = _run_middleware([], path="/api/projects", resource_metadata_url=url)
     assert status == 401 and "www-authenticate" not in headers
+
+
+def test_hosted_stack_serves_its_own_resource_metadata(fake_fauth):
+    """Since the Cloudflare Tunnel move every service has its own host, so FronyBoard
+    publishes its RFC 9728 document itself, open, and the /mcp 401 points at it."""
+    stack = server.build_app("0.0.0.0", public_url="https://board.frony.app",
+                             public_auth_url="https://auth.frony.app")
+    status, headers, body = asgi_request(stack, "GET", "/.well-known/oauth-protected-resource/mcp")
+    assert status == 200
+    doc = json.loads(body)
+    assert doc["resource"] == "https://board.frony.app/mcp"
+    assert doc["authorization_servers"] == ["https://auth.frony.app/"]
+    assert doc["bearer_methods_supported"] == ["header"]
+    assert doc["resource_name"] == "FronyBoard"
+    status, headers, _ = asgi_request(stack, "POST", "/mcp")
+    assert status == 401
+    assert headers["www-authenticate"] ==         'Bearer resource_metadata="https://board.frony.app/.well-known/oauth-protected-resource/mcp"'
+
+
+def test_public_url_without_public_auth_url_is_refused():
+    with pytest.raises(SystemExit):
+        server.build_app("0.0.0.0", public_url="https://board.frony.app")
 
 
 def test_session_tokens_pass_middleware_locally_until_dropped(fake_fauth):
