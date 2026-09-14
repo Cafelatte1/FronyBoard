@@ -25,7 +25,7 @@ describe("TaskPanel", () => {
       status: "in_progress",
       branch: "feat/DLY-007/panel",
       tags: ["frontend", "design"],
-      content: "패널을 다듬는 이유 한 줄",
+      content: "resolve `profile_mismatch` in **auth**",
     });
     render(
       <TaskPanel
@@ -41,8 +41,9 @@ describe("TaskPanel", () => {
     expect(screen.getByText("polish the panel")).toBeInTheDocument();
     expect(screen.getByText("feat/DLY-007/panel")).toBeInTheDocument();
     expect(screen.getByText("frontend")).toBeInTheDocument();
-    // content is one plain line, rendered verbatim
-    expect(screen.getByText("패널을 다듬는 이유 한 줄")).toBeInTheDocument();
+    // content is one line with inline markdown: `code` and **bold** render as elements
+    expect(screen.getByText("profile_mismatch").tagName).toBe("CODE");
+    expect(screen.getByText("auth").tagName).toBe("STRONG");
     // naive-UTC created_at rendered in the server's zone (KST, +9h)
     expect(screen.getByText("meta · KST (UTC+9)")).toBeInTheDocument();
     expect(screen.getAllByText("2026-07-01 18:00:00")).toHaveLength(2); // created_at + updated_at

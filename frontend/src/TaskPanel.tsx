@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { StatusChip, TagChip, TASK_ST, fmtServerTime, tzLabel } from "./shared";
 import type { ServerTimezone, Task } from "./types";
 
@@ -116,7 +116,9 @@ export default function TaskPanel({
 
               <div className="panel-section">
                 <span className="panel-cap">content</span>
-                <p className={`panel-note ${task.content ? "" : "dim"}`}>{task.content ?? "—"}</p>
+                {task.content
+                  ? <p className="panel-note"><InlineMd text={task.content} /></p>
+                  : <p className="panel-note dim">—</p>}
               </div>
 
               <div className="panel-section sep">
@@ -216,4 +218,23 @@ function Field({ label, value, tone }: { label: string; value: string; tone?: "a
       </span>
     </span>
   );
+}
+
+/** Inline markdown for the one-line task `content`: `code`, **bold**, _italic_.
+    Block markdown is gone with the 25-line body (v0.33.0) — content is one short line now. */
+function InlineMd({ text }: { text: string }) {
+  const re = /(`[^`]+`|\*\*[^*]+\*\*|_[^_]+_)/g;
+  const out: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const tok = m[0];
+    if (tok.startsWith("`")) out.push(<code key={out.length}>{tok.slice(1, -1)}</code>);
+    else if (tok.startsWith("**")) out.push(<strong key={out.length}>{tok.slice(2, -2)}</strong>);
+    else out.push(<em key={out.length}>{tok.slice(1, -1)}</em>);
+    last = m.index + tok.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return <>{out}</>;
 }

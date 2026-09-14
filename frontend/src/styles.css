@@ -2777,60 +2777,8 @@ button.task-grid:hover {
   color: var(--text);
 }
 
-/* markdown blocks inside the panel */
-.md {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  line-height: var(--lh-body);
-  text-wrap: pretty;
-}
-
-.md > * {
-  margin: 0;
-}
-
-.md-h2 {
-  font-size: var(--t-subtitle);
-  font-weight: 700;
-  margin-top: 8px;
-}
-
-.md-h3 {
-  font-size: var(--t-label);
-  font-weight: 600;
-  color: var(--on-accent-subtle);
-  margin-top: 6px;
-}
-
-.md-p,
-.md-li {
-  font-size: var(--t-caption);
-}
-
-.md-li {
-  padding-left: 4px;
-}
-
-.md-quote {
-  font-size: var(--t-caption);
-  color: var(--text-muted);
-  border-left: 2px solid var(--accent);
-  padding: 2px 0 2px 11px;
-}
-
-.md-code {
-  font-size: var(--t-meta);
-  font-family: var(--font-mono);
-  color: var(--on-accent-subtle);
-  background: var(--surface-raised);
-  border-radius: var(--r-md);
-  padding: 10px 12px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.md code {
+/* inline markdown inside the one-line task note (v0.33.0) */
+.panel-note code {
   font-family: var(--font-mono);
   color: var(--on-accent-subtle);
   background: var(--surface-raised);
@@ -2839,9 +2787,13 @@ button.task-grid:hover {
   font-size: 0.92em;
 }
 
-.md strong {
+.panel-note strong {
   font-weight: 700;
   color: var(--text);
+}
+
+.panel-note em {
+  font-style: italic;
 }
 
 /* --------------------------------------------------------------- settings */
