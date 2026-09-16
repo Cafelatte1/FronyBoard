@@ -4,7 +4,9 @@ Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,
 status enums, milestone <-> period consistency,
 id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
-ordering (updated_at >= created_at) and task content shape (one line, ≤200 chars).
+ordering (updated_at >= created_at), task content shape (one line, ≤200 chars),
+and the task `follows` list (id shape, no
+self/duplicate, same-project ids exist, no cycle).
 """
 
 from __future__ import annotations
@@ -61,6 +63,25 @@ def _check_tags(tags, where: str, r: Report) -> None:
         if tag in seen:
             r.err(f"{where}: duplicate tag ({tag!r})")
         seen.add(tag)
+
+
+def _check_follows(follows, tid, where: str, r: Report) -> None:
+    """`follows` points at the tasks this one continues from: unique full ids, never itself."""
+    if follows is None:
+        return
+    if not isinstance(follows, list):
+        r.err(f"{where}: follows must be a list of task ids ({follows!r})")
+        return
+    seen = set()
+    for ref in follows:
+        if not isinstance(ref, str) or not TASK_ID.fullmatch(ref):
+            r.err(f"{where}: follows entries must be full task ids like DLY-042 ({ref!r})")
+            continue
+        if ref == tid:
+            r.err(f"{where}: follows must not reference the task itself")
+        if ref in seen:
+            r.err(f"{where}: duplicate follows entry ({ref!r})")
+        seen.add(ref)
 
 
 def _check_meta(record: dict, where: str, r: Report) -> None:
@@ -186,6 +207,7 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
         elif meta.get("completed_at") is not None:
             r.err(f"{where}: meta.completed_at is only valid on a done task")
         _check_tags(t.get("tags"), where, r)
+        _check_follows(t.get("follows"), tid, where, r)
         content = t.get("content")
         if content is not None:
             if not isinstance(content, str):
@@ -196,6 +218,46 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
                 if len(content) > MAX_CONTENT:
                     r.err(f"{where}: content is longer than {MAX_CONTENT} characters")
         _check_meta(t, where, r)
+
+
+def _check_follows_graph(state: ProjectState, names: set, task_id_re: re.Pattern,
+                         all_task_ids: set, r: Report) -> None:
+    """The `follows` edges that stay inside this project: each reference must exist and the
+    graph must stay acyclic. Ids of other projects are only shape-checked here — the
+    service resolves them at write time."""
+    edges: dict[str, list[str]] = {}
+    wheres: dict[str, str] = {}
+    for name in sorted(names):
+        data = state.periods[name].data
+        for t in (data.get("tasks") or []) if isinstance(data, dict) else []:
+            tid, follows = t.get("id"), t.get("follows")
+            if not isinstance(tid, str) or not isinstance(follows, list):
+                continue
+            where = wheres[tid] = f"{name} tasks[{tid}]"
+            edges[tid] = [ref for ref in follows
+                          if isinstance(ref, str) and task_id_re.fullmatch(ref)
+                          and ref != tid]   # a self-reference is already reported
+            for ref in edges[tid]:
+                if ref not in all_task_ids:
+                    r.err(f"{where}: follows references unknown task {ref}")
+
+    mark: dict[str, int] = {}   # 1 = on the current path, 2 = finished
+
+    def walk(tid: str, path: list[str]) -> None:
+        mark[tid] = 1
+        path.append(tid)
+        for ref in edges.get(tid, ()):
+            if mark.get(ref) == 1:
+                cycle = path[path.index(ref):] + [ref]
+                r.err(f"{wheres[tid]}: follows forms a cycle ({' -> '.join(cycle)})")
+            elif ref in edges and ref not in mark:
+                walk(ref, path)
+        path.pop()
+        mark[tid] = 2
+
+    for tid in edges:
+        if tid not in mark:
+            walk(tid, [])
 
 
 def validate_state(state: ProjectState) -> Report:
@@ -222,6 +284,7 @@ def validate_state(state: ProjectState) -> Report:
     checked = actual & set(expected)
     for name in sorted(checked):
         _check_period(state, name, expected[name], task_id_re, all_task_ids, r)
+    _check_follows_graph(state, checked, task_id_re, all_task_ids, r)
     return r
 
 

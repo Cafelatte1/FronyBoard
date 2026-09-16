@@ -82,7 +82,7 @@ JSON documents; the schema and the rules that guard it are in
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
   periods and are never reused. They are the only link between FronyBoard and a codebase:
   use them in branch names (`feat/DLY-042/short-desc`) and record the branch on the task.
-- **A task is a title** (v0.33.0, AIR-086) plus status, tags, branch and an
+- **A task is a title** (v0.33.0, AIR-086) plus status, tags, `follows`, branch and an
   optional one-line `content` of at most 200 characters. Agents read titles and status;
   the body nobody read, and the month/week slots that only existed to schedule it, are gone.
   Time is `meta.completed_at`.
@@ -95,6 +95,9 @@ JSON documents; the schema and the rules that guard it are in
   `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
   period under a new id and note the mapping in the closing retrospective.
+- **`follows`** on a task lists the tasks it continues from (other projects allowed). It is a
+  pointer, not a lock: `get_task` shows the reverse as `followed_by`, `list_tasks` flags
+  `waiting_on` while predecessors are open, and nothing is ever blocked.
 - **Timestamps** (`meta.created_at` / `updated_at` / `started_at` / `completed_at`) are
   stamped by the server in naive UTC — `started_at` on the first `in_progress` transition,
   `completed_at` on `done` (and removed again if the task leaves `done`). Agents never

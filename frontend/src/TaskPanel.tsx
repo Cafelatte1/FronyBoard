@@ -1,6 +1,8 @@
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { StatusChip, TagChip, TASK_ST, fmtServerTime, tzLabel } from "./shared";
 import type { ServerTimezone, Task } from "./types";
+
+type TaskHit = { key: string; task: Task };
 
 /** Right-hand slide-over with the full task record. Stays mounted so the
     close transition can play; `task` null just means closed. */
@@ -8,14 +10,44 @@ export default function TaskPanel({
   task,
   projectKey,
   tz,
+  board,
+  onOpenTask,
   onClose,
 }: {
   task: Task | null;
   projectKey: string | null;
   tz: ServerTimezone | undefined;
+  board: Record<string, Task[]>;
+  onOpenTask: (key: string, task: Task) => void;
   onClose: () => void;
 }) {
   const open = task !== null;
+  // Only one link dropdown at a time; opening another task closes it.
+  const [openKind, setOpenKind] = useState<"follows" | "followed" | null>(null);
+  useEffect(() => setOpenKind(null), [task?.id]);
+
+  const followsIds = task?.follows ?? [];
+  // The reverse relation is not in the payload — derive it from the whole board.
+  const followedByIds = task
+    ? Object.values(board)
+        .flat()
+        .filter((o) => o.follows?.includes(task.id))
+        .map((o) => o.id)
+        .sort()
+    : [];
+  const findTask = (id: string): TaskHit | null => {
+    for (const [key, list] of Object.entries(board)) {
+      const hit = list.find((t) => t.id === id);
+      if (hit) return { key, task: hit };
+    }
+    return null;
+  };
+  const pick = (id: string) => {
+    const hit = findTask(id);
+    if (!hit) return;
+    setOpenKind(null);
+    onOpenTask(hit.key, hit.task);
+  };
 
   return (
     <>
@@ -41,6 +73,26 @@ export default function TaskPanel({
             <div className="panel-body">
               <div className="panel-tags-row">
                 <span className="panel-cap">tags</span>
+                <div className="panel-links">
+                  <LinkButton
+                    label="follows"
+                    title="follows — the tasks this one continues from"
+                    ids={followsIds}
+                    open={openKind === "follows"}
+                    onToggle={() => setOpenKind(openKind === "follows" ? null : "follows")}
+                    findTask={findTask}
+                    onPick={pick}
+                  />
+                  <LinkButton
+                    label="followed by"
+                    title="followed by — the tasks that continue from this one"
+                    ids={followedByIds}
+                    open={openKind === "followed"}
+                    onToggle={() => setOpenKind(openKind === "followed" ? null : "followed")}
+                    findTask={findTask}
+                    onPick={pick}
+                  />
+                </div>
               </div>
               {task.tags && task.tags.length > 0 && (
                 <div className="panel-tags">
@@ -83,6 +135,66 @@ export default function TaskPanel({
         )}
       </aside>
     </>
+  );
+}
+
+/** Pill button + dropdown of related task ids; hovering a row previews its title. */
+function LinkButton({
+  label,
+  title,
+  ids,
+  open,
+  onToggle,
+  findTask,
+  onPick,
+}: {
+  label: string;
+  title: string;
+  ids: string[];
+  open: boolean;
+  onToggle: () => void;
+  findTask: (id: string) => TaskHit | null;
+  onPick: (id: string) => void;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const hovered = hover !== null && open ? findTask(ids[hover]) : null;
+  return (
+    <div>
+      <button
+        className={`link-btn ${open ? "open" : ""}`}
+        disabled={ids.length === 0}
+        aria-expanded={open}
+        title={title}
+        onClick={() => {
+          setHover(null);
+          onToggle();
+        }}
+      >
+        {label}
+        <span className="link-count">{ids.length}</span>
+      </button>
+      {open && (
+        <div className="link-menu" role="menu" onMouseLeave={() => setHover(null)}>
+          {ids.map((id, i) => (
+            <button
+              key={id}
+              className="link-row"
+              role="menuitem"
+              title={findTask(id) ? undefined : "Not on this board"}
+              onMouseEnter={() => setHover(i)}
+              onClick={() => onPick(id)}
+            >
+              {id}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && hover !== null && (
+        <div className="link-tip" style={{ top: `calc(100% + ${10 + hover * 28}px)` }}>
+          {hovered ? hovered.task.title : "Not on this board"}
+        </div>
+      )}
+    </div>
   );
 }
 

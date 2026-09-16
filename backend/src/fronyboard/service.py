@@ -386,6 +386,33 @@ def _clean_tags(tags: list[str] | None) -> list[str]:
     return cleaned
 
 
+def _clean_follows(follows: list[str] | None) -> list[str]:
+    """Trim, drop blanks and de-duplicate while keeping the order given."""
+    if not follows:
+        return []
+    if not isinstance(follows, list):
+        raise FronyBoardError("follows must be a list of task ids")
+    cleaned: list[str] = []
+    for ref in follows:
+        if not isinstance(ref, str):
+            raise FronyBoardError(f"follows must be a list of task ids ({ref!r})")
+        ref = ref.strip()
+        if ref and ref not in cleaned:
+            cleaned.append(ref)
+    return cleaned
+
+
+def _check_foreign_follows(state: ProjectState, follows: list[str]) -> None:
+    """Ids from other projects are checked here — the gate only sees this project's state."""
+    for ref in follows:
+        other = resolve_key(None, ref)
+        if other == state.key:
+            continue
+        if not store.project_exists(other):
+            raise FronyBoardError(f"follows: project {other} not found for {ref}")
+        _find_task(store.load_state(other), ref)
+
+
 def _clean_content(value: str | None) -> str | None:
     """Fold the one-line note into a single line; None when there is nothing left. The
     200-character cap stays a validation error — a long note is rejected, not silently cut."""
@@ -398,13 +425,17 @@ def _clean_content(value: str | None) -> str | None:
 
 @_locked
 def create_task(key: str, period: str, title: str, content: str | None = None,
-                tags: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
     state = store.load_state(key)
     _require_period(state, period)
     task: dict = {"id": _next_task_id(state), "title": title, "status": "todo"}
     tags = _clean_tags(tags)
     if tags:
         task["tags"] = tags
+    follows = _clean_follows(follows)
+    if follows:
+        _check_foreign_follows(state, follows)
+        task["follows"] = follows
     content = _clean_content(content)
     if content:
         task["content"] = content
@@ -416,20 +447,25 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
 
 
 # Optional task fields; an "empty" value ("" / []) passed to update_task removes them.
-_CLEARABLE = {"content", "branch", "tags"}
+_CLEARABLE = {"content", "branch", "tags", "follows"}
 
 
 @_locked
 def update_task(key: str, task_id: str, title: str | None = None,
                 content: str | None = None, branch: str | None = None,
-                tags: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
     if tags is not None:
         tags = _clean_tags(tags)
+    if follows is not None:
+        follows = _clean_follows(follows)
+        if follows:
+            _check_foreign_follows(state, follows)
     if content is not None:
         content = _clean_content(content) or ""   # an empty result clears the field
-    fields = {"title": title, "content": content, "branch": branch, "tags": tags}
+    fields = {"title": title, "content": content, "branch": branch, "tags": tags,
+              "follows": follows}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise FronyBoardError("nothing to update — pass at least one field (status changes go through transition_task)")
@@ -474,6 +510,27 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
 # ----------------------------------------------------------------- queries
 
 
+def _status_lookup(state: ProjectState):
+    """status by task id, loading other projects lazily; None when the id cannot be found."""
+    cache = {state.key: {t.get("id"): t.get("status") for p in state.periods.values()
+                         for t in p.data.get("tasks") or []}}
+
+    def status_of(ref: str):
+        key = ref.split("-", 1)[0]
+        if key not in cache:
+            cache[key] = ({t.get("id"): t.get("status") for p in store.load_state(key).periods.values()
+                           for t in p.data.get("tasks") or []}
+                          if store.project_exists(key) else {})
+        return cache[key].get(ref)
+    return status_of
+
+
+def _waiting_on(t: dict, status_of) -> list[str]:
+    if t.get("status") in ("done", "cancelled"):
+        return []
+    return [ref for ref in t.get("follows") or [] if status_of(ref) not in ("done", "cancelled")]
+
+
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                include_cancelled: bool = False, tags: list[str] | None = None,
                updated_since: str | None = None) -> dict:
@@ -489,6 +546,7 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
            updated_since: str | None = None) -> list:
     wanted = set(_clean_tags(tags))   # a task must carry all of them
     cutoff = _naive_utc(_since(updated_since)) if updated_since else None
+    status_of = _status_lookup(state)
     results = []
     for pname, p in sorted(state.periods.items()):
         if period is not None and pname != period:
@@ -505,7 +563,11 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
                 u = (t.get("meta") or {}).get("updated_at")
                 if not isinstance(u, datetime.datetime) or u < cutoff:
                     continue
-            results.append({"period": pname, **t})
+            row = {"period": pname, **t}
+            waiting = _waiting_on(t, status_of)
+            if waiting:
+                row["waiting_on"] = waiting
+            results.append(row)
     return results
 
 
@@ -552,7 +614,19 @@ def get_task(task_id: str) -> dict:
     key = resolve_key(None, task_id)
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
-    return _jsonable({"project": key, "task": {"period": period, **task}})
+    followed_by = sorted(
+        o.get("id")
+        for other in store.project_keys(include_archived=True)
+        for p in (state if other == key else store.load_state(other)).periods.values()
+        for o in p.data.get("tasks") or []
+        if task_id in (o.get("follows") or []))
+    record = {"period": period, **task}
+    if followed_by:
+        record["followed_by"] = followed_by
+    waiting = _waiting_on(task, _status_lookup(state))
+    if waiting:
+        record["waiting_on"] = waiting
+    return _jsonable({"project": key, "task": record})
 
 
 def search_tasks(query: str, key: str | None = None, status: str | None = None,
@@ -673,17 +747,21 @@ def get_status(key: str) -> dict:
 _OPEN_STATUS = ("in_progress", "blocked", "todo")
 
 
-def _open_task(t: dict) -> dict:
+def _open_task(t: dict, status_of) -> dict:
     """One open task as get_status carries it: the resume line, nothing an agent
     would have to fetch separately."""
     row = {"id": t.get("id"), "title": t.get("title"), "status": t.get("status")}
     for field in ("tags", "branch", "content"):
         if t.get(field):
             row[field] = t[field]
+    waiting = _waiting_on(t, status_of)
+    if waiting:
+        row["waiting_on"] = waiting
     return row
 
 
 def _status(state: ProjectState) -> dict:
+    status_of = _status_lookup(state)
     years = state.roadmap.get("years") or {}
     overview = _without_meta((years[max(years)] or {}).get("overview")) if years else None
     periods = {}
@@ -703,7 +781,7 @@ def _status(state: ProjectState) -> dict:
             "milestone_status": milestone.get("status"),
             "task_counts": counts,
             "closed": p.has_result,
-            "open_tasks": [_open_task(t) for t in open_tasks],
+            "open_tasks": [_open_task(t, status_of) for t in open_tasks],
         }
     return {"project": state.key, "name": state.roadmap.get("name"),
             "overview": overview, "periods": periods}
