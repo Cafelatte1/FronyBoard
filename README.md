@@ -82,10 +82,18 @@ JSON documents; the schema and the rules that guard it are in
 - **Task ids are a project-global sequence** (`DLY-042`) — they keep counting across
   periods and are never reused. They are the only link between FronyBoard and a codebase:
   use them in branch names (`feat/DLY-042/short-desc`) and record the branch on the task.
-- **A task is a title** (v0.33.0, AIR-086) plus status, tags, `follows`, branch and an
-  optional one-line `content` of at most 200 characters. Agents read titles and status;
-  the body nobody read, and the month/week slots that only existed to schedule it, are gone.
+- **A task is a title** (v0.33.0, AIR-086) plus status, tags, `depends_on`, branch and two
+  one-line notes of at most 200 characters each. Agents read titles and status; the 25-line
+  body nobody read, and the month/week slots that only existed to schedule it, are gone.
   Time is `meta.completed_at`.
+- **The two notes answer different questions at different moments** (v0.38.0, AIR-090).
+  `content` is written at create time and says **why** the task exists — the pressure behind
+  it, or the reading chosen where the spec allowed several. `check` is required by
+  `transition_task(status="done")` and says **what proves it done** — the command and its
+  output, or an observable a reader can go and see. One free note asked before the work can
+  only restate the plan: in a 12-session benchmark every task an agent wrote paraphrased its
+  own title, because the note was fixed at create time and `update_task` was never called.
+  Reopening a task drops its `check`; nothing is proven any more.
 - **Reference chain**: `period → roadmap milestone` (the quarter). That is the only one.
 - **Statuses** — milestones: `planned | active | done`;
   tasks: `todo | in_progress | done | blocked | cancelled`.
@@ -95,6 +103,11 @@ JSON documents; the schema and the rules that guard it are in
   `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
   period under a new id and note the mapping in the closing retrospective.
+- **`get_status` is the whole resume** — the overview, each period's open tasks, and
+  `recent_done`: the ten most recently finished tasks with their `content`, their `check`
+  and when they completed. What is already built is what a cold session needs most, and
+  nobody makes a second call to find it (AIR-090). It is still a record of claims: the
+  board says what an agent reported, the code is the evidence.
 - **`depends_on`** on a task lists the earlier tasks it builds on (other projects allowed).
   It points backwards only — there is no forward index, because storing one direction and
   deriving the other read as inverted often enough to be worth dropping (v0.36.0, AIR-089).

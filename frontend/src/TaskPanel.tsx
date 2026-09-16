@@ -103,6 +103,13 @@ export default function TaskPanel({
                   : <p className="panel-note dim">—</p>}
               </div>
 
+              {task.check && (
+                <div className="task-check">
+                  <span className="panel-cap">check</span>
+                  <p><InlineMd text={task.check} /></p>
+                </div>
+              )}
+
               <div className="panel-section sep">
                 <span className="panel-cap">meta · {tzLabel(tz)}</span>
                 {metaRows(task).map(([label, value]) => (

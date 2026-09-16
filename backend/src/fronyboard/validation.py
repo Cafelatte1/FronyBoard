@@ -4,7 +4,7 @@ Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,
 status enums, milestone <-> period consistency,
 id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
-ordering (updated_at >= created_at), task content shape (one line, ≤200 chars),
+ordering (updated_at >= created_at), task content and check shape (one line, ≤200 chars),
 and the task `depends_on` list (id shape, no
 self/duplicate, same-project ids exist, no cycle).
 """
@@ -195,6 +195,8 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
                 r.err(f"{where}: a cancelled task must record a cancel_reason")
         elif t.get("cancel_reason") is not None:
             r.err(f"{where}: cancel_reason is only valid on a cancelled task")
+        if t.get("status") != "done" and t.get("check") is not None:
+            r.err(f"{where}: check is only valid on a done task")
         meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
         for field in ("started_at", "completed_at"):
             value = meta.get(field)
@@ -208,15 +210,17 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
             r.err(f"{where}: meta.completed_at is only valid on a done task")
         _check_tags(t.get("tags"), where, r)
         _check_depends_on(t.get("depends_on"), tid, where, r)
-        content = t.get("content")
-        if content is not None:
-            if not isinstance(content, str):
-                r.err(f"{where}: content must be a string")
-            else:
-                if "\n" in content or "\r" in content:
-                    r.err(f"{where}: content must be a single line")
-                if len(content) > MAX_CONTENT:
-                    r.err(f"{where}: content is longer than {MAX_CONTENT} characters")
+        for field in ("content", "check"):
+            value = t.get(field)
+            if value is None:
+                continue
+            if not isinstance(value, str):
+                r.err(f"{where}: {field} must be a string")
+                continue
+            if "\n" in value or "\r" in value:
+                r.err(f"{where}: {field} must be a single line")
+            if len(value) > MAX_CONTENT:
+                r.err(f"{where}: {field} is longer than {MAX_CONTENT} characters")
         _check_meta(t, where, r)
 
 

@@ -18,7 +18,7 @@ def test_full_lifecycle():
     assert listed["count"] == 1
     assert listed["tasks"][0]["branch"] == "feat/DLY-001/login-flow"
 
-    done = service.transition_task(key, "DLY-001", "done")
+    done = service.transition_task(key, "DLY-001", "done", check="pytest -q: green")
     assert done["from"] == "in_progress"
     task_after = service.list_tasks(key)["tasks"][0]
     assert "completed_at" in task_after["meta"]
@@ -146,7 +146,7 @@ def test_depends_on_points_at_predecessors():
     assert "waiting_on" not in rows["DLY-001"]          # nothing to wait for
 
     service.transition_task(key, "DLY-001", "in_progress")
-    service.transition_task(key, "DLY-001", "done")
+    service.transition_task(key, "DLY-001", "done", check="pytest -q: green")
     rows = {t["id"]: t for t in service.list_tasks(key)["tasks"]}
     assert "waiting_on" not in rows["DLY-002"]          # predecessor finished
 
@@ -179,7 +179,7 @@ def test_depends_on_crosses_projects():
     assert service.list_tasks("DLY")["tasks"][0]["waiting_on"] == ["FAU-001"]
 
     service.transition_task("FAU", "FAU-001", "in_progress")
-    service.transition_task("FAU", "FAU-001", "done")
+    service.transition_task("FAU", "FAU-001", "done", check="pytest -q: green")
     assert "waiting_on" not in service.list_tasks("DLY")["tasks"][0]
 
     with pytest.raises(service.FronyBoardError, match="not found in project FAU"):
@@ -235,7 +235,7 @@ def test_lifecycle_timestamps():
     service.transition_task(key, "DLY-001", "blocked")
     service.transition_task(key, "DLY-001", "in_progress")
     assert service.list_tasks(key)["tasks"][0]["meta"]["started_at"] == first_started
-    service.transition_task(key, "DLY-001", "done")
+    service.transition_task(key, "DLY-001", "done", check="pytest -q: green")
     assert "completed_at" in service.list_tasks(key)["tasks"][0]["meta"]
     service.transition_task(key, "DLY-001", "todo")
     assert "completed_at" not in service.list_tasks(key)["tasks"][0]["meta"]
@@ -266,7 +266,7 @@ def test_get_status_is_the_resume():
     service.transition_task(key, "DLY-002", "blocked")
     service.transition_task(key, "DLY-003", "in_progress", branch="feat/DLY-003/c")
     service.transition_task(key, "DLY-004", "in_progress")
-    service.transition_task(key, "DLY-004", "done")
+    service.transition_task(key, "DLY-004", "done", check="pytest -q: green")
 
     status = service.get_status(key)
     assert status["overview"]["goal"] == "ship it"
@@ -279,6 +279,53 @@ def test_get_status_is_the_resume():
                                        "content": "one line"}
     assert period["open_tasks"][1]["waiting_on"] == ["DLY-001"]
     assert "waiting_on" not in period["open_tasks"][2]
+
+
+def test_done_requires_a_check_and_reopening_drops_it():
+    key = bootstrap()
+    service.create_task(key, "2026Q3", title="a")
+    service.transition_task(key, "DLY-001", "in_progress")
+    with pytest.raises(service.FronyBoardError, match="requires a check"):
+        service.transition_task(key, "DLY-001", "done")
+    with pytest.raises(service.FronyBoardError, match="requires a check"):
+        service.transition_task(key, "DLY-001", "done", check="   ")
+
+    service.transition_task(key, "DLY-001", "done", check="  appctl --help" + chr(10) + "  exits 0  ")
+    task = service.get_task("DLY-001")["task"]
+    assert task["check"] == "appctl --help exits 0"          # folded to one line
+
+    # a check only belongs to finished work
+    service.update_task(key, "DLY-001", check="pytest -q: 97 passed")
+    assert service.get_task("DLY-001")["task"]["check"] == "pytest -q: 97 passed"
+    service.transition_task(key, "DLY-001", "in_progress")
+    assert "check" not in service.get_task("DLY-001")["task"]
+    with pytest.raises(service.FronyBoardError, match="finished task"):
+        service.update_task(key, "DLY-001", check="too early")
+
+
+def test_get_status_carries_the_recent_done_work():
+    key = bootstrap()
+    for n, title in enumerate(("a", "b", "c"), start=1):
+        service.create_task(key, "2026Q3", title=title, content=f"why {title}")
+        service.transition_task(key, f"DLY-00{n}", "in_progress")
+        service.transition_task(key, f"DLY-00{n}", "done", check=f"check {title}")
+    service.create_task(key, "2026Q3", title="d")
+
+    recent = service.get_status(key)["recent_done"]
+    assert [t["id"] for t in recent] == ["DLY-003", "DLY-002", "DLY-001"]   # newest first
+    assert recent[0]["title"] == "c"
+    assert recent[0]["content"] == "why c" and recent[0]["check"] == "check c"
+    assert recent[0]["completed_at"] is not None
+    assert "DLY-004" not in {t["id"] for t in recent}      # open work is open_tasks
+
+
+def test_recent_done_is_capped():
+    key = bootstrap()
+    for n in range(1, service.RECENT_DONE + 3):
+        service.create_task(key, "2026Q3", title=f"t{n}")
+        service.transition_task(key, f"DLY-{n:03d}", "in_progress")
+        service.transition_task(key, f"DLY-{n:03d}", "done", check="green")
+    assert len(service.get_status(key)["recent_done"]) == service.RECENT_DONE
 
 
 def test_content_round_trips_as_one_line():
