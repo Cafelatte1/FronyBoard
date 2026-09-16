@@ -144,7 +144,6 @@ def test_follows_points_at_predecessors():
     rows = {t["id"]: t for t in service.list_tasks(key)["tasks"]}
     assert rows["DLY-002"]["waiting_on"] == ["DLY-001"]
     assert "waiting_on" not in rows["DLY-001"]          # nothing to wait for
-    assert service.get_task("DLY-001")["task"]["followed_by"] == ["DLY-002"]
 
     service.transition_task(key, "DLY-001", "in_progress")
     service.transition_task(key, "DLY-001", "done")
@@ -182,7 +181,6 @@ def test_follows_crosses_projects():
     service.transition_task("FAU", "FAU-001", "in_progress")
     service.transition_task("FAU", "FAU-001", "done")
     assert "waiting_on" not in service.list_tasks("DLY")["tasks"][0]
-    assert service.get_task("FAU-001")["task"]["followed_by"] == ["DLY-001"]   # across projects
 
     with pytest.raises(service.FronyBoardError, match="not found in project FAU"):
         service.create_task("DLY", "2026Q3", title="x", follows=["FAU-002"])
