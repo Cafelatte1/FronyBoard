@@ -25,7 +25,7 @@ export default function TaskPanel({
   const [linksOpen, setLinksOpen] = useState(false);
   useEffect(() => setLinksOpen(false), [task?.id]);
 
-  const followsIds = task?.follows ?? [];
+  const dependsOnIds = task?.depends_on ?? [];
   const findTask = (id: string): TaskHit | null => {
     for (const [key, list] of Object.entries(board)) {
       const hit = list.find((t) => t.id === id);
@@ -66,9 +66,9 @@ export default function TaskPanel({
                 <span className="panel-cap">tags</span>
                 <div className="panel-links">
                   <LinkButton
-                    label="follows"
-                    title="follows — the earlier tasks this one continues from"
-                    ids={followsIds}
+                    label="depends on"
+                    title="depends on — the earlier tasks this one builds on"
+                    ids={dependsOnIds}
                     open={linksOpen}
                     onToggle={() => setLinksOpen(!linksOpen)}
                     findTask={findTask}

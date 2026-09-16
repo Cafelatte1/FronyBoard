@@ -65,9 +65,9 @@ describe("TaskPanel", () => {
     expect(screen.getByText("—", { selector: ".panel-note" })).toHaveClass("dim");
   });
 
-  it("lists the earlier tasks a task follows and opens one", () => {
+  it("lists the earlier tasks a task depends on and opens one", () => {
     const a = makeTask({ id: "DLY-001", title: "core loop" });
-    const b = makeTask({ id: "DLY-002", title: "second leg", follows: ["DLY-001"] });
+    const b = makeTask({ id: "DLY-002", title: "second leg", depends_on: ["DLY-001"] });
     const onOpenTask = vi.fn();
     render(
       <TaskPanel
@@ -79,17 +79,16 @@ describe("TaskPanel", () => {
         onClose={vi.fn()}
       />,
     );
-    expect(screen.queryByRole("button", { name: /followed by/ })).toBeNull();
-    const follows = screen.getByRole("button", { name: /^follows/ });
-    expect(follows).toHaveTextContent("1");
+    const dependsOn = screen.getByRole("button", { name: /^depends on/ });
+    expect(dependsOn).toHaveTextContent("1");
 
-    fireEvent.click(follows);
+    fireEvent.click(dependsOn);
     fireEvent.click(screen.getByRole("menuitem", { name: "DLY-001" }));
     expect(onOpenTask).toHaveBeenCalledWith("DLY", a);
   });
 
   it("shows a placeholder title for an id that is not on the board", () => {
-    const task = makeTask({ id: "DLY-009", follows: ["ZZZ-001"] });
+    const task = makeTask({ id: "DLY-009", depends_on: ["ZZZ-001"] });
     render(
       <TaskPanel
         task={task}
@@ -100,7 +99,7 @@ describe("TaskPanel", () => {
         onClose={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /^follows/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^depends on/ }));
     fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "ZZZ-001" }));
     expect(screen.getByText("Not on this board")).toBeInTheDocument();
   });

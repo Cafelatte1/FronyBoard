@@ -386,30 +386,30 @@ def _clean_tags(tags: list[str] | None) -> list[str]:
     return cleaned
 
 
-def _clean_follows(follows: list[str] | None) -> list[str]:
+def _clean_depends_on(depends_on: list[str] | None) -> list[str]:
     """Trim, drop blanks and de-duplicate while keeping the order given."""
-    if not follows:
+    if not depends_on:
         return []
-    if not isinstance(follows, list):
-        raise FronyBoardError("follows must be a list of task ids")
+    if not isinstance(depends_on, list):
+        raise FronyBoardError("depends_on must be a list of task ids")
     cleaned: list[str] = []
-    for ref in follows:
+    for ref in depends_on:
         if not isinstance(ref, str):
-            raise FronyBoardError(f"follows must be a list of task ids ({ref!r})")
+            raise FronyBoardError(f"depends_on must be a list of task ids ({ref!r})")
         ref = ref.strip()
         if ref and ref not in cleaned:
             cleaned.append(ref)
     return cleaned
 
 
-def _check_foreign_follows(state: ProjectState, follows: list[str]) -> None:
+def _check_foreign_depends_on(state: ProjectState, depends_on: list[str]) -> None:
     """Ids from other projects are checked here — the gate only sees this project's state."""
-    for ref in follows:
+    for ref in depends_on:
         other = resolve_key(None, ref)
         if other == state.key:
             continue
         if not store.project_exists(other):
-            raise FronyBoardError(f"follows: project {other} not found for {ref}")
+            raise FronyBoardError(f"depends_on: project {other} not found for {ref}")
         _find_task(store.load_state(other), ref)
 
 
@@ -425,17 +425,17 @@ def _clean_content(value: str | None) -> str | None:
 
 @_locked
 def create_task(key: str, period: str, title: str, content: str | None = None,
-                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
     state = store.load_state(key)
     _require_period(state, period)
     task: dict = {"id": _next_task_id(state), "title": title, "status": "todo"}
     tags = _clean_tags(tags)
     if tags:
         task["tags"] = tags
-    follows = _clean_follows(follows)
-    if follows:
-        _check_foreign_follows(state, follows)
-        task["follows"] = follows
+    depends_on = _clean_depends_on(depends_on)
+    if depends_on:
+        _check_foreign_depends_on(state, depends_on)
+        task["depends_on"] = depends_on
     content = _clean_content(content)
     if content:
         task["content"] = content
@@ -447,25 +447,25 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
 
 
 # Optional task fields; an "empty" value ("" / []) passed to update_task removes them.
-_CLEARABLE = {"content", "branch", "tags", "follows"}
+_CLEARABLE = {"content", "branch", "tags", "depends_on"}
 
 
 @_locked
 def update_task(key: str, task_id: str, title: str | None = None,
                 content: str | None = None, branch: str | None = None,
-                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
     if tags is not None:
         tags = _clean_tags(tags)
-    if follows is not None:
-        follows = _clean_follows(follows)
-        if follows:
-            _check_foreign_follows(state, follows)
+    if depends_on is not None:
+        depends_on = _clean_depends_on(depends_on)
+        if depends_on:
+            _check_foreign_depends_on(state, depends_on)
     if content is not None:
         content = _clean_content(content) or ""   # an empty result clears the field
     fields = {"title": title, "content": content, "branch": branch, "tags": tags,
-              "follows": follows}
+              "depends_on": depends_on}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise FronyBoardError("nothing to update — pass at least one field (status changes go through transition_task)")
@@ -528,7 +528,7 @@ def _status_lookup(state: ProjectState):
 def _waiting_on(t: dict, status_of) -> list[str]:
     if t.get("status") in ("done", "cancelled"):
         return []
-    return [ref for ref in t.get("follows") or [] if status_of(ref) not in ("done", "cancelled")]
+    return [ref for ref in t.get("depends_on") or [] if status_of(ref) not in ("done", "cancelled")]
 
 
 def list_tasks(key: str, period: str | None = None, status: str | None = None,

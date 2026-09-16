@@ -5,7 +5,7 @@ write) and is also exposed as the `validate` tool. Checks: required fields,
 status enums, milestone <-> period consistency,
 id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
 ordering (updated_at >= created_at), task content shape (one line, ≤200 chars),
-and the task `follows` list (id shape, no
+and the task `depends_on` list (id shape, no
 self/duplicate, same-project ids exist, no cycle).
 """
 
@@ -65,22 +65,22 @@ def _check_tags(tags, where: str, r: Report) -> None:
         seen.add(tag)
 
 
-def _check_follows(follows, tid, where: str, r: Report) -> None:
-    """`follows` points at the tasks this one continues from: unique full ids, never itself."""
-    if follows is None:
+def _check_depends_on(depends_on, tid, where: str, r: Report) -> None:
+    """`depends_on` points at the earlier tasks this one builds on: unique full ids, never itself."""
+    if depends_on is None:
         return
-    if not isinstance(follows, list):
-        r.err(f"{where}: follows must be a list of task ids ({follows!r})")
+    if not isinstance(depends_on, list):
+        r.err(f"{where}: depends_on must be a list of task ids ({depends_on!r})")
         return
     seen = set()
-    for ref in follows:
+    for ref in depends_on:
         if not isinstance(ref, str) or not TASK_ID.fullmatch(ref):
-            r.err(f"{where}: follows entries must be full task ids like DLY-042 ({ref!r})")
+            r.err(f"{where}: depends_on entries must be full task ids like DLY-042 ({ref!r})")
             continue
         if ref == tid:
-            r.err(f"{where}: follows must not reference the task itself")
+            r.err(f"{where}: depends_on must not reference the task itself")
         if ref in seen:
-            r.err(f"{where}: duplicate follows entry ({ref!r})")
+            r.err(f"{where}: duplicate depends_on entry ({ref!r})")
         seen.add(ref)
 
 
@@ -207,7 +207,7 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
         elif meta.get("completed_at") is not None:
             r.err(f"{where}: meta.completed_at is only valid on a done task")
         _check_tags(t.get("tags"), where, r)
-        _check_follows(t.get("follows"), tid, where, r)
+        _check_depends_on(t.get("depends_on"), tid, where, r)
         content = t.get("content")
         if content is not None:
             if not isinstance(content, str):
@@ -220,9 +220,9 @@ def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pa
         _check_meta(t, where, r)
 
 
-def _check_follows_graph(state: ProjectState, names: set, task_id_re: re.Pattern,
-                         all_task_ids: set, r: Report) -> None:
-    """The `follows` edges that stay inside this project: each reference must exist and the
+def _check_depends_on_graph(state: ProjectState, names: set, task_id_re: re.Pattern,
+                            all_task_ids: set, r: Report) -> None:
+    """The `depends_on` edges that stay inside this project: each reference must exist and the
     graph must stay acyclic. Ids of other projects are only shape-checked here — the
     service resolves them at write time."""
     edges: dict[str, list[str]] = {}
@@ -230,16 +230,16 @@ def _check_follows_graph(state: ProjectState, names: set, task_id_re: re.Pattern
     for name in sorted(names):
         data = state.periods[name].data
         for t in (data.get("tasks") or []) if isinstance(data, dict) else []:
-            tid, follows = t.get("id"), t.get("follows")
-            if not isinstance(tid, str) or not isinstance(follows, list):
+            tid, depends_on = t.get("id"), t.get("depends_on")
+            if not isinstance(tid, str) or not isinstance(depends_on, list):
                 continue
             where = wheres[tid] = f"{name} tasks[{tid}]"
-            edges[tid] = [ref for ref in follows
+            edges[tid] = [ref for ref in depends_on
                           if isinstance(ref, str) and task_id_re.fullmatch(ref)
                           and ref != tid]   # a self-reference is already reported
             for ref in edges[tid]:
                 if ref not in all_task_ids:
-                    r.err(f"{where}: follows references unknown task {ref}")
+                    r.err(f"{where}: depends_on references unknown task {ref}")
 
     mark: dict[str, int] = {}   # 1 = on the current path, 2 = finished
 
@@ -249,7 +249,7 @@ def _check_follows_graph(state: ProjectState, names: set, task_id_re: re.Pattern
         for ref in edges.get(tid, ()):
             if mark.get(ref) == 1:
                 cycle = path[path.index(ref):] + [ref]
-                r.err(f"{wheres[tid]}: follows forms a cycle ({' -> '.join(cycle)})")
+                r.err(f"{wheres[tid]}: depends_on forms a cycle ({' -> '.join(cycle)})")
             elif ref in edges and ref not in mark:
                 walk(ref, path)
         path.pop()
@@ -284,7 +284,7 @@ def validate_state(state: ProjectState) -> Report:
     checked = actual & set(expected)
     for name in sorted(checked):
         _check_period(state, name, expected[name], task_id_re, all_task_ids, r)
-    _check_follows_graph(state, checked, task_id_re, all_task_ids, r)
+    _check_depends_on_graph(state, checked, task_id_re, all_task_ids, r)
     return r
 
 

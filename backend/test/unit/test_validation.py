@@ -126,20 +126,20 @@ def test_tag_rules_are_enforced():
     assert not errors(["ui", "backend"])
 
 
-def test_follows_rules_are_enforced():
+def test_depends_on_rules_are_enforced():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="first")
     service.create_task(key, "2026Q3", title="second")
     state = store.load_state(key)
     task = state.periods["2026Q3"].data["tasks"][1]
 
-    def errors(follows):
-        task["follows"] = follows
+    def errors(depends_on):
+        task["depends_on"] = depends_on
         return " ".join(validation.validate_state(state).errors)
 
     assert "list of task ids" in errors("DLY-001")
     assert "full task ids" in errors(["x"])
     assert "itself" in errors(["DLY-002"])
-    assert "duplicate follows" in errors(["DLY-001", "DLY-001"])
+    assert "duplicate depends_on" in errors(["DLY-001", "DLY-001"])
     assert "unknown task" in errors(["DLY-099"])
     assert not errors(["DLY-001"])

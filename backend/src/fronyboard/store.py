@@ -191,9 +191,12 @@ def save_period(state: ProjectState, period: str) -> None:
 # ------------------------------------------------------------------ migration
 
 def strip_legacy() -> dict:
-    """v0.33.0 (AIR-086): drop the fields the task model no longer has — period `months`,
-    task `month` / `week` / `prd` — and fold `content` to one line of at most 200
-    characters. Idempotent; runs on every boot and only rewrites rows that changed."""
+    """Bring stored records up to the current task model. Idempotent; runs on every boot
+    and only rewrites rows that changed.
+
+    v0.33.0 (AIR-086): drop period `months` and task `month` / `week` / `prd`, and fold
+    `content` to one line of at most 200 characters.
+    v0.37.0 (AIR-089): rename the task predecessor list `follows` -> `depends_on`."""
     periods_changed = tasks_changed = 0
     with connect() as conn:
         rows = conn.execute("SELECT key, name, data FROM periods").fetchall()
@@ -204,6 +207,10 @@ def strip_legacy() -> dict:
                 # a list, not any(): every field must be popped, not just up to the first hit
                 task_changed = any([task.pop(field, None) is not None
                                     for field in ("month", "week", "prd")])
+                if "follows" in task:
+                    task.setdefault("depends_on", task["follows"])
+                    task.pop("follows")
+                    task_changed = True
                 if "content" in task:
                     flat = " ".join(str(task["content"]).split())[:200].rstrip()  # a cut may land on a space
                     if flat != task["content"]:
