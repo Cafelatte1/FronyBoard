@@ -65,31 +65,27 @@ describe("TaskPanel", () => {
     expect(screen.getByText("—", { selector: ".panel-note" })).toHaveClass("dim");
   });
 
-  it("renders follows / followed by buttons and derives followed by from the board", () => {
+  it("lists the earlier tasks a task follows and opens one", () => {
     const a = makeTask({ id: "DLY-001", title: "core loop" });
     const b = makeTask({ id: "DLY-002", title: "second leg", follows: ["DLY-001"] });
-    const c = makeTask({ id: "FAU-001", title: "auth handoff", follows: ["DLY-001"] });
     const onOpenTask = vi.fn();
     render(
       <TaskPanel
-        task={a}
+        task={b}
         projectKey="DLY"
         tz={server.timezone}
-        board={{ DLY: [a, b], FAU: [c] }}
+        board={{ DLY: [a, b] }}
         onOpenTask={onOpenTask}
         onClose={vi.fn()}
       />,
     );
-    const followedBy = screen.getByRole("button", { name: /followed by/ });
-    expect(followedBy).toHaveTextContent("2");
+    expect(screen.queryByRole("button", { name: /followed by/ })).toBeNull();
     const follows = screen.getByRole("button", { name: /^follows/ });
-    expect(follows).toBeDisabled();
-    expect(follows).toHaveTextContent("0");
+    expect(follows).toHaveTextContent("1");
 
-    fireEvent.click(followedBy);
-    expect(screen.getByRole("menuitem", { name: "DLY-002" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("menuitem", { name: "FAU-001" }));
-    expect(onOpenTask).toHaveBeenCalledWith("FAU", c);
+    fireEvent.click(follows);
+    fireEvent.click(screen.getByRole("menuitem", { name: "DLY-001" }));
+    expect(onOpenTask).toHaveBeenCalledWith("DLY", a);
   });
 
   it("shows a placeholder title for an id that is not on the board", () => {

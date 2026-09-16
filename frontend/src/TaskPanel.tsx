@@ -22,19 +22,10 @@ export default function TaskPanel({
   onClose: () => void;
 }) {
   const open = task !== null;
-  // Only one link dropdown at a time; opening another task closes it.
-  const [openKind, setOpenKind] = useState<"follows" | "followed" | null>(null);
-  useEffect(() => setOpenKind(null), [task?.id]);
+  const [linksOpen, setLinksOpen] = useState(false);
+  useEffect(() => setLinksOpen(false), [task?.id]);
 
   const followsIds = task?.follows ?? [];
-  // The reverse relation is not in the payload — derive it from the whole board.
-  const followedByIds = task
-    ? Object.values(board)
-        .flat()
-        .filter((o) => o.follows?.includes(task.id))
-        .map((o) => o.id)
-        .sort()
-    : [];
   const findTask = (id: string): TaskHit | null => {
     for (const [key, list] of Object.entries(board)) {
       const hit = list.find((t) => t.id === id);
@@ -45,7 +36,7 @@ export default function TaskPanel({
   const pick = (id: string) => {
     const hit = findTask(id);
     if (!hit) return;
-    setOpenKind(null);
+    setLinksOpen(false);
     onOpenTask(hit.key, hit.task);
   };
 
@@ -76,19 +67,10 @@ export default function TaskPanel({
                 <div className="panel-links">
                   <LinkButton
                     label="follows"
-                    title="follows — the tasks this one continues from"
+                    title="follows — the earlier tasks this one continues from"
                     ids={followsIds}
-                    open={openKind === "follows"}
-                    onToggle={() => setOpenKind(openKind === "follows" ? null : "follows")}
-                    findTask={findTask}
-                    onPick={pick}
-                  />
-                  <LinkButton
-                    label="followed by"
-                    title="followed by — the tasks that continue from this one"
-                    ids={followedByIds}
-                    open={openKind === "followed"}
-                    onToggle={() => setOpenKind(openKind === "followed" ? null : "followed")}
+                    open={linksOpen}
+                    onToggle={() => setLinksOpen(!linksOpen)}
                     findTask={findTask}
                     onPick={pick}
                   />

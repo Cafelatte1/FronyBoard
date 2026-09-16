@@ -191,10 +191,10 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
     characters each, no commas. Reuse the wording already in use on the project
     (list_tasks shows it) instead of coining a new spelling for the same thing.
 
-    `follows` lists the task ids this one continues from (a predecessor whose result it
-    builds on, or the task that handed it this scope) — full ids, other projects allowed.
-    It is a pointer, not a dependency lock: nothing blocks, and get_task shows the reverse
-    as `followed_by`.
+    `follows` lists the task ids this one continues from — the earlier tasks whose result
+    this one builds on, or the one that handed it this scope. Full ids, other projects
+    allowed. It points backwards only, and it is a pointer, not a dependency lock: nothing
+    blocks. `list_tasks` and `get_status` flag the entries not yet done as `waiting_on`.
     """
     return service.create_task(key, period, title, content, tags, follows)
 
@@ -279,8 +279,7 @@ def get_task(task_id: str) -> dict:
     """Read one task in full by id (DLY-042) — the project comes from the prefix, so no key
     is needed. Returns the record with its period. Use this instead of list_tasks whenever
     you already know the id; search_tasks when you only know a word from it. The record also
-    carries `followed_by` (tasks in any project whose `follows` names this one) and `waiting_on`
-    when they apply.
+    carries `waiting_on` when it applies.
     """
     return service.get_task(task_id)
 

@@ -614,15 +614,7 @@ def get_task(task_id: str) -> dict:
     key = resolve_key(None, task_id)
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
-    followed_by = sorted(
-        o.get("id")
-        for other in store.project_keys(include_archived=True)
-        for p in (state if other == key else store.load_state(other)).periods.values()
-        for o in p.data.get("tasks") or []
-        if task_id in (o.get("follows") or []))
     record = {"period": period, **task}
-    if followed_by:
-        record["followed_by"] = followed_by
     waiting = _waiting_on(task, _status_lookup(state))
     if waiting:
         record["waiting_on"] = waiting
