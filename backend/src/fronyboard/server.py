@@ -35,11 +35,11 @@ mcp = MCPServer(
     instructions=(
         "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's own store, not in the codebase you are working on — record plans, tasks and retrospectives through these tools, never as files in the repo.\n\n"
         "Which project: the codebase declares its FronyBoard project key in a `## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by FronyBoard (project key: DLY)'). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When registering a codebase (create_project), also add that `## FronyBoard` declaration to its CLAUDE.md.\n\n"
-        "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (it is the whole resume: the year's overview, each period's goal and every open task with its one-line note) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
-        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task is a title plus an optional one-line `content` of at most 200 characters: the one fact the next agent cannot get from the code — an interpretation you chose, a scope you left out, the check that proves it done. Everything else lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
+        "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (the year's overview, each period's goal, every open task, and the last ten finished ones with the check that proved each) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
+        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task carries two one-line notes of at most 200 characters, written at different moments and answering different questions. `content`, at create time: **why** this task exists — the pressure that made it necessary, or the reading you chose where the spec allowed several. `check`, required when you finish it: **what proves it done** — the command you ran and what it printed, or the observable a reader can go and see. Do not restate the title in either; the title already says what the work is, and the rest lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
         "Planning: create_project -> set_overview (year) -> upsert_milestone (quarter) -> open_period; create_task works right after open_period, nothing else has to exist first. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
-        "Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
-        "Language: task titles and content are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
+        "The board records what agents claim, not what is true: a title and a `done` are a report, and the code is the only evidence. Read the board to see what remains and what was decided, then confirm against the code before you build on a finished task — that is what `check` is for. Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
+        "Language: task titles, content and check are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
         "Other reads: get_task for one id, list_tasks to narrow by period / status / tags, search_tasks for text across projects, recent_activity for what changed and who did it; list_projects already carries a per-project summary."
     ),
 )
@@ -182,10 +182,13 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
     `title` is a short English imperative ("Add multi-select status filter") — it is what
     every reader sees, so it has to say the whole thing.
 
-    `content` is optional: one line, at most 200 characters, English. It carries the one
-    fact the next agent cannot recover from the code — the interpretation you chose, the
-    scope you left out, or the check that proves it done. Line breaks are folded into
-    spaces; a longer text is rejected, not cut. Rationale beyond that goes in the commit.
+    `content` is optional: one line, at most 200 characters, English. It answers **why this
+    task exists** — the pressure that made it necessary, the reading you chose where the
+    spec allowed several, or the scope you deliberately left out. It is written now, before
+    the work, so it cannot describe the result; what proves the work done is `check`, which
+    transition_task takes when you finish. Do not restate the title here: a note that only
+    rephrases it tells the next agent nothing. Line breaks are folded into spaces; a longer
+    text is rejected, not cut. Rationale beyond one line goes in the commit.
 
     `tags` are free-form labels ("frontend", "bug", "infra"): up to 8 per task, 24
     characters each, no commas. Reuse the wording already in use on the project
@@ -203,27 +206,30 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
 @mcp.tool()
 def update_task(task_id: str, title: str | None = None, content: str | None = None,
                 branch: str | None = None, tags: list[str] | None = None,
-                depends_on: list[str] | None = None, key: str | None = None) -> dict:
+                depends_on: list[str] | None = None, check: str | None = None,
+                key: str | None = None) -> dict:
     """Update a task's fields — everything except status, which is transition_task.
     `branch` records the working branch name; `content` replaces the one-line note
-    (same rule as create_task: one line, at most 200 characters).
+    (same rule as create_task: one line, at most 200 characters). `check` corrects the
+    proof recorded at completion and is only accepted on a task that is already done.
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
     not just the new ones. `depends_on` likewise replaces the whole predecessor list.
 
     Omitted fields are left as they are. To remove an optional field pass an empty value:
-    `content=""`, `branch=""`, `tags=[]`, `depends_on=[]` (title cannot be removed).
+    `content=""`, `branch=""`, `tags=[]`, `depends_on=[]`, `check=""` (title cannot be removed).
 
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
     """
     return service.update_task(service.resolve_key(key, task_id), task_id,
-                               title, content, branch, tags, depends_on)
+                               title, content, branch, tags, depends_on, check)
 
 
 @mcp.tool()
 def transition_task(task_id: str, status: str, branch: str | None = None,
-                    reason: str | None = None, key: str | None = None) -> dict:
+                    reason: str | None = None, check: str | None = None,
+                    key: str | None = None) -> dict:
     """Move a task to a new status: todo | in_progress | done | blocked | cancelled. The
     only tool that changes status — title, content and tags are update_task.
 
@@ -232,13 +238,20 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
     ideally with the branch name) and when it finishes (done); the server stamps
     started_at and completed_at itself.
 
+    `done` requires `check`: one line, at most 200 characters, saying **what proves the work
+    done** — the command you ran and what it printed ("uv run pytest -q: 96 passed"), or the
+    observable a reader can go and see ("GET /healthz returns 200 on the deployed host").
+    You are the only one who can write it; by the next session the run is gone and all that
+    is left is your word. A restatement of the title proves nothing, so do not write one.
+    get_status shows it beside the finished task, and reopening a task drops it.
+
     `cancelled` is the soft delete — there is no hard one: the record is kept but hidden
     from queries by default, and `reason` is required. Use blocked for work that may
     resume, cancelled for work that will not happen. Transitioning a cancelled task to
     any other status restores it.
     """
     return service.transition_task(service.resolve_key(key, task_id), task_id,
-                                   status, branch, reason)
+                                   status, branch, reason, check)
 
 
 @mcp.tool()
@@ -264,13 +277,19 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
 @mcp.tool()
 def get_status(key: str) -> dict:
     """The resume: everything an agent needs to pick a project up cold, in one call. The
-    latest year's overview (goal / now / target / checklist), and per period its milestone
-    goal and status, task counts by status, whether it is closed, and `open_tasks` — every
+    latest year's overview (goal / now / target / checklist); per period its milestone goal
+    and status, task counts by status, whether it is closed, and `open_tasks` — every
     todo / blocked / in_progress task with its title, tags, branch, one-line content and
-    `waiting_on`. Closed periods are included.
+    `waiting_on`; and `recent_done` — the ten most recently finished tasks across every period, newest
+    first, each with its content, its `check` and when it completed. Closed periods are
+    included.
+
+    `recent_done` is what the project already has, in the words of whoever built it, and
+    `check` is what they said proves it. Both are claims: confirm against the code before
+    building on one. Older finished work and cancelled tasks are list_tasks; the plan as
+    written is get_roadmap.
 
     Call it once at the start of a session; there is nothing to poll for afterwards.
-    Done and cancelled tasks are list_tasks; the plan as written is get_roadmap.
     """
     return service.get_status(key)
 

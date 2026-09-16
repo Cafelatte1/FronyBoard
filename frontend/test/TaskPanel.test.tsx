@@ -65,6 +65,23 @@ describe("TaskPanel", () => {
     expect(screen.getByText("—", { selector: ".panel-note" })).toHaveClass("dim");
   });
 
+  it("shows the check that finished a task, and nothing when there is none", () => {
+    const done = makeTask({ id: "DLY-003", status: "done", check: "pytest -q: 100 passed" });
+    const { unmount } = render(
+      <TaskPanel task={done} projectKey="DLY" tz={server.timezone} board={{ DLY: [done] }}
+                 onOpenTask={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByText("pytest -q: 100 passed")).toBeInTheDocument();
+    unmount();
+
+    const open = makeTask({ id: "DLY-004", status: "todo" });
+    render(
+      <TaskPanel task={open} projectKey="DLY" tz={server.timezone} board={{ DLY: [open] }}
+                 onOpenTask={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.queryByText("check")).toBeNull();
+  });
+
   it("lists the earlier tasks a task depends on and opens one", () => {
     const a = makeTask({ id: "DLY-001", title: "core loop" });
     const b = makeTask({ id: "DLY-002", title: "second leg", depends_on: ["DLY-001"] });

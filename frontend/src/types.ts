@@ -52,11 +52,20 @@ export interface PeriodStatus {
   open_tasks: OpenTask[];
 }
 
+export interface DoneTask {
+  id: string;
+  title: string;
+  content?: string;
+  check?: string;
+  completed_at: string | null;
+}
+
 export interface StatusResp {
   project: string;
   name: string | null;
   overview: Overview | null;
   periods: Record<string, PeriodStatus>;
+  recent_done: DoneTask[];
 }
 
 export interface TaskMeta {
@@ -74,6 +83,7 @@ export interface Task {
   tags?: string[];
   depends_on?: string[];
   content?: string;
+  check?: string;
   branch?: string;
   cancel_reason?: string;
   meta: TaskMeta;

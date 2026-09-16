@@ -447,13 +447,14 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
 
 
 # Optional task fields; an "empty" value ("" / []) passed to update_task removes them.
-_CLEARABLE = {"content", "branch", "tags", "depends_on"}
+_CLEARABLE = {"content", "branch", "tags", "depends_on", "check"}
 
 
 @_locked
 def update_task(key: str, task_id: str, title: str | None = None,
                 content: str | None = None, branch: str | None = None,
-                tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, depends_on: list[str] | None = None,
+                check: str | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
     if tags is not None:
@@ -464,8 +465,12 @@ def update_task(key: str, task_id: str, title: str | None = None,
             _check_foreign_depends_on(state, depends_on)
     if content is not None:
         content = _clean_content(content) or ""   # an empty result clears the field
+    if check is not None:
+        if task.get("status") != "done":
+            raise FronyBoardError("check belongs to a finished task — pass it to transition_task(status='done')")
+        check = _clean_content(check) or ""
     fields = {"title": title, "content": content, "branch": branch, "tags": tags,
-              "depends_on": depends_on}
+              "depends_on": depends_on, "check": check}
     changed = {k: v for k, v in fields.items() if v is not None}
     if not changed:
         raise FronyBoardError("nothing to update — pass at least one field (status changes go through transition_task)")
@@ -482,12 +487,17 @@ def update_task(key: str, task_id: str, title: str | None = None,
 
 @_locked
 def transition_task(key: str, task_id: str, status: str, branch: str | None = None,
-                    reason: str | None = None) -> dict:
+                    reason: str | None = None, check: str | None = None) -> dict:
     state = store.load_state(key)
     period, task = _find_task(state, task_id)
     previous = task.get("status")
     if status == "cancelled" and not reason:
         raise FronyBoardError("cancelling a task requires a reason — pass reason=...")
+    check = _clean_content(check)
+    if status == "done" and not check:
+        raise FronyBoardError(
+            "finishing a task requires a check — pass check=... with the command or the "
+            "observable result that shows the work is really done")
     task["status"] = status
     if branch is not None:
         task["branch"] = branch
@@ -495,6 +505,10 @@ def transition_task(key: str, task_id: str, status: str, branch: str | None = No
         task["cancel_reason"] = reason
     elif previous == "cancelled":
         task.pop("cancel_reason", None)
+    if status == "done":
+        task["check"] = check
+    elif previous == "done":
+        task.pop("check", None)        # a reopened task has nothing proven any more
     store.touch_meta(task)
     if status == "in_progress" and "started_at" not in task["meta"]:
         task["meta"]["started_at"] = store.now()
@@ -737,6 +751,7 @@ def get_status(key: str) -> dict:
 
 
 _OPEN_STATUS = ("in_progress", "blocked", "todo")
+_EPOCH = datetime.datetime.min
 
 
 def _open_task(t: dict, status_of) -> dict:
@@ -750,6 +765,30 @@ def _open_task(t: dict, status_of) -> dict:
     if waiting:
         row["waiting_on"] = waiting
     return row
+
+
+RECENT_DONE = 10
+
+
+def _done_task(t: dict) -> dict:
+    """One finished task as get_status carries it — what was built and what proves it."""
+    row = {"id": t.get("id"), "title": t.get("title")}
+    for field in ("content", "check"):
+        if t.get(field):
+            row[field] = t[field]
+    row["completed_at"] = (t.get("meta") or {}).get("completed_at")
+    return row
+
+
+def _recent_done(state: ProjectState) -> list[dict]:
+    """The last finished tasks across every period, newest first. A session starting cold
+    needs what is already built more than it needs the counts, and nobody makes a second
+    call to find out (AIR-090)."""
+    done = [t for p in state.periods.values() for t in p.data.get("tasks") or []
+            if t.get("status") == "done"]
+    done.sort(key=lambda t: ((t.get("meta") or {}).get("completed_at") or _EPOCH,
+                             t.get("id") or ""), reverse=True)
+    return [_done_task(t) for t in done[:RECENT_DONE]]
 
 
 def _status(state: ProjectState) -> dict:
@@ -776,7 +815,8 @@ def _status(state: ProjectState) -> dict:
             "open_tasks": [_open_task(t, status_of) for t in open_tasks],
         }
     return {"project": state.key, "name": state.roadmap.get("name"),
-            "overview": overview, "periods": periods}
+            "overview": overview, "periods": periods,
+            "recent_done": _recent_done(state)}
 
 
 def validate(key: str) -> dict:

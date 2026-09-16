@@ -2721,6 +2721,25 @@ button.task-grid:hover {
   color: var(--text-disabled);
 }
 
+/* the one line the finishing agent said proves the work done (AIR-090) */
+.task-check {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  border-left: 3px solid var(--accent);
+}
+
+.task-check p {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
 .cancel-box {
   display: flex;
   flex-direction: column;
