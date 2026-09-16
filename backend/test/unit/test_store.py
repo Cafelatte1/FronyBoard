@@ -54,6 +54,25 @@ def test_strip_legacy_drops_the_retired_fields_and_folds_content():
     assert store.strip_legacy() == {"periods_changed": 0, "tasks_changed": 0}
 
 
+def test_strip_legacy_renames_follows_to_depends_on():
+    key = bootstrap()
+    state = store.load_state(key)
+    state.periods["2026Q3"].data = {
+        "tasks": [{"id": "DLY-001", "title": "a", "status": "todo", "meta": store.new_meta()},
+                  {"id": "DLY-002", "title": "b", "status": "todo", "follows": ["DLY-001"],
+                   "meta": store.new_meta()}]}
+    store.save_period(state, "2026Q3")
+
+    assert store.strip_legacy() == {"periods_changed": 1, "tasks_changed": 1}
+    task = store.load_state(key).periods["2026Q3"].data["tasks"][1]
+    assert "follows" not in task and task["depends_on"] == ["DLY-001"]
+    assert service.validate(key)["ok"]
+    assert service.get_task("DLY-002")["task"]["depends_on"] == ["DLY-001"]
+    assert service.get_task("DLY-002")["task"]["waiting_on"] == ["DLY-001"]   # still derived
+
+    assert store.strip_legacy() == {"periods_changed": 0, "tasks_changed": 0}
+
+
 def test_migrate_yaml_copies_the_tree_and_leaves_it_alone(tmp_path):
     src = tmp_path / "projects" / "DLY"
     src.mkdir(parents=True)

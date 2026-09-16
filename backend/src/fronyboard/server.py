@@ -36,7 +36,7 @@ mcp = MCPServer(
         "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's own store, not in the codebase you are working on — record plans, tasks and retrospectives through these tools, never as files in the repo.\n\n"
         "Which project: the codebase declares its FronyBoard project key in a `## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by FronyBoard (project key: DLY)'). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When registering a codebase (create_project), also add that `## FronyBoard` declaration to its CLAUDE.md.\n\n"
         "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (it is the whole resume: the year's overview, each period's goal and every open task with its one-line note) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
-        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task is a title plus an optional one-line `content` of at most 200 characters: the one fact the next agent cannot get from the code — an interpretation you chose, a scope you left out, the check that proves it done. Everything else lives in the code and the commits. `follows` lists the tasks this one continues from (other projects allowed); it is a pointer, not a lock.\n\n"
+        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task is a title plus an optional one-line `content` of at most 200 characters: the one fact the next agent cannot get from the code — an interpretation you chose, a scope you left out, the check that proves it done. Everything else lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
         "Planning: create_project -> set_overview (year) -> upsert_milestone (quarter) -> open_period; create_task works right after open_period, nothing else has to exist first. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
         "Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
         "Language: task titles and content are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
@@ -173,7 +173,7 @@ def get_retrospective(key: str, period: str) -> dict:
 
 @mcp.tool()
 def create_task(key: str, period: str, title: str, content: str | None = None,
-                tags: list[str] | None = None, follows: list[str] | None = None) -> dict:
+                tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
     """Create a task — one issue/branch-sized unit of work — with status todo.
 
     The id is assigned from the project-global sequence and never reused. `period` is
@@ -191,33 +191,34 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
     characters each, no commas. Reuse the wording already in use on the project
     (list_tasks shows it) instead of coining a new spelling for the same thing.
 
-    `follows` lists the task ids this one continues from — the earlier tasks whose result
-    this one builds on, or the one that handed it this scope. Full ids, other projects
-    allowed. It points backwards only, and it is a pointer, not a dependency lock: nothing
-    blocks. `list_tasks` and `get_status` flag the entries not yet done as `waiting_on`.
+    `depends_on` lists the task ids this one builds on — the *earlier* work whose result it
+    needs, or the task that handed it this scope. Full ids, other projects allowed. It
+    points backwards only: there is no forward list, so a task never has to be updated
+    because a later one appeared. It is a pointer, not a lock — nothing is blocked, and
+    `list_tasks` / `get_status` merely flag the entries not yet done as `waiting_on`.
     """
-    return service.create_task(key, period, title, content, tags, follows)
+    return service.create_task(key, period, title, content, tags, depends_on)
 
 
 @mcp.tool()
 def update_task(task_id: str, title: str | None = None, content: str | None = None,
                 branch: str | None = None, tags: list[str] | None = None,
-                follows: list[str] | None = None, key: str | None = None) -> dict:
+                depends_on: list[str] | None = None, key: str | None = None) -> dict:
     """Update a task's fields — everything except status, which is transition_task.
     `branch` records the working branch name; `content` replaces the one-line note
     (same rule as create_task: one line, at most 200 characters).
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
-    not just the new ones. `follows` likewise replaces the whole predecessor list.
+    not just the new ones. `depends_on` likewise replaces the whole predecessor list.
 
     Omitted fields are left as they are. To remove an optional field pass an empty value:
-    `content=""`, `branch=""`, `tags=[]`, `follows=[]` (title cannot be removed).
+    `content=""`, `branch=""`, `tags=[]`, `depends_on=[]` (title cannot be removed).
 
     `task_id` is the full id including the project prefix, e.g. DLY-042 — the project
     is derived from that prefix, so `key` may be omitted (if given it must match).
     """
     return service.update_task(service.resolve_key(key, task_id), task_id,
-                               title, content, branch, tags, follows)
+                               title, content, branch, tags, depends_on)
 
 
 @mcp.tool()
@@ -253,7 +254,7 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
     todo | in_progress | done | blocked | cancelled. `tags` narrows to the tasks carrying
     *all* of the given labels; pass one tag to match on it alone, and call again per tag
     when you want the union. `updated_since` keeps tasks touched after a duration ("24h",
-    "7d") or ISO timestamp. A row carries `waiting_on` (the ids from its `follows` not yet
+    "7d") or ISO timestamp. A row carries `waiting_on` (the ids from its `depends_on` not yet
     done) only when there are any. Cancelled tasks are excluded unless `include_cancelled`
     is set or `status` is 'cancelled'.
     """

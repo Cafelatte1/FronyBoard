@@ -134,12 +134,12 @@ def test_update_task_replaces_the_whole_tag_list():
     assert "tags" not in service.list_tasks(key)["tasks"][0]   # gone from the file too
 
 
-def test_follows_points_at_predecessors():
+def test_depends_on_points_at_predecessors():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="first")
     task = service.create_task(key, "2026Q3", title="second",
-                               follows=[" DLY-001 ", "DLY-001"])["task"]
-    assert task["follows"] == ["DLY-001"]               # trimmed, de-duplicated
+                               depends_on=[" DLY-001 ", "DLY-001"])["task"]
+    assert task["depends_on"] == ["DLY-001"]               # trimmed, de-duplicated
 
     rows = {t["id"]: t for t in service.list_tasks(key)["tasks"]}
     assert rows["DLY-002"]["waiting_on"] == ["DLY-001"]
@@ -150,32 +150,32 @@ def test_follows_points_at_predecessors():
     rows = {t["id"]: t for t in service.list_tasks(key)["tasks"]}
     assert "waiting_on" not in rows["DLY-002"]          # predecessor finished
 
-    task = service.update_task(key, "DLY-002", follows=[])["task"]
-    assert "follows" not in task
-    assert "follows" not in service.list_tasks(key)["tasks"][1]   # gone from the file too
+    task = service.update_task(key, "DLY-002", depends_on=[])["task"]
+    assert "depends_on" not in task
+    assert "depends_on" not in service.list_tasks(key)["tasks"][1]   # gone from the file too
 
 
-def test_follows_rejects_bad_references():
+def test_depends_on_rejects_bad_references():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="first")
     with pytest.raises(service.FronyBoardError, match="itself"):
-        service.update_task(key, "DLY-001", follows=["DLY-001"])
+        service.update_task(key, "DLY-001", depends_on=["DLY-001"])
     with pytest.raises(service.FronyBoardError, match="unknown task"):
-        service.update_task(key, "DLY-001", follows=["DLY-099"])
+        service.update_task(key, "DLY-001", depends_on=["DLY-099"])
     with pytest.raises(service.FronyBoardError, match="project ZZ not found"):
-        service.update_task(key, "DLY-001", follows=["ZZ-001"])
-    service.create_task(key, "2026Q3", title="second", follows=["DLY-001"])
+        service.update_task(key, "DLY-001", depends_on=["ZZ-001"])
+    service.create_task(key, "2026Q3", title="second", depends_on=["DLY-001"])
     with pytest.raises(service.FronyBoardError, match="cycle"):
-        service.update_task(key, "DLY-001", follows=["DLY-002"])
+        service.update_task(key, "DLY-001", depends_on=["DLY-002"])
 
 
-def test_follows_crosses_projects():
+def test_depends_on_crosses_projects():
     bootstrap("DLY")
     bootstrap("FAU")
     service.create_task("FAU", "2026Q3", title="auth")
     task = service.create_task("DLY", "2026Q3", title="use auth",
-                               follows=["FAU-001"])["task"]
-    assert task["follows"] == ["FAU-001"]
+                               depends_on=["FAU-001"])["task"]
+    assert task["depends_on"] == ["FAU-001"]
     assert service.list_tasks("DLY")["tasks"][0]["waiting_on"] == ["FAU-001"]
 
     service.transition_task("FAU", "FAU-001", "in_progress")
@@ -183,7 +183,7 @@ def test_follows_crosses_projects():
     assert "waiting_on" not in service.list_tasks("DLY")["tasks"][0]
 
     with pytest.raises(service.FronyBoardError, match="not found in project FAU"):
-        service.create_task("DLY", "2026Q3", title="x", follows=["FAU-002"])
+        service.create_task("DLY", "2026Q3", title="x", depends_on=["FAU-002"])
 
 
 def test_cancel_requires_reason():
@@ -260,7 +260,7 @@ def test_clean_content_folds_to_one_line_and_clears_when_empty():
 def test_get_status_is_the_resume():
     key = bootstrap()
     service.create_task(key, "2026Q3", title="a")                       # todo
-    service.create_task(key, "2026Q3", title="b", follows=["DLY-001"])  # blocked, waiting
+    service.create_task(key, "2026Q3", title="b", depends_on=["DLY-001"])  # blocked, waiting
     service.create_task(key, "2026Q3", title="c", content="one line", tags=["ui"])
     service.create_task(key, "2026Q3", title="d")
     service.transition_task(key, "DLY-002", "blocked")

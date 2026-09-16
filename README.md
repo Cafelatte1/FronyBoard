@@ -95,11 +95,12 @@ JSON documents; the schema and the rules that guard it are in
   `cancelled` = will not happen; transitioning a cancelled task restores it.
 - **Carry-over**: a task that outlives its period is not moved — recreate it in the next
   period under a new id and note the mapping in the closing retrospective.
-- **`follows`** on a task lists the earlier tasks it continues from (other projects
-  allowed). It points backwards only — there is no forward index, because storing one
-  direction and deriving the other read as inverted often enough to be worth dropping
-  (v0.36.0, AIR-089). It is a pointer, not a lock: `list_tasks` and `get_status` flag the
-  entries not yet done as `waiting_on`, and nothing is ever blocked.
+- **`depends_on`** on a task lists the earlier tasks it builds on (other projects allowed).
+  It points backwards only — there is no forward index, because storing one direction and
+  deriving the other read as inverted often enough to be worth dropping (v0.36.0, AIR-089).
+  The field was `follows` until v0.37.0; the boot migration renames it. It is a pointer,
+  not a lock: `list_tasks` and `get_status` flag the entries not yet done as `waiting_on`,
+  and nothing is ever blocked.
 - **Timestamps** (`meta.created_at` / `updated_at` / `started_at` / `completed_at`) are
   stamped by the server in naive UTC — `started_at` on the first `in_progress` transition,
   `completed_at` on `done` (and removed again if the task leaves `done`). Agents never

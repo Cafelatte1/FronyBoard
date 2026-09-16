@@ -72,7 +72,7 @@ export interface Task {
   title: string;
   status: string;
   tags?: string[];
-  follows?: string[];
+  depends_on?: string[];
   content?: string;
   branch?: string;
   cancel_reason?: string;
