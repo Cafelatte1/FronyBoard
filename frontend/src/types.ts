@@ -41,7 +41,6 @@ export interface OpenTask {
   tags?: string[];
   branch?: string;
   content?: string;
-  waiting_on?: string[];
 }
 
 export interface PeriodStatus {
@@ -72,7 +71,6 @@ export interface Task {
   title: string;
   status: string;
   tags?: string[];
-  follows?: string[];
   content?: string;
   branch?: string;
   cancel_reason?: string;
