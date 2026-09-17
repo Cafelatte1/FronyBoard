@@ -91,8 +91,8 @@ def test_content_must_be_one_short_line():
         return " ".join(validation.validate_state(state).errors)
 
     assert "content must be a single line" in errors("one\ntwo")
-    assert "content is longer than 200 characters" in errors("x" * 201)
-    assert not errors("x" * 200)
+    assert "content is longer than 300 characters" in errors("x" * 301)
+    assert not errors("x" * 300)
     assert "content must be a string" in errors(3)
 
 

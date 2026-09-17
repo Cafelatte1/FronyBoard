@@ -4,7 +4,7 @@ Validation runs as a gate before every mutation is persisted (errors block the
 write) and is also exposed as the `validate` tool. Checks: required fields,
 status enums, milestone <-> period consistency,
 id formats, global task-id uniqueness, meta timestamp shape (naive UTC) and
-ordering (updated_at >= created_at), task content and check shape (one line, ≤200 chars),
+ordering (updated_at >= created_at), task content and check shape (one line, length-capped),
 and the task `depends_on` list (id shape, no
 self/duplicate, same-project ids exist, no cycle).
 """
@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime
 import re
 
-from .store import ProjectState
+from .store import MAX_CONTENT, ProjectState
 
 MILESTONE_STATUS = {"planned", "active", "done"}
 TASK_STATUS = {"todo", "in_progress", "done", "blocked", "cancelled"}
@@ -24,7 +24,6 @@ PROJECT_KEY = re.compile(r"^[A-Z]{2,5}$")
 PROJECT_STATUS = {"active", "paused", "archived"}
 MAX_TAGS = 8
 MAX_TAG_LEN = 24
-MAX_CONTENT = 200
 TASK_ID = re.compile(r"^[A-Z]{2,5}-\d{3,}$")
 
 

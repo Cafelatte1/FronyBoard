@@ -74,6 +74,16 @@ describe("TaskPanel", () => {
     expect(screen.getByText("pytest -q: 100 passed")).toBeInTheDocument();
     unmount();
 
+    // inline markdown renders in the check, not only in the content note
+    const md = makeTask({ id: "DLY-005", status: "done", check: "`uv run pytest -q` is **green**" });
+    const box = render(
+      <TaskPanel task={md} projectKey="DLY" tz={server.timezone} board={{ DLY: [md] }}
+                 onOpenTask={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByText("uv run pytest -q").tagName).toBe("CODE");
+    expect(screen.getByText("green").tagName).toBe("STRONG");
+    box.unmount();
+
     const open = makeTask({ id: "DLY-004", status: "todo" });
     render(
       <TaskPanel task={open} projectKey="DLY" tz={server.timezone} board={{ DLY: [open] }}
