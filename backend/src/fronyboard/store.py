@@ -27,6 +27,10 @@ from pathlib import Path
 
 DB_NAME = "fronyboard.db"
 
+# The cap on a task's one-line notes (`content`, `check`). 200 was too tight to say
+# anything the title did not already say, so agents paraphrased it (v0.39.0, AIR-091).
+MAX_CONTENT = 300
+
 
 def frony_root() -> Path:
     """The folder every Frony service on this machine shares (%LOCALAPPDATA%/Frony,
@@ -195,7 +199,7 @@ def strip_legacy() -> dict:
     and only rewrites rows that changed.
 
     v0.33.0 (AIR-086): drop period `months` and task `month` / `week` / `prd`, and fold
-    `content` to one line of at most 200 characters.
+    `content` to one line of at most MAX_CONTENT characters.
     v0.37.0 (AIR-089): rename the task predecessor list `follows` -> `depends_on`."""
     periods_changed = tasks_changed = 0
     with connect() as conn:
@@ -212,7 +216,7 @@ def strip_legacy() -> dict:
                     task.pop("follows")
                     task_changed = True
                 if "content" in task:
-                    flat = " ".join(str(task["content"]).split())[:200].rstrip()  # a cut may land on a space
+                    flat = " ".join(str(task["content"]).split())[:MAX_CONTENT].rstrip()  # a cut may land on a space
                     if flat != task["content"]:
                         task_changed = True
                         if flat:

@@ -36,7 +36,7 @@ mcp = MCPServer(
         "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's own store, not in the codebase you are working on — record plans, tasks and retrospectives through these tools, never as files in the repo.\n\n"
         "Which project: the codebase declares its FronyBoard project key in a `## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by FronyBoard (project key: DLY)'). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When registering a codebase (create_project), also add that `## FronyBoard` declaration to its CLAUDE.md.\n\n"
         "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (the year's overview, each period's goal, every open task, and the last ten finished ones with the check that proved each) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
-        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task carries two one-line notes of at most 200 characters, written at different moments and answering different questions. `content`, at create time: **why** this task exists — the pressure that made it necessary, or the reading you chose where the spec allowed several. `check`, required when you finish it: **what proves it done** — the command you ran and what it printed, or the observable a reader can go and see. Do not restate the title in either; the title already says what the work is, and the rest lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
+        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task carries two one-line notes of at most 300 characters, written at different moments and answering different questions. `content`, at create time: **why** this task exists — the pressure that made it necessary, or the reading you chose where the spec allowed several. `check`, required when you finish it: **what proves it done** — the command you ran and what it printed, or the observable a reader can go and see. Do not restate the title in either; the title already says what the work is, and the rest lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
         "Planning: create_project -> set_overview (year) -> upsert_milestone (quarter) -> open_period; create_task works right after open_period, nothing else has to exist first. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
         "The board records what agents claim, not what is true: a title and a `done` are a report, and the code is the only evidence. Read the board to see what remains and what was decided, then confirm against the code before you build on a finished task — that is what `check` is for. Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
         "Language: task titles, content and check are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
@@ -182,7 +182,7 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
     `title` is a short English imperative ("Add multi-select status filter") — it is what
     every reader sees, so it has to say the whole thing.
 
-    `content` is optional: one line, at most 200 characters, English. It answers **why this
+    `content` is optional: one line, at most 300 characters, English. It answers **why this
     task exists** — the pressure that made it necessary, the reading you chose where the
     spec allowed several, or the scope you deliberately left out. It is written now, before
     the work, so it cannot describe the result; what proves the work done is `check`, which
@@ -210,7 +210,7 @@ def update_task(task_id: str, title: str | None = None, content: str | None = No
                 key: str | None = None) -> dict:
     """Update a task's fields — everything except status, which is transition_task.
     `branch` records the working branch name; `content` replaces the one-line note
-    (same rule as create_task: one line, at most 200 characters). `check` corrects the
+    (same rule as create_task: one line, at most 300 characters). `check` corrects the
     proof recorded at completion and is only accepted on a task that is already done.
 
     `tags` replaces the whole label list — pass the tags the task should end up with,
@@ -238,7 +238,7 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
     ideally with the branch name) and when it finishes (done); the server stamps
     started_at and completed_at itself.
 
-    `done` requires `check`: one line, at most 200 characters, saying **what proves the work
+    `done` requires `check`: one line, at most 300 characters, saying **what proves the work
     done** — the command you ran and what it printed ("uv run pytest -q: 96 passed"), or the
     observable a reader can go and see ("GET /healthz returns 200 on the deployed host").
     You are the only one who can write it; by the next session the run is gone and all that

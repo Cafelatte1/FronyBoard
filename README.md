@@ -83,7 +83,7 @@ JSON documents; the schema and the rules that guard it are in
   periods and are never reused. They are the only link between FronyBoard and a codebase:
   use them in branch names (`feat/DLY-042/short-desc`) and record the branch on the task.
 - **A task is a title** (v0.33.0, AIR-086) plus status, tags, `depends_on`, branch and two
-  one-line notes of at most 200 characters each. Agents read titles and status; the 25-line
+  one-line notes of at most 300 characters each. Agents read titles and status; the 25-line
   body nobody read, and the month/week slots that only existed to schedule it, are gone.
   Time is `meta.completed_at`.
 - **The two notes answer different questions at different moments** (v0.38.0, AIR-090).

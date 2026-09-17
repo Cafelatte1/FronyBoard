@@ -63,7 +63,7 @@ def test_task_ids_are_global_sequence_across_periods():
 def test_invalid_mutations_are_rejected_and_not_written(data_root):
     key = bootstrap()
     with pytest.raises(service.FronyBoardError, match="validation failed"):
-        service.create_task(key, "2026Q3", title="x", content="x" * 201)
+        service.create_task(key, "2026Q3", title="x", content="x" * 301)
     assert service.list_tasks(key)["count"] == 0
 
     service.create_task(key, "2026Q3", title="x")

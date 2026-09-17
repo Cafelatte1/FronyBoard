@@ -38,8 +38,8 @@ def test_strip_legacy_drops_the_retired_fields_and_folds_content():
     state.periods["2026Q3"].data = {
         "months": [{"id": "M1", "month": "2026-07", "goal": "core", "status": "active"}],
         "tasks": [{"id": "DLY-001", "title": "a", "month": "M1", "week": 2, "prd": "spec",
-                   # the cut at 200 lands on a space; a second run must see no change
-                   "status": "todo", "content": "line one\n" + "x" * 190 + " " + "y" * 100,
+                   # the cut at MAX_CONTENT lands on a space; a second run must see no change
+                   "status": "todo", "content": "line one\n" + "x" * 290 + " " + "y" * 100,
                    "meta": store.new_meta()}]}
     store.save_period(state, "2026Q3")
 
@@ -48,7 +48,7 @@ def test_strip_legacy_drops_the_retired_fields_and_folds_content():
     assert "months" not in data
     task = data["tasks"][0]
     assert not {"month", "week", "prd"} & set(task)
-    assert task["content"] == "line one " + "x" * 190
+    assert task["content"] == "line one " + "x" * 290
     assert service.validate(key)["ok"]
 
     assert store.strip_legacy() == {"periods_changed": 0, "tasks_changed": 0}
