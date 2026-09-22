@@ -6,6 +6,6 @@ set AIRA_DATA_DIR=C:\Users\<user>\AppData\Local\Frony\FronyBoard\data
 set FRONYBOARD_TZ=Asia/Seoul
 set FRONYBOARD_PUBLIC_URL=https://board.frony.app
 set FRONYBOARD_PUBLIC_AUTH_URL=https://auth.frony.app
-set FRONY_AUTH_URL=http://127.0.0.1:8640
+set FRONY_AUTH_URL=http://100.117.143.58:8640
 set FRONY_SERVICE_KEY=frony_REPLACE_ME
 C:\Users\<user>\projects\fronyboard\backend\.venv\Scripts\fronyboard.exe serve
