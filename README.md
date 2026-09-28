@@ -88,7 +88,8 @@ JSON documents; the schema and the rules that guard it are in
   Time is `meta.completed_at`.
 - **The two notes answer different questions at different moments** (v0.38.0, AIR-090).
   `content` is written at create time and says **why** the task exists — the pressure behind
-  it, or the reading chosen where the spec allowed several. `check` is required by
+  it, or the scope deliberately left out. The approach chosen is not part of it (AIR-092):
+  agents wrote it here and again in the commit, so it lives in the commit only. `check` is required by
   `transition_task(status="done")` and says **what proves it done** — the command and its
   output, or an observable a reader can go and see. One free note asked before the work can
   only restate the plan: in a 12-session benchmark every task an agent wrote paraphrased its
