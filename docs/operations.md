@@ -208,9 +208,11 @@ backup; delete it when you no longer want it.
 Two JSON Lines files under `%LOCALAPPDATA%\Frony\FronyBoard\logs` (next to the data
 root; `FRONYBOARD_LOG_DIR` overrides), rotated daily and gzipped:
 
-- `server.jsonl` — boot/shutdown, login and key events, HTTP 4xx/5xx, rejected tool
+- `server.jsonl` — boot/shutdown, login and key events, HTTP 4xx/5xx (a 401 only as its
+  `key_rejected` / `login_failed` event), rejected tool
   calls, unhandled exceptions with `trace`. **Look here first when something is wrong.**
-- `tools.jsonl` — one line per MCP tool call (who, what, which record, ms, ok).
+- `tools.jsonl` — one line per MCP tool call (who — key and client —, what, which record,
+  ms, ok, warnings).
 
 The field set is fixed and lives in `backend/src/fronyboard/log.py`. A tool line
 and its server follow-ups share a `req` id.

@@ -2,8 +2,9 @@
 
 Two files under the log root (`FRONYBOARD_LOG_DIR`, default `<data root>/../logs`):
 
-    tools.jsonl   one line per MCP tool call — who called what, on which record,
-                  how long it took, and whether it was accepted (kept 180 days)
+    tools.jsonl   one line per MCP tool call — who called what (key and client),
+                  on which record, how long it took, and whether it was accepted
+                  (kept 180 days)
     server.jsonl  boot/shutdown, auth events, HTTP 4xx/5xx, rejected tool calls
                   and unhandled exceptions with tracebacks (kept 30 days)
 
@@ -121,7 +122,8 @@ def summarize_args(args: dict[str, Any]) -> dict[str, Any]:
 
 class InterceptHandler(logging.Handler):
     """stdlib logging → server.jsonl. Access lines below 400 are dropped (the
-    dashboard polls every minute); everything else keeps its logger name."""
+    dashboard polls every minute), and so is a 401 — the auth middleware and the login
+    route already log each one with its reason; everything else keeps its logger name."""
 
     def emit(self, record: logging.LogRecord) -> None:
         if record.name == "uvicorn.access":
@@ -130,15 +132,18 @@ class InterceptHandler(logging.Handler):
                 status = int(status)
             except (TypeError, ValueError):
                 return
-            if status < 400:
+            if status < 400 or status == 401:
                 return
-            if method == "GET" and path == "/mcp" and status in (404, 405):
+            if method == "GET" and path == "/mcp" and status in (400, 404, 405):
                 return  # a client opening the optional SSE listen stream — protocol chatter, not a fault
             event("WARNING" if status < 500 else "ERROR", "http", "response",
                   status=status, method=method, path=path, ip=str(addr).rsplit(":", 1)[0])
             return
         if record.levelno < logging.WARNING:
             return  # startup chatter
+        if record.name == "asyncio" and record.exc_info and \
+                isinstance(record.exc_info[1], ConnectionResetError):
+            return  # a client dropped its socket; Windows' proactor reports it as an ERROR
         level = "ERROR" if record.levelno >= logging.ERROR else "WARNING"
         fields: dict[str, Any] = {"logger": record.name, "msg": record.getMessage()}
         if record.exc_info:
@@ -151,6 +156,8 @@ class ToolLogMiddleware:
 
     The caller comes from `scope["state"]["caller"]`, which the bearer-auth ASGI
     middleware fills in for HTTP transports; stdio has no request and logs as `stdio`.
+    The caller names a key, and one key serves every client on a machine, so the
+    client's own name/version (from its clientInfo) is logged beside it.
     """
 
     async def __call__(self, ctx, call_next):
@@ -166,6 +173,9 @@ class ToolLogMiddleware:
             state = (getattr(request, "scope", None) or {}).get("state") or {}
             caller = state.get("caller") or "unknown"
         line: dict[str, Any] = {"req": req, "tool": name, "caller": caller}
+        info = getattr(getattr(getattr(ctx, "session", None), "client_params", None), "client_info", None)
+        if info is not None:
+            line["client"] = f"{info.name}/{info.version}"
         key = args.pop("key", None)
         task = args.pop("task_id", None)
         period = args.pop("period", None)
@@ -196,7 +206,7 @@ class ToolLogMiddleware:
             tool_call(**line, ms=ms, ok=False, error="rejected", msg=msg)
             event("WARNING", "tool", "rejected", req=req, tool=name, msg=msg)
         else:
-            sc = structured
+            sc = structured or _json_text(content)
             if isinstance(sc, dict) and "warnings" not in sc and isinstance(sc.get("result"), dict):
                 sc = sc["result"]
             warnings = len(sc.get("warnings") or []) if isinstance(sc, dict) else 0
@@ -214,6 +224,15 @@ def _result_parts(result: Any) -> tuple[bool, list[Any], Any]:
     return (bool(getattr(result, "is_error", False)),
             list(getattr(result, "content", None) or []),
             getattr(result, "structured_content", None) or {})
+
+
+def _json_text(content: list[Any]) -> Any:
+    """The tool's return value as the client got it: tools declared `-> dict` have no
+    structured content, only their JSON in a text part."""
+    try:
+        return json.loads("".join(_text(c) for c in content))
+    except ValueError:
+        return {}
 
 
 def _text(part: Any) -> str:
