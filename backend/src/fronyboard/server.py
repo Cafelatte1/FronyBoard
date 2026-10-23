@@ -37,7 +37,7 @@ mcp = MCPServer(
         "Which project: the codebase declares its FronyBoard project key in a `## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by FronyBoard (project key: DLY)'). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When registering a codebase (create_project), also add that `## FronyBoard` declaration to its CLAUDE.md.\n\n"
         "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (the year's overview, each period's goal, every open task, and the last ten finished ones with the check that proved each) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
         "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work, before the first edit — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task carries two one-line notes of at most 300 characters, written at different moments and answering different questions. `content`, at create time: **why** this task exists — the pressure that made it necessary, or the scope you deliberately left out. The approach you choose is decided during the work and belongs in the commit, not here. `check`, required when you finish it: **what proves it done** — the command you ran and what it printed, or the observable a reader can go and see. Do not restate the title in either; the title already says what the work is, and the rest lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
-        "Planning: create_project -> set_overview (year) -> upsert_milestone (quarter) -> open_period; create_task works right after open_period, nothing else has to exist first. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
+        "Planning: a project takes tasks right after create_project — create_task opens the current quarter's period by itself, and no milestone has to exist. set_overview (year) and upsert_milestone (quarter) record a plan when the user has one; open_period opens a quarter other than the current one. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
         "The board records what agents claim, not what is true: a title and a `done` are a report, and the code is the only evidence. Read the board to see what remains and what was decided, then confirm against the code before you build on a finished task — that is what `check` is for. Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
         "Language: task titles, content and check are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
         "Other reads: get_task for one id, list_tasks to narrow by period / status / tags, search_tasks for text across projects, recent_activity for what changed and who did it; list_projects already carries a per-project summary."
@@ -54,8 +54,8 @@ def create_project(key: str, name: str | None = None, description: str | None = 
     line saying what the project is, in the user's language (shown on the dashboard cards);
     `repo` is where its code lives (owner/name or a URL). Status starts as active.
 
-    A fresh project holds nothing yet: set_overview (year) -> upsert_milestone (quarter)
-    -> open_period must run before create_task will accept a task.
+    A fresh project takes tasks at once: create_task opens the current quarter. The plan
+    (set_overview, upsert_milestone) is optional and written with the user.
     """
     return service.create_project(key, name, description, repo)
 
@@ -130,20 +130,19 @@ def upsert_milestone(key: str, year: str, quarter: str,
     """Create or update a quarterly milestone — a year's goal for one quarter.
 
     `year` is YYYY (its overview must exist), `quarter` is Q1-Q4, `goal` is one line in the
-    user's language, `status` is planned | active | done (open_period flips planned to
-    active, close_period sets done).
-    Omitted fields keep their current value.
+    user's language (a new milestone needs one), `status` is planned | active | done
+    (opening the period flips planned to active, close_period sets done; a milestone added to
+    a quarter already open starts active).
+    Omitted fields keep their current value. A milestone is optional — tasks never need one.
     """
     return service.upsert_milestone(key, year, quarter, goal, status)
 
 
 @mcp.tool()
 def open_period(key: str, period: str) -> dict:
-    """Start working in a quarter: opens its period and flips a planned milestone to active.
-    Required before create_task will accept that period.
-
-    `period` is YYYYQn (e.g. 2026Q3) and its roadmap milestone must already exist —
-    upsert_milestone first.
+    """Open a quarter's period (YYYYQn, e.g. 2026Q3) other than the current one — create_task
+    opens the current quarter by itself, so this is only for filing work under another
+    quarter. No milestone is needed; if the quarter has a planned one, it flips to active.
     """
     return service.open_period(key, period)
 
@@ -153,7 +152,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
     """Close a period (YYYYQn) and record its retrospective — call when its work is over.
 
     Refuses while any task is still todo or in_progress. Stores `result_markdown` as the
-    period's `result` and marks the milestone done.
+    period's `result` and marks its milestone, if it has one, done.
 
     The retrospective is written in the user's language, stays under ~30 lines and holds
     judgment and reasons only — summary vs goal, what landed and what did not, carried-over tasks
@@ -177,7 +176,9 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
     """Create a task — one issue/branch-sized unit of work — with status todo.
 
     The id is assigned from the project-global sequence and never reused. `period` is
-    YYYYQn and must be open; nothing else has to exist first.
+    YYYYQn: the current quarter (in the server's time zone) opens by itself if it is not
+    open yet, and the answer then carries `opened`; any other quarter must already be open
+    (open_period). Nothing else — no overview, no milestone — has to exist first.
 
     `title` is a short English imperative ("Add multi-select status filter") — it is what
     every reader sees, so it has to say the whole thing.
@@ -278,7 +279,8 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
 def get_status(key: str) -> dict:
     """The resume: everything an agent needs to pick a project up cold, in one call. The
     latest year's overview (goal / now / target / checklist); per period its milestone goal
-    and status, task counts by status, whether it is closed, and `open_tasks` — every
+    and status (a period without a milestone has no goal and reports active while open, done
+    once closed), task counts by status, whether it is closed, and `open_tasks` — every
     todo / blocked / in_progress task with its title, tags, branch, one-line content and
     `waiting_on`; and `recent_done` — the ten most recently finished tasks across every period, newest
     first, each with its content, its `check` and when it completed. Closed periods are
