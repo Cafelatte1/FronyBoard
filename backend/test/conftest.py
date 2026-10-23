@@ -17,6 +17,12 @@ def data_root(tmp_path, monkeypatch):
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def quarter(monkeypatch):
+    """Pin the quarter create_task opens by itself, so no test depends on today's date."""
+    monkeypatch.setattr(service, "current_period", lambda: "2026Q3")
+
+
 @pytest.fixture
 def fake_fauth(monkeypatch):
     """Stand-in for the FronyAuth server: patches the fauth client's functions

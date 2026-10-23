@@ -168,7 +168,7 @@ def _check_roadmap(state: ProjectState, r: Report) -> dict[str, str]:
     return expected
 
 
-def _check_period(state: ProjectState, name: str, status: str, task_id_re: re.Pattern,
+def _check_period(state: ProjectState, name: str, status: str | None, task_id_re: re.Pattern,
                   all_task_ids: set, r: Report) -> None:
     period = state.periods[name]
     data = period.data if isinstance(period.data, dict) else {}
@@ -280,14 +280,12 @@ def validate_state(state: ProjectState) -> Report:
             r.warn(f"planned period not opened yet: {missing}")
         else:
             r.err(f"milestone {missing} is {expected[missing]} but its period record is missing")
-    for orphan in sorted(actual - set(expected)):
-        r.warn(f"period without a roadmap milestone (orphan): {orphan}")
 
+    # a period needs no milestone (AIR-095), so every period's tasks are checked
     all_task_ids: set = set()
-    checked = actual & set(expected)
-    for name in sorted(checked):
-        _check_period(state, name, expected[name], task_id_re, all_task_ids, r)
-    _check_depends_on_graph(state, checked, task_id_re, all_task_ids, r)
+    for name in sorted(actual):
+        _check_period(state, name, expected.get(name), task_id_re, all_task_ids, r)
+    _check_depends_on_graph(state, actual, task_id_re, all_task_ids, r)
     return r
 
 

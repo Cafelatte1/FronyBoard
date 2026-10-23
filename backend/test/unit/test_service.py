@@ -89,8 +89,8 @@ def test_guardrails():
         service.create_project("dly")
     with pytest.raises(service.FronyBoardError, match="already open"):
         service.open_period(key, "2026Q3")
-    with pytest.raises(service.FronyBoardError, match="no milestone"):
-        service.open_period(key, "2026Q1")
+    with pytest.raises(service.FronyBoardError, match="must look like"):
+        service.open_period(key, "2026-Q1")
     with pytest.raises(service.FronyBoardError, match="not found"):
         service.transition_task(key, "DLY-999", "done")
     service.create_task(key, "2026Q3", title="x")
@@ -247,6 +247,57 @@ def test_create_task_needs_nothing_but_an_open_period():
     task = service.create_task(key, "2026Q3", title="straight after open_period")["task"]
     assert task == {"id": "DLY-001", "title": "straight after open_period", "status": "todo",
                     "meta": task["meta"]}
+
+
+def test_create_task_opens_the_current_quarter_without_a_plan():
+    """AIR-095: a bare project takes a task — no overview, no milestone, no open_period."""
+    service.create_project("NEW")
+    created = service.create_task("NEW", "2026Q3", title="first")
+    assert created["opened"] == "2026Q3" and created["task"]["id"] == "NEW-001"
+    period = service.get_status("NEW")["periods"]["2026Q3"]
+    assert period["goal"] is None and period["milestone_status"] == "active"
+    assert "opened" not in service.create_task("NEW", "2026Q3", title="second")
+    assert service.validate("NEW") == {"ok": True, "errors": [], "warnings": []}
+    assert service.list_projects()["projects"][0]["summary"]["open_periods"] == ["2026Q3"]
+
+
+def test_create_task_opens_no_other_quarter(monkeypatch):
+    key = bootstrap()
+    monkeypatch.setattr(service, "current_period", lambda: "2026Q4")
+    with pytest.raises(service.FronyBoardError,
+                       match=r"has no period 2027Q1 .*opens only the current quarter \(2026Q4\)"):
+        service.create_task(key, "2027Q1", title="x")
+    assert service.create_task(key, "2026Q4", title="y")["opened"] == "2026Q4"
+    assert service.create_task(key, "2026Q3", title="z")["period"] == "2026Q3"
+
+
+def test_opening_the_quarter_activates_its_planned_milestone(monkeypatch):
+    key = bootstrap()
+    service.upsert_milestone(key, "2026", "Q4", goal="v2", status="planned")
+    monkeypatch.setattr(service, "current_period", lambda: "2026Q4")
+    service.create_task(key, "2026Q4", title="x")
+    assert service.get_status(key)["periods"]["2026Q4"]["milestone_status"] == "active"
+    assert service.get_roadmap(key)["roadmap"]["years"]["2026"]["milestones"]["Q4"]["status"] == "active"
+
+
+def test_a_milestone_added_to_an_open_quarter_starts_active():
+    service.create_project("NEW")
+    service.create_task("NEW", "2026Q3", title="x")
+    service.set_overview("NEW", "2026", goal="ship")
+    added = service.upsert_milestone("NEW", "2026", "Q3", goal="MVP")
+    assert added["status"] == "active"
+    assert service.validate("NEW")["ok"]
+
+
+def test_a_period_without_a_milestone_opens_and_closes():
+    key = bootstrap()
+    assert service.open_period(key, "2026Q1") == {"opened": "2026Q1", "milestone_status": None}
+    service.create_task(key, "2026Q1", title="old work")
+    service.transition_task(key, "DLY-001", "done", check="seen")
+    service.close_period(key, "2026Q1", "# done")
+    period = service.get_status(key)["periods"]["2026Q1"]
+    assert period["closed"] is True and period["milestone_status"] == "done"
+    assert service.validate(key)["ok"]
 
 
 def test_clean_content_folds_to_one_line_and_clears_when_empty():

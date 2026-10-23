@@ -12,8 +12,10 @@ import datetime
 import functools
 import gzip
 import json
+import os
 import re
 import threading
+import zoneinfo
 
 from . import log, store, validation
 from .store import PeriodState, ProjectState
@@ -257,7 +259,9 @@ def upsert_milestone(key: str, year: str, quarter: str,
     milestones = ydata.setdefault("milestones", {})
     m = milestones.get(quarter)
     if m is None:
-        m = milestones[quarter] = {"goal": None, "status": "planned", "meta": store.new_meta()}
+        # a quarter already opened without a plan keeps its state when one is added
+        m = milestones[quarter] = {"goal": None, "status": _period_status(state, f"{year}{quarter}"),
+                                   "meta": store.new_meta()}
     if goal is not None:
         m["goal"] = goal
     if status is not None:
@@ -271,48 +275,71 @@ def upsert_milestone(key: str, year: str, quarter: str,
 # ----------------------------------------------------------------- periods
 
 
-def _require_period(state: ProjectState, period: str) -> None:
+def current_period() -> str:
+    """The quarter it is now (YYYYQn) in FRONYBOARD_TZ, else the process-local zone — the
+    one period create_task opens by itself."""
+    name = os.environ.get("FRONYBOARD_TZ")
+    try:
+        tz = zoneinfo.ZoneInfo(name) if name else None
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+        tz = None
+    today = datetime.datetime.now(tz)
+    return f"{today.year}Q{(today.month - 1) // 3 + 1}"
+
+
+def _require_period(state: ProjectState, period: str, hint: str = "") -> None:
     """Refuse an unknown period by name — closed periods are still in here, so the
     only way to miss is a period that was never opened (or a typo in its name)."""
     if period not in state.periods:
         known = ", ".join(sorted(state.periods)) or "none — open_period starts one"
         raise FronyBoardError(
-            f"project {state.key} has no period {period} (it has: {known})")
+            f"project {state.key} has no period {period} (it has: {known}){hint}")
 
 
-def _milestone_for(state: ProjectState, period: str) -> dict:
-    if not validation.PERIOD_NAME.fullmatch(period):
-        raise FronyBoardError(f"period must look like 2026Q3, got {period!r}")
+def _milestone_of(state: ProjectState, period: str) -> dict | None:
+    """The period's roadmap milestone, or None — a period needs none (AIR-095)."""
     year, quarter = period[:4], period[4:]
-    m = state.roadmap.get("years", {}).get(year, {}).get("milestones", {}).get(quarter)
-    if m is None:
-        raise FronyBoardError(f"no milestone {year}.{quarter} in the roadmap — call upsert_milestone first")
-    return m
+    return state.roadmap.get("years", {}).get(year, {}).get("milestones", {}).get(quarter)
+
+
+def _period_status(state: ProjectState, period: str) -> str:
+    """A quarter's state read from its period alone: planned before it opens, active while
+    open, done once closed — what a period without a milestone reports."""
+    p = state.periods.get(period)
+    if p is None:
+        return "planned"
+    return "done" if p.has_result else "active"
+
+
+def _open(state: ProjectState, period: str) -> dict | None:
+    """Add the period's record and flip its milestone, if it has a planned one, to active."""
+    state.periods[period] = PeriodState(data={"tasks": []})
+    milestone = _milestone_of(state, period)
+    if milestone is not None and milestone.get("status") == "planned":
+        milestone["status"] = "active"
+        store.touch_meta(milestone)
+    return milestone
 
 
 @_locked
 def open_period(key: str, period: str) -> dict:
     state = store.load_state(key)
-    milestone = _milestone_for(state, period)
+    if not validation.PERIOD_NAME.fullmatch(period):
+        raise FronyBoardError(f"period must look like 2026Q3, got {period!r}")
     if period in state.periods:
         raise FronyBoardError(f"period {period} is already open")
-    state.periods[period] = PeriodState(data={"tasks": []})
-    if milestone["status"] == "planned":
-        milestone["status"] = "active"
-        store.touch_meta(milestone)
+    milestone = _open(state, period)
     warnings = _gate(state)
     store.save_roadmap(state)
     store.save_period(state, period)
-    return _ok({"opened": period, "milestone_status": milestone["status"]}, warnings)
+    return _ok({"opened": period, "milestone_status": milestone["status"] if milestone else None},
+               warnings)
 
 
 @_locked
 def close_period(key: str, period: str, result_markdown: str) -> dict:
     state = store.load_state(key)
-    # the period first: a quarter that was never opened cannot be closed, and pointing
-    # at its missing milestone would send the caller off to upsert_milestone instead
     _require_period(state, period)
-    milestone = _milestone_for(state, period)
     open_tasks = [t["id"] for t in state.periods[period].data.get("tasks") or []
                   if t.get("status") not in ("done", "blocked", "cancelled")]
     if open_tasks:
@@ -320,8 +347,10 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
             f"period {period} still has open tasks: {', '.join(open_tasks)} — "
             "finish them or recreate them in the next period (new id), then close")
     rewritten = state.periods[period].has_result
-    milestone["status"] = "done"
-    store.touch_meta(milestone)
+    milestone = _milestone_of(state, period)
+    if milestone is not None:
+        milestone["status"] = "done"
+        store.touch_meta(milestone)
     state.periods[period].data["result"] = result_markdown
     warnings = _gate(state)
     store.save_roadmap(state)
@@ -427,7 +456,13 @@ def _clean_content(value: str | None) -> str | None:
 def create_task(key: str, period: str, title: str, content: str | None = None,
                 tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
     state = store.load_state(key)
-    _require_period(state, period)
+    current = current_period()
+    opened = period not in state.periods and period == current
+    if opened:
+        _open(state, period)
+    else:
+        _require_period(state, period, f" — create_task opens only the current quarter ({current}) "
+                                       "by itself; open_period opens any other")
     task: dict = {"id": _next_task_id(state), "title": title, "status": "todo"}
     tags = _clean_tags(tags)
     if tags:
@@ -442,8 +477,10 @@ def create_task(key: str, period: str, title: str, content: str | None = None,
     task["meta"] = store.new_meta()
     state.periods[period].data.setdefault("tasks", []).append(task)
     warnings = _gate(state)
+    if opened:
+        store.save_roadmap(state)
     store.save_period(state, period)
-    return _ok({"period": period, "task": task}, warnings)
+    return _ok({"period": period, "task": task, **({"opened": period} if opened else {})}, warnings)
 
 
 # Optional task fields; an "empty" value ("" / []) passed to update_task removes them.
@@ -809,7 +846,7 @@ def _status(state: ProjectState) -> dict:
                             key=lambda t: (_STATUS_ORDER.index(t["status"]), t.get("id") or ""))
         periods[pname] = {
             "goal": milestone.get("goal"),
-            "milestone_status": milestone.get("status"),
+            "milestone_status": milestone.get("status") or _period_status(state, pname),
             "task_counts": counts,
             "closed": p.has_result,
             "open_tasks": [_open_task(t, status_of) for t in open_tasks],

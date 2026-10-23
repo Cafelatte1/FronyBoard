@@ -22,14 +22,17 @@ def test_planned_milestone_without_period_file_is_a_warning():
     assert any("planned period not opened yet: 2026Q4" in w for w in report.warnings)
 
 
-def test_orphan_period_record_is_a_warning():
+def test_period_without_a_milestone_is_valid_and_its_tasks_are_checked():
     key = bootstrap()
     state = store.load_state(key)
     state.periods["2025Q1"] = store.PeriodState(data={"tasks": []})
     store.save_period(state, "2025Q1")
     report = _report(key)
-    assert not report.errors
-    assert any("orphan" in w and "2025Q1" in w for w in report.warnings)
+    assert not report.errors and not report.warnings
+
+    state.periods["2025Q1"].data["tasks"].append({"id": "DLY-900", "status": "todo"})
+    report = validation.validate_state(state)
+    assert any("2025Q1 tasks[DLY-900]: missing title" in e for e in report.errors)
 
 
 def test_done_milestone_requires_result():
