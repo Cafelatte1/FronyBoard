@@ -95,7 +95,9 @@ JSON documents; the schema and the rules that guard it are in
   only restate the plan: in a 12-session benchmark every task an agent wrote paraphrased its
   own title, because the note was fixed at create time and `update_task` was never called.
   Reopening a task drops its `check`; nothing is proven any more.
-- **Reference chain**: `period → roadmap milestone` (the quarter). That is the only one.
+- **Reference chain**: `period → roadmap milestone` (the quarter). That is the only one,
+  and the milestone is optional (v0.40.0, AIR-095): a period without one is valid, and its
+  tasks are checked like any other's.
 - **Statuses** — milestones: `planned | active | done`;
   tasks: `todo | in_progress | done | blocked | cancelled`.
 - **`cancelled` is the soft delete** — there is no hard delete. Cancelling requires a
@@ -140,11 +142,17 @@ JSON documents; the schema and the rules that guard it are in
 Typical flow:
 
 ```
-create_project → set_overview → upsert_milestone → open_period
-→ create_task
+create_project
+→ create_task (opens the current quarter)
 → transition_task in_progress (with branch) → ... → transition_task done
 → close_period (retrospective)
 ```
+
+Planning is optional, not a prerequisite. `create_task` opens the current quarter by
+itself (in `FRONYBOARD_TZ`, else the server's zone); `open_period` opens any other
+quarter, with or without a milestone. `set_overview` and `upsert_milestone` add the
+year's and the quarter's goals whenever there are some. A milestone added to an open
+quarter starts `active`; closing the quarter marks it `done`.
 
 Every mutation is validated before anything is written; invalid changes are rejected
 with the full error list. `close_period` refuses while tasks are still `todo` or
