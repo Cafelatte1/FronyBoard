@@ -85,7 +85,8 @@ as `<server>` — only your enrolled devices can reach it, from anywhere.
    `scripts\register-task.ps1` from an elevated PowerShell. It creates the
    "FronyBoard Server" task (at startup, as SYSTEM) that runs the launcher. The
    launcher pins `AIRA_DATA_DIR` because SYSTEM's `%LOCALAPPDATA%` is the system
-   profile, and sets `FRONYBOARD_TZ` so the dashboard shows the server's zone.
+   profile, and sets `FRONYBOARD_TZ` so the dashboard shows the server's zone and
+   `create_task` opens that zone's current quarter.
    [operations](operations.md), First-time setup, has the details.
 4. To update: cut a release on a dev PC (`git tag -a vX.Y.Z; git push --tags`), then
    on the server run `powershell -NoProfile -File scripts\deploy.ps1 -Tag vX.Y.Z` — it

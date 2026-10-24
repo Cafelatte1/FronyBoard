@@ -118,8 +118,12 @@ service has its own hostname under `frony.app`, published through one
 Cloudflare Tunnel on the server (the tunnel, DNS and service registrations are
 managed there, not in this repo):
 
-    https://board.frony.app  -> http://127.0.0.1:8642  (FronyBoard: /mcp, dashboard, /api)
+    https://board.frony.app  -> http://127.0.0.1:8642  (FronyBoard: /mcp and its resource metadata only)
     https://auth.frony.app   -> http://127.0.0.1:8640  (FronyAuth: OAuth issuer + approval page)
+
+The dashboard and `/api` are not published (2026-10-24). The tunnel's rule for
+`board.frony.app` matches only `/mcp` and `/.well-known/oauth-protected-resource[/mcp]`,
+and every other path answers 404, so people open the dashboard over the tailnet.
 
 The OAuth authorization server is **FronyAuth** (project-auth, `:8640`) since
 v0.18.0. FronyBoard publishes its own RFC 9728 resource metadata (v0.34.0 —
