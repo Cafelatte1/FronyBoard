@@ -33,8 +33,9 @@ git push origin main vX.Y.Z
 
 Pushing the tag runs `.github/workflows/publish.yml` (AIR-079): it checks that the
 tag matches `pyproject.toml` and `server.json`, runs the backend tests, builds the
-package, publishes it to PyPI and then publishes `server.json` to the MCP Registry
-(`mcp-publisher login github-oidc`). A mismatch stops the run before anything is
+package, publishes it to PyPI, then publishes `server.json` to the MCP Registry
+(`mcp-publisher login github-oidc`) and last creates the tag's GitHub release, from
+which Glama's Auto-Release rebuilds the Glama listing (AIR-096). A mismatch stops the run before anything is
 published, so the tag can be deleted, fixed and pushed again. The job uses the
 GitHub environment `pypi` (restricted to `v*` tags); PyPI authenticates through
 Trusted Publishing once the project has one registered — until then the
