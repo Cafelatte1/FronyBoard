@@ -1,7 +1,8 @@
 name: Publish
 
-# A release tag (vX.Y.Z) publishes the package to PyPI (Trusted Publishing, no token)
-# and the listing to the MCP Registry (GitHub OIDC). docs/operations.md "Deploying a release".
+# A release tag (vX.Y.Z) publishes the package to PyPI (Trusted Publishing, no token),
+# the listing to the MCP Registry (GitHub OIDC) and the tag's GitHub release, which
+# Glama's Auto-Release rebuilds its listing from. docs/operations.md "Deploying a release".
 on:
   push:
     tags: ["v*"]
@@ -12,7 +13,7 @@ jobs:
     environment: pypi
     permissions:
       id-token: write   # PyPI Trusted Publishing + MCP Registry github-oidc
-      contents: read
+      contents: write   # the GitHub release
     steps:
       - uses: actions/checkout@v7
 
@@ -49,3 +50,8 @@ jobs:
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
