@@ -29,26 +29,99 @@ from . import auth, fauth, log, service, store, web
 
 _LOOPBACK = ("127.0.0.1", "localhost", "::1")
 
+# Clients keep only so much of the instructions (ChatGPT weighs ~512 characters, Claude Code
+# cuts at 2KB), so they say what the server is for and point at help; the guide is HELP.
 mcp = MCPServer(
     "fronyboard",
     middleware=[log.ToolLogMiddleware()],
     instructions=(
-        "FronyBoard is a project tracker for AI agents. Data lives in FronyBoard's own store, not in the codebase you are working on — record plans, tasks and retrospectives through these tools, never as files in the repo.\n\n"
-        "Which project: the codebase declares its FronyBoard project key in a `## FronyBoard` section of its CLAUDE.md (e.g. 'This project is tracked by FronyBoard (project key: DLY)'). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When registering a codebase (create_project), also add that `## FronyBoard` declaration to its CLAUDE.md.\n\n"
-        "Session rhythm — two calls, not a conversation: call get_status once when you start on a project (the year's overview, each period's goal, every open task, and the last ten finished ones with the check that proved each) and do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.\n\n"
-        "Tasks: one task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work, before the first edit — there is no one to ask — then transition it to in_progress with the branch name (feat/DLY-042/short-desc; the id is the only link between FronyBoard and the codebase) and to done when the work is merged (if you cannot observe the merge, ask the user first). A task carries two one-line notes of at most 300 characters, written at different moments and answering different questions. `content`, at create time: **why** this task exists — the pressure that made it necessary, or the scope you deliberately left out. The approach you choose is decided during the work and belongs in the commit, not here. `check`, required when you finish it: **what proves it done** — the command you ran and what it printed, or the observable a reader can go and see. Do not restate the title in either; the title already says what the work is, and the rest lives in the code and the commits. `depends_on` lists the earlier tasks this one builds on (other projects allowed) — it points backwards only, and it is a pointer, not a lock: nothing is ever blocked.\n\n"
-        "Planning: a project takes tasks right after create_project — create_task opens the current quarter's period by itself, and no milestone has to exist. set_overview (year) and upsert_milestone (quarter) record a plan when the user has one; open_period opens a quarter other than the current one. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.\n\n"
-        "The board records what agents claim, not what is true: a title and a `done` are a report, and the code is the only evidence. Read the board to see what remains and what was decided, then confirm against the code before you build on a finished task — that is what `check` is for. Every mutation is validated before it is written; ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.\n\n"
-        "Language: task titles, content and check are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.\n\n"
-        "Other reads: get_task for one id, list_tasks to narrow by period / status / tags, search_tasks for text across projects, recent_activity for what changed and who did it; list_projects already carries a per-project summary."
+        "FronyBoard is a project tracker for AI agents: plans, tasks and retrospectives live in its store, never as files in the repo. "
+        "A codebase names its project key in a `## FronyBoard` section of its CLAUDE.md; without one it is not tracked, so do not ask for a key. "
+        "Call help first for the full guide, then get_status once when you start on a project, and create_task / transition_task as the work changes state."
     ),
 )
+
+HELP = """\
+# FronyBoard guide
+
+FronyBoard is a project tracker whose first user is an AI agent; people read the same records on its dashboard. Data lives in FronyBoard's own store, not in the codebase you are working on — record plans, tasks and retrospectives through these tools, never as files in the repo.
+
+## Which project
+
+The codebase declares its project key in a `## FronyBoard` section of its CLAUDE.md (e.g. "This project is tracked by FronyBoard (project key: DLY)"). No such declaration means the project is not FronyBoard-managed — do not ask for a key; at most, suggest registering it once. When you register a codebase (create_project), also add that `## FronyBoard` section to its CLAUDE.md.
+
+## A session is two calls, not a conversation
+
+Call get_status once when you start on a project: the year's overview, each period's goal, every open task, and the last ten finished ones with the check that proved each. Do not poll it again. Then create_task / transition_task as the work actually changes state. Every call is a full turn for you, so no second read unless the board itself is the subject.
+
+## Tasks
+
+- One task per branch-sized piece of work; trivial fixes need none. Create it yourself when you start such work, before the first edit — there is no one to ask.
+- Move it to in_progress with the branch name (`feat/DLY-042/short-desc`; the id is the only link between FronyBoard and the codebase), and to done when the work is merged. If you cannot observe the merge, ask the user first.
+- A task carries two one-line notes of at most 300 characters, written at different moments and answering different questions. `content`, at create time: **why** this task exists — the pressure that made it necessary, or the scope you deliberately left out. The approach you choose is decided during the work and belongs in the commit, not here. `check`, required when you finish it: **what proves it done** — the command you ran and what it printed, or the observable a reader can go and see. Do not restate the title in either.
+- `depends_on` lists the earlier tasks this one builds on (other projects allowed). It points backwards only, and it is a pointer, not a lock: nothing is ever blocked.
+
+## Planning
+
+A project takes tasks right after create_project — create_task opens the current quarter's period by itself, and no milestone has to exist. set_overview (year) and upsert_milestone (quarter) record a plan when the user has one; open_period opens a quarter other than the current one. A task that outlives its period is not moved: recreate it in the next period under a new id, leave the old one blocked, and map old id -> new id in the closing retrospective. The roadmap and the retrospective are written with the user; the tasks are yours.
+
+## What the board is worth
+
+The board records what agents claim, not what is true: a title and a `done` are a report, and the code is the only evidence. Read the board to see what remains and what was decided, then confirm against the code before you build on a finished task — that is what `check` is for. Ids and timestamps are issued by the server — never invent them. Nothing is ever hard-deleted: transition_task to cancelled drops a task, update_project(status='archived') retires a project.
+
+## Language
+
+Task titles, content and check are English. Planning prose people read on the dashboard — project description, yearly overview (goal / now / target / checklist), quarterly milestones and retrospectives — is written in the language the user speaks with you; keep one language per board.
+
+## Tools
+
+| Tool | When |
+|---|---|
+| `get_status` | First, once per session on a project: the whole resume |
+| `create_task` | A piece of work starts, or the user asks to add one |
+| `transition_task` | Work starts, finishes (with `check`), stalls (blocked) or is dropped (cancelled, with `reason`) |
+| `update_task` | A task's title, note, branch, tags or `depends_on` change — never its status |
+| `get_task` | You know the id and need the whole record |
+| `list_tasks` | Finished, cancelled or tagged tasks, or a closed period's |
+| `search_tasks` | A word from a task, across every project |
+| `recent_activity` | What changed recently and who did it |
+| `list_projects` | Which projects exist, with a summary of each |
+| `create_project` | Register a codebase, once |
+| `update_project` | Rename, re-describe, pause or archive a project |
+| `get_roadmap` | The plan as written: yearly overviews and quarterly milestones |
+| `set_overview` | Set or replace a year's goal, now, target and checklist |
+| `set_check` | Tick or untick one checklist item |
+| `upsert_milestone` | Set or change a quarter's goal |
+| `open_period` | Open a quarter other than the current one |
+| `close_period` | A quarter's work is over: close it with its retrospective |
+| `get_retrospective` | Read a closed quarter's retrospective |
+| `validate` | Only after the store was edited outside these tools |
+| `help` | This guide |
+
+## When a call is refused
+
+Every mutation is validated before anything is written. A refused call stores nothing and says what was wrong — fix the fields it names and call again. A call out of order says what must come first (e.g. open_period before filing a task under another quarter, a year's overview before its milestone).
+"""
+
+
+@mcp.tool(structured_output=False)
+def help() -> str:
+    """Use it for questions about FronyBoard itself — what it is for, which tool to call when,
+    and how a session works with it — and read it once before your first other call in a
+    conversation. Returns the whole guide as Markdown text.
+
+    To read or change what is recorded, call the working tools directly: get_status,
+    list_projects, create_task, transition_task, list_tasks, search_tasks.
+    """
+    return HELP
 
 
 @mcp.tool()
 def create_project(key: str, name: str | None = None, description: str | None = None,
                    repo: str | None = None) -> dict:
-    """Register a new project — once per codebase, before any planning happens.
+    """Use it when the user wants a codebase tracked here (프로젝트 등록, 보드 만들기).
+
+    Register a new project — once per codebase, before any planning happens.
 
     `key` is the task-id prefix (2-5 uppercase letters, e.g. DLY); `description` is one
     line saying what the project is, in the user's language (shown on the dashboard cards);
@@ -63,7 +136,9 @@ def create_project(key: str, name: str | None = None, description: str | None = 
 @mcp.tool()
 def update_project(key: str, name: str | None = None, description: str | None = None,
                    repo: str | None = None, status: str | None = None) -> dict:
-    """Update a project's own fields — pass at least one of name, description, repo, status.
+    """Use it when the user renames, re-describes, pauses or archives a project (프로젝트 이름·설명 변경, 중지, 보관).
+
+    Update a project's own fields — pass at least one of name, description, repo, status.
     The key (and with it the task id prefix) never changes, and nothing here touches the
     roadmap, periods or tasks. `name` and `description` follow create_project's language rule.
 
@@ -76,7 +151,9 @@ def update_project(key: str, name: str | None = None, description: str | None = 
 
 @mcp.tool()
 def list_projects(include_archived: bool = False) -> dict:
-    """List every project (key, name, description, repo, status, meta) — how to find out
+    """Use it when the user asks which projects are tracked (프로젝트 목록, 어떤 보드가 있어).
+
+    List every project (key, name, description, repo, status, meta) — how to find out
     which keys exist. Archived ones are left out unless `include_archived` is set.
 
     Each entry carries a `summary`: its open periods, task counts by status and
@@ -88,7 +165,9 @@ def list_projects(include_archived: bool = False) -> dict:
 
 @mcp.tool()
 def get_roadmap(key: str, include_meta: bool = False) -> dict:
-    """Read a project's plan as written: yearly overviews (goal, now, target, checklist),
+    """Use it when the user asks for the plan (로드맵, 올해 목표, 분기 목표).
+
+    Read a project's plan as written: yearly overviews (goal, now, target, checklist),
     quarterly milestones, and the names of its periods.
 
     Goals only, no counts — get_status for progress and the current period, list_tasks for
@@ -100,7 +179,9 @@ def get_roadmap(key: str, include_meta: bool = False) -> dict:
 @mcp.tool()
 def set_overview(key: str, year: str, goal: str, now: str | None = None,
                  target: str | None = None, checklist: list[str | dict] | None = None) -> dict:
-    """Create or replace a year's overview: the one-line yearly `goal`, plus the three
+    """Use it when the user sets or rewrites a year's plan (올해 목표, 연간 계획).
+
+    Create or replace a year's overview: the one-line yearly `goal`, plus the three
     blocks the dashboard shows for the current year — `now` (what is being worked on),
     `target` (what that work is meant to reach) and `checklist` (the concrete steps to get
     there, ticked off as they land). A year needs an overview before upsert_milestone will
@@ -117,7 +198,9 @@ def set_overview(key: str, year: str, goal: str, now: str | None = None,
 
 @mcp.tool()
 def set_check(key: str, year: str, index: int, done: bool = True) -> dict:
-    """Tick or untick one item of a year's overview checklist: `index` is its 0-based
+    """Use it when one item of the year's checklist is done or undone (체크리스트 완료 표시).
+
+    Tick or untick one item of a year's overview checklist: `index` is its 0-based
     position in get_roadmap's `checklist`, `done` the new state. Returns the updated
     overview. To add, remove or reword items use set_overview.
     """
@@ -127,7 +210,9 @@ def set_check(key: str, year: str, index: int, done: bool = True) -> dict:
 @mcp.tool()
 def upsert_milestone(key: str, year: str, quarter: str,
                      goal: str | None = None, status: str | None = None) -> dict:
-    """Create or update a quarterly milestone — a year's goal for one quarter.
+    """Use it when the user sets or changes a quarter's goal (분기 목표, 마일스톤).
+
+    Create or update a quarterly milestone — a year's goal for one quarter.
 
     `year` is YYYY (its overview must exist), `quarter` is Q1-Q4, `goal` is one line in the
     user's language (a new milestone needs one), `status` is planned | active | done
@@ -140,7 +225,9 @@ def upsert_milestone(key: str, year: str, quarter: str,
 
 @mcp.tool()
 def open_period(key: str, period: str) -> dict:
-    """Open a quarter's period (YYYYQn, e.g. 2026Q3) other than the current one — create_task
+    """Use it only to file work under a quarter other than the current one (다음 분기 열기).
+
+    Open a quarter's period (YYYYQn, e.g. 2026Q3) other than the current one — create_task
     opens the current quarter by itself, so this is only for filing work under another
     quarter. No milestone is needed; if the quarter has a planned one, it flips to active.
     """
@@ -149,7 +236,9 @@ def open_period(key: str, period: str) -> dict:
 
 @mcp.tool()
 def close_period(key: str, period: str, result_markdown: str) -> dict:
-    """Close a period (YYYYQn) and record its retrospective — call when its work is over.
+    """Use it when a quarter's work is over and the user wants it closed with a retrospective (분기 마감, 회고 작성).
+
+    Close a period (YYYYQn) and record its retrospective — call when its work is over.
 
     Refuses while any task is still todo or in_progress. Stores `result_markdown` as the
     period's `result` and marks its milestone, if it has one, done.
@@ -164,7 +253,9 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
 
 @mcp.tool()
 def get_retrospective(key: str, period: str) -> dict:
-    """Read a closed period's (YYYYQn) retrospective — the `result` markdown close_period
+    """Use it when the user asks how a past quarter went (지난 분기 회고).
+
+    Read a closed period's (YYYYQn) retrospective — the `result` markdown close_period
     wrote. Errors while the period is still open; get_status says which ones are closed.
     """
     return service.get_retrospective(key, period)
@@ -173,7 +264,9 @@ def get_retrospective(key: str, period: str) -> dict:
 @mcp.tool()
 def create_task(key: str, period: str, title: str, content: str | None = None,
                 tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
-    """Create a task — one issue/branch-sized unit of work — with status todo.
+    """Use it when you start a piece of work or the user asks to add one (태스크 추가, 할 일 등록).
+
+    Create a task — one issue/branch-sized unit of work — with status todo.
 
     The id is assigned from the project-global sequence and never reused. `period` is
     YYYYQn: the current quarter (in the server's time zone) opens by itself if it is not
@@ -209,7 +302,9 @@ def update_task(task_id: str, title: str | None = None, content: str | None = No
                 branch: str | None = None, tags: list[str] | None = None,
                 depends_on: list[str] | None = None, check: str | None = None,
                 key: str | None = None) -> dict:
-    """Update a task's fields — everything except status, which is transition_task.
+    """Use it when a task's title, note, branch, tags or links change (태스크 수정).
+
+    Update a task's fields — everything except status, which is transition_task.
     `branch` records the working branch name; `content` replaces the one-line note
     (same rule as create_task: one line, at most 300 characters). `check` corrects the
     proof recorded at completion and is only accepted on a task that is already done.
@@ -231,7 +326,9 @@ def update_task(task_id: str, title: str | None = None, content: str | None = No
 def transition_task(task_id: str, status: str, branch: str | None = None,
                     reason: str | None = None, check: str | None = None,
                     key: str | None = None) -> dict:
-    """Move a task to a new status: todo | in_progress | done | blocked | cancelled. The
+    """Use it when work starts, finishes, stalls or is dropped (태스크 시작, 완료, 보류, 취소).
+
+    Move a task to a new status: todo | in_progress | done | blocked | cancelled. The
     only tool that changes status — title, content and tags are update_task.
 
     `task_id` is the full id, e.g. DLY-042; the project is derived from that prefix, so
@@ -259,7 +356,9 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                include_cancelled: bool = False, tags: list[str] | None = None,
                updated_since: str | None = None) -> dict:
-    """List one project's tasks, optionally narrowed by period, status, tags or recency.
+    """Use it when the user asks for finished, cancelled or tagged work, or a past quarter's (완료한 일, 태그별 태스크).
+
+    List one project's tasks, optionally narrowed by period, status, tags or recency.
     get_status already lists the open ones; use this for done or cancelled tasks, a closed
     period, or a tag cut. get_task when you know the id, search_tasks for text across
     projects.
@@ -277,7 +376,9 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
 
 @mcp.tool()
 def get_status(key: str) -> dict:
-    """The resume: everything an agent needs to pick a project up cold, in one call. The
+    """Use it first when you start on a project, and when the user asks where it stands (진행 상황, 남은 일, 지금 하는 일).
+
+    The resume: everything an agent needs to pick a project up cold, in one call. The
     latest year's overview (goal / now / target / checklist); per period its milestone goal
     and status (a period without a milestone has no goal and reports active while open, done
     once closed), task counts by status, whether it is closed, and `open_tasks` — every
@@ -298,7 +399,9 @@ def get_status(key: str) -> dict:
 
 @mcp.tool()
 def get_task(task_id: str) -> dict:
-    """Read one task in full by id (DLY-042) — the project comes from the prefix, so no key
+    """Use it when you know a task id and need the whole record (태스크 상세).
+
+    Read one task in full by id (DLY-042) — the project comes from the prefix, so no key
     is needed. Returns the record with its period. Use this instead of list_tasks whenever
     you already know the id; search_tasks when you only know a word from it. The record also
     carries `waiting_on` when it applies.
@@ -309,7 +412,9 @@ def get_task(task_id: str) -> dict:
 @mcp.tool()
 def search_tasks(query: str, key: str | None = None, status: str | None = None,
                  include_cancelled: bool = False, limit: int = 20) -> dict:
-    """Find tasks by text across all projects, with the dashboard's rules: case-insensitive
+    """Use it when the user remembers a word from a task but not its id or project (태스크 검색).
+
+    Find tasks by text across all projects, with the dashboard's rules: case-insensitive
     substring over project key, task id, title and content (not branch or tags); a
     matching project key returns all of its tasks. Closed periods are included; cancelled
     tasks only with `include_cancelled` (or `status='cancelled'`).
@@ -325,7 +430,9 @@ def search_tasks(query: str, key: str | None = None, status: str | None = None,
 @mcp.tool()
 def recent_activity(key: str | None = None, since: str | None = None, limit: int = 50,
                     writes_only: bool = True) -> dict:
-    """What changed recently and who did it: the tool calls recorded in tools.jsonl,
+    """Use it when the user asks what changed recently or who did it (최근 변경, 누가 했어).
+
+    What changed recently and who did it: the tool calls recorded in tools.jsonl,
     newest first — `ts`, `tool`, `caller` (key:<name> / session:<user> / oauth:… / stdio / local),
     `project`, `task` and `args` (argument names; prose fields appear as `<name>_len`);
     `ok: false` marks a rejected call. This is the mutation history; task records
@@ -340,7 +447,9 @@ def recent_activity(key: str | None = None, since: str | None = None, limit: int
 
 @mcp.tool()
 def validate(key: str) -> dict:
-    """Check a project's stored data against the FronyBoard schema and rules, returning
+    """Use it only after the store was edited outside these tools (데이터 점검).
+
+    Check a project's stored data against the FronyBoard schema and rules, returning
     errors and warnings.
 
     Rarely needed on its own — every mutation runs this same gate and refuses to write when

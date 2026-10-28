@@ -134,6 +134,7 @@ JSON documents; the schema and the rules that guard it are in
 | Periods | `open_period`, `close_period`, `get_retrospective` |
 | Planning | `create_task`, `update_task`, `transition_task` |
 | Queries | `list_tasks`, `get_task`, `search_tasks`, `recent_activity` |
+| Guide | `help` — the full usage guide as Markdown; the server instructions point to it |
 
 `update_task` and `transition_task` derive the project from the task id prefix
 (`DLY-042` → `DLY`), so their `key` parameter is optional. Re-calling

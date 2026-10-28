@@ -627,7 +627,7 @@ def _tasks(state: ProjectState, period: str | None = None, status: str | None = 
 _STATUS_ORDER = ("in_progress", "blocked", "todo", "done", "cancelled")
 _READ_TOOLS = frozenset({"list_projects", "get_roadmap", "get_retrospective", "list_tasks",
                          "get_status", "validate", "get_task", "search_tasks",
-                         "recent_activity"})
+                         "recent_activity", "help"})
 _DURATION = re.compile(r"^\s*(\d+)\s*([mhd])\s*$")
 _UNITS = {"m": "minutes", "h": "hours", "d": "days"}
 
