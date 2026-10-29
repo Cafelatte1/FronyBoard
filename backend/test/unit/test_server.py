@@ -1,6 +1,7 @@
 """MCP tool-surface wiring tests — the glue between the tools and the service layer."""
 
 import asyncio
+import re
 
 import pytest
 
@@ -55,11 +56,11 @@ def test_help_is_one_markdown_text_block_naming_every_tool():
     assert missing == []
 
 
-def test_help_description_names_the_working_tools_but_none_of_their_words():
+def test_help_description_names_at_most_five_working_tools_but_none_of_their_words():
     tools = _tools()
     description = tools["help"].description
-    for name in ("get_status", "create_task", "transition_task", "list_tasks", "search_tasks"):
-        assert name in description
+    named = [name for name in tools if name != "help" and name in description]
+    assert sorted(named) == ["create_task", "get_status", "list_tasks", "search_tasks", "transition_task"]
     words = description
     for name in tools:
         words = words.replace(name, "")
@@ -73,6 +74,13 @@ def test_tool_descriptions_open_with_when_to_use_and_fit_2kb():
     for name, tool in _tools().items():
         assert tool.description.startswith("Use it "), name
         assert len(tool.description.encode()) <= 2048, name
+
+
+def test_what_the_model_reads_is_english():
+    tools = _tools()
+    guide = asyncio.run(server.mcp.call_tool("help", {})).content[0].text
+    texts = [server.mcp.instructions, guide, *(t.description for t in tools.values())]
+    assert not [t for t in texts if re.search("[가-힣]", t)]
 
 
 def test_serve_local_refuses_a_non_loopback_host():
