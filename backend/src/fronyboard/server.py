@@ -111,7 +111,7 @@ def help() -> str:
     conversation. Returns the whole guide as Markdown text.
 
     To read or change what is recorded, call the working tools directly: get_status,
-    list_projects, create_task, transition_task, list_tasks, search_tasks.
+    create_task, transition_task, list_tasks, search_tasks.
     """
     return HELP
 
@@ -119,7 +119,7 @@ def help() -> str:
 @mcp.tool()
 def create_project(key: str, name: str | None = None, description: str | None = None,
                    repo: str | None = None) -> dict:
-    """Use it when the user wants a codebase tracked here (프로젝트 등록, 보드 만들기).
+    """Use it when the user wants a codebase tracked here (register a project, set up a board).
 
     Register a new project — once per codebase, before any planning happens.
 
@@ -136,7 +136,7 @@ def create_project(key: str, name: str | None = None, description: str | None = 
 @mcp.tool()
 def update_project(key: str, name: str | None = None, description: str | None = None,
                    repo: str | None = None, status: str | None = None) -> dict:
-    """Use it when the user renames, re-describes, pauses or archives a project (프로젝트 이름·설명 변경, 중지, 보관).
+    """Use it when the user renames, re-describes, pauses or archives a project.
 
     Update a project's own fields — pass at least one of name, description, repo, status.
     The key (and with it the task id prefix) never changes, and nothing here touches the
@@ -151,7 +151,7 @@ def update_project(key: str, name: str | None = None, description: str | None = 
 
 @mcp.tool()
 def list_projects(include_archived: bool = False) -> dict:
-    """Use it when the user asks which projects are tracked (프로젝트 목록, 어떤 보드가 있어).
+    """Use it when the user asks which projects are tracked (project list, which boards exist).
 
     List every project (key, name, description, repo, status, meta) — how to find out
     which keys exist. Archived ones are left out unless `include_archived` is set.
@@ -165,7 +165,7 @@ def list_projects(include_archived: bool = False) -> dict:
 
 @mcp.tool()
 def get_roadmap(key: str, include_meta: bool = False) -> dict:
-    """Use it when the user asks for the plan (로드맵, 올해 목표, 분기 목표).
+    """Use it when the user asks for the plan (roadmap, this year's goals, quarter goals).
 
     Read a project's plan as written: yearly overviews (goal, now, target, checklist),
     quarterly milestones, and the names of its periods.
@@ -179,7 +179,7 @@ def get_roadmap(key: str, include_meta: bool = False) -> dict:
 @mcp.tool()
 def set_overview(key: str, year: str, goal: str, now: str | None = None,
                  target: str | None = None, checklist: list[str | dict] | None = None) -> dict:
-    """Use it when the user sets or rewrites a year's plan (올해 목표, 연간 계획).
+    """Use it when the user sets or rewrites a year's plan (this year's goals, yearly plan).
 
     Create or replace a year's overview: the one-line yearly `goal`, plus the three
     blocks the dashboard shows for the current year — `now` (what is being worked on),
@@ -198,7 +198,7 @@ def set_overview(key: str, year: str, goal: str, now: str | None = None,
 
 @mcp.tool()
 def set_check(key: str, year: str, index: int, done: bool = True) -> dict:
-    """Use it when one item of the year's checklist is done or undone (체크리스트 완료 표시).
+    """Use it when one item of the year's checklist is done or undone (tick off a checklist item).
 
     Tick or untick one item of a year's overview checklist: `index` is its 0-based
     position in get_roadmap's `checklist`, `done` the new state. Returns the updated
@@ -210,7 +210,7 @@ def set_check(key: str, year: str, index: int, done: bool = True) -> dict:
 @mcp.tool()
 def upsert_milestone(key: str, year: str, quarter: str,
                      goal: str | None = None, status: str | None = None) -> dict:
-    """Use it when the user sets or changes a quarter's goal (분기 목표, 마일스톤).
+    """Use it when the user sets or changes a quarter's goal (quarter goal, milestone).
 
     Create or update a quarterly milestone — a year's goal for one quarter.
 
@@ -225,7 +225,7 @@ def upsert_milestone(key: str, year: str, quarter: str,
 
 @mcp.tool()
 def open_period(key: str, period: str) -> dict:
-    """Use it only to file work under a quarter other than the current one (다음 분기 열기).
+    """Use it only to file work under a quarter other than the current one (open next quarter).
 
     Open a quarter's period (YYYYQn, e.g. 2026Q3) other than the current one — create_task
     opens the current quarter by itself, so this is only for filing work under another
@@ -236,7 +236,7 @@ def open_period(key: str, period: str) -> dict:
 
 @mcp.tool()
 def close_period(key: str, period: str, result_markdown: str) -> dict:
-    """Use it when a quarter's work is over and the user wants it closed with a retrospective (분기 마감, 회고 작성).
+    """Use it when a quarter's work is over and the user wants it closed with a retrospective.
 
     Close a period (YYYYQn) and record its retrospective — call when its work is over.
 
@@ -253,7 +253,7 @@ def close_period(key: str, period: str, result_markdown: str) -> dict:
 
 @mcp.tool()
 def get_retrospective(key: str, period: str) -> dict:
-    """Use it when the user asks how a past quarter went (지난 분기 회고).
+    """Use it when the user asks how a past quarter went (last quarter's retrospective).
 
     Read a closed period's (YYYYQn) retrospective — the `result` markdown close_period
     wrote. Errors while the period is still open; get_status says which ones are closed.
@@ -264,7 +264,7 @@ def get_retrospective(key: str, period: str) -> dict:
 @mcp.tool()
 def create_task(key: str, period: str, title: str, content: str | None = None,
                 tags: list[str] | None = None, depends_on: list[str] | None = None) -> dict:
-    """Use it when you start a piece of work or the user asks to add one (태스크 추가, 할 일 등록).
+    """Use it when you start a piece of work or the user asks to add one (add a task, new to-do).
 
     Create a task — one issue/branch-sized unit of work — with status todo.
 
@@ -302,7 +302,7 @@ def update_task(task_id: str, title: str | None = None, content: str | None = No
                 branch: str | None = None, tags: list[str] | None = None,
                 depends_on: list[str] | None = None, check: str | None = None,
                 key: str | None = None) -> dict:
-    """Use it when a task's title, note, branch, tags or links change (태스크 수정).
+    """Use it when a task's title, note, branch, tags or links change (edit a task).
 
     Update a task's fields — everything except status, which is transition_task.
     `branch` records the working branch name; `content` replaces the one-line note
@@ -326,7 +326,7 @@ def update_task(task_id: str, title: str | None = None, content: str | None = No
 def transition_task(task_id: str, status: str, branch: str | None = None,
                     reason: str | None = None, check: str | None = None,
                     key: str | None = None) -> dict:
-    """Use it when work starts, finishes, stalls or is dropped (태스크 시작, 완료, 보류, 취소).
+    """Use it when work starts, finishes, stalls or is dropped (start, finish, block or cancel a task).
 
     Move a task to a new status: todo | in_progress | done | blocked | cancelled. The
     only tool that changes status — title, content and tags are update_task.
@@ -356,7 +356,7 @@ def transition_task(task_id: str, status: str, branch: str | None = None,
 def list_tasks(key: str, period: str | None = None, status: str | None = None,
                include_cancelled: bool = False, tags: list[str] | None = None,
                updated_since: str | None = None) -> dict:
-    """Use it when the user asks for finished, cancelled or tagged work, or a past quarter's (완료한 일, 태그별 태스크).
+    """Use it when the user asks for finished, cancelled or tagged work, or a past quarter's (done work, tasks by tag).
 
     List one project's tasks, optionally narrowed by period, status, tags or recency.
     get_status already lists the open ones; use this for done or cancelled tasks, a closed
@@ -376,7 +376,7 @@ def list_tasks(key: str, period: str | None = None, status: str | None = None,
 
 @mcp.tool()
 def get_status(key: str) -> dict:
-    """Use it first when you start on a project, and when the user asks where it stands (진행 상황, 남은 일, 지금 하는 일).
+    """Use it first when you start on a project, and when the user asks where it stands (progress, what's left, what's in progress).
 
     The resume: everything an agent needs to pick a project up cold, in one call. The
     latest year's overview (goal / now / target / checklist); per period its milestone goal
@@ -399,7 +399,7 @@ def get_status(key: str) -> dict:
 
 @mcp.tool()
 def get_task(task_id: str) -> dict:
-    """Use it when you know a task id and need the whole record (태스크 상세).
+    """Use it when you know a task id and need the whole record (task details).
 
     Read one task in full by id (DLY-042) — the project comes from the prefix, so no key
     is needed. Returns the record with its period. Use this instead of list_tasks whenever
@@ -412,7 +412,7 @@ def get_task(task_id: str) -> dict:
 @mcp.tool()
 def search_tasks(query: str, key: str | None = None, status: str | None = None,
                  include_cancelled: bool = False, limit: int = 20) -> dict:
-    """Use it when the user remembers a word from a task but not its id or project (태스크 검색).
+    """Use it when the user remembers a word from a task but not its id or project (find a task).
 
     Find tasks by text across all projects, with the dashboard's rules: case-insensitive
     substring over project key, task id, title and content (not branch or tags); a
@@ -430,7 +430,7 @@ def search_tasks(query: str, key: str | None = None, status: str | None = None,
 @mcp.tool()
 def recent_activity(key: str | None = None, since: str | None = None, limit: int = 50,
                     writes_only: bool = True) -> dict:
-    """Use it when the user asks what changed recently or who did it (최근 변경, 누가 했어).
+    """Use it when the user asks what changed recently or who did it.
 
     What changed recently and who did it: the tool calls recorded in tools.jsonl,
     newest first — `ts`, `tool`, `caller` (key:<name> / session:<user> / oauth:… / stdio / local),
@@ -447,7 +447,7 @@ def recent_activity(key: str | None = None, since: str | None = None, limit: int
 
 @mcp.tool()
 def validate(key: str) -> dict:
-    """Use it only after the store was edited outside these tools (데이터 점검).
+    """Use it only after the store was edited outside these tools (check the data).
 
     Check a project's stored data against the FronyBoard schema and rules, returning
     errors and warnings.
