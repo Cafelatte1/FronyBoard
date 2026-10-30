@@ -4,7 +4,7 @@ version = "0.42.0"
 description = "FronyBoard — an MCP server that gives AI agents a first-class project tracker"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 keywords = ["mcp", "mcp-server", "project-tracker", "ai-agents", "claude-code"]
 classifiers = [
     "Development Status :: 4 - Beta",
